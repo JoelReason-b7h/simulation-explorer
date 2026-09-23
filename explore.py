@@ -1874,7 +1874,7 @@ class Run:
         # many of a mutually exclusive set were accepted.
         if self.race_due(constructible, key):
             self._acted_customer = self.held.get("customerId")
-            return self.run_race(constructible, key, before)
+            return self.run_race(constructible, key, before_by_entity)
 
         # One table decides which actions the driver runs itself, shared with the race path. Two
         # lists meant an action added to the race path alone was sent as a raw HTTP call here,
@@ -2216,11 +2216,16 @@ class Run:
         raced_here = sum(n for (k, _names), n in self.races.items() if k == key)
         return raced_here < solo // 4
 
-    def run_race(self, constructible, key, before):
+    def run_race(self, constructible, key, before_by_entity):
         options = race.candidates(self.raceable(constructible), actions.BY_NAME, actions.SPENDS,
                                   world=actions.WORLD, driven=set(self.DRIVEN))
         names, allowed = min(options, key=lambda o: (self.races.get((key, o[0]), 0), o[0]))
         self.races[(key, names)] = self.races.get((key, names), 0) + 1
+        entity = actions.BY_NAME[names[0]].entity
+        # The pair is chosen here, so its entity can differ from the action the step planned.
+        # Comparing a customer read after the race with a batch read before it made every field
+        # look changed, and all four AddNominatedAccount races were counted unattributed.
+        before = before_by_entity[entity] if entity in before_by_entity else self.read(entity)
 
         self._acted_customer = self.held.get("customerId")
         self._last_action = "RACE " + " + ".join(names)
@@ -2257,7 +2262,6 @@ class Run:
                     subject.pop("accountId", None)
                     subject.pop("accountReference", None)
 
-        entity = actions.BY_NAME[names[0]].entity
         after = self.read(entity)
         outcome = race.RaceOutcome(list(names), results, before, after, elapsed, actions.BY_NAME,
                                    world=actions.WORLD, spends=actions.SPENDS,
