@@ -75,6 +75,14 @@ def clearing_account_of(product_account_uid):
     return rows[0][0] if rows and rows[0] else None
 
 
+def core_balance(product_account_uid):
+    """The product account balance core holds now, as text, or None."""
+    rows = _psql(
+        "SELECT product_account_balance FROM customer_product_account WHERE uid = '{}'".format(
+            str(product_account_uid).replace("'", "")), dsn=CORE_DSN)
+    return rows[0][0] if rows and rows[0] else None
+
+
 def payment_for_account_after(sid, clearing_account_uid):
     """The first payment after the given row that pays out this account's dues, or None.
 

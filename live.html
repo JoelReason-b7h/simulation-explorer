@@ -754,7 +754,12 @@ function render(d){
       ': the account reads <b>' + (o.statusAfter || 'unknown') + '</b> holding <b>' +
       (o.balanceAfter === null || o.balanceAfter === undefined ? 'unknown' : o.balanceAfter) +
       '</b></p>' + steps + '<div class="who">trial ' + o.trial + ' · account ' +
-      String(o.accountId || '').slice(0, 8) + '</div></div>';
+      String(o.accountId || '').slice(0, 8) +
+      (o.settledAfterSeconds !== undefined
+        ? ' · core emptied it ' + o.settledAfterSeconds + 's after the decision'
+        : (o.balanceLater !== undefined
+            ? ' · still ' + o.balanceLater + ' after ' + o.secondsSinceDecision + 's' : '')) +
+      '</div></div>';
   }).join('') || '<p class="none">No operator decision has been sent yet; the first follows the first refused closure.</p>';
 
   const queuesEl = document.getElementById('queues');

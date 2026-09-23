@@ -131,6 +131,8 @@ class Run:
         self.closure_injections = []
         # What each operator decision on a refused closure's payment group left behind.
         self.operator_decisions = []
+        # Decided closures whose account still held money when last read.
+        self.decision_watch = []
         # The accounts an injected closure left behind, watched over later closure sweeps.
         self.closing_watch = []
         # How many times the run has tried to injure a closure payment, whether or not the
@@ -992,7 +994,7 @@ class Run:
             steps.append(self.send_operator_decision(held, payment, group, decision))
         if not steps:
             return None
-        account = self.settled_account_reading(self.DECIDED_BALANCE_WAIT_SECONDS)
+        account = self.settled_account_reading()
         observation = {
             "plan": list(plan),
             "trial": self.steps,
@@ -1003,23 +1005,14 @@ class Run:
             "balanceAfter": account.get("balance"),
         }
         self.operator_decisions.append(observation)
-        found = [step.pop("violation") for step in steps]
-        found.append(oracles.decided_closure_is_empty(
-            held.get("accountId"), account.get("status"), account.get("balance"),
-            " then ".join(s["decision"] for s in steps)))
-        for violation in filter(None, found):
-            row = violation.as_row()
-            row["n"] = len(self.log) + 1
-            row["action"] = "DecideRefusedClosure"
-            row["body"] = observation
-            row["inFlight"] = self.in_flight_now()
-            row["attribution"] = "an operator's {} on a refused closure payment".format(
-                " then ".join(plan))
-            row["leadUp"] = [
-                {"n": t["n"], "action": t["action"], "status": t["status"],
-                 "message": t.get("message")}
-                for t in self.log[-8:]]
-            self.record_violation(row, violation)
+        for step in steps:
+            self.record_decision_violation(step.pop("violation"), observation)
+        # Core can settle a re-sent payout minutes after the decision: in cycles 26 and 32 it came
+        # after a 240-second wait. So the account is watched over the following sweeps, and it is
+        # reported only if it still holds money once DECISION_SETTLE_SECONDS have passed.
+        self.decision_watch.append({"observation": observation, "since": time.monotonic(),
+                                    "decisions": " then ".join(s["decision"] for s in steps)})
+        self.check_decided_closures()
         print("  -- operator {} on account {}: account {} holding {}".format(
             " then ".join(s["decision"] for s in steps), (held.get("accountId") or "?")[:8],
             account.get("status"), account.get("balance")))
@@ -1041,6 +1034,48 @@ class Run:
         except OSError:
             pass
         return index
+
+    DECISION_SETTLE_SECONDS = 600
+
+    def check_decided_closures(self):
+        """Record when each decided closure's account reaches zero, or report it after the wait."""
+        still = []
+        for watched in self.decision_watch:
+            observation = watched["observation"]
+            elapsed = time.monotonic() - watched["since"]
+            balance = ledger.core_balance(observation["accountId"])
+            observation["balanceLater"] = balance
+            observation["secondsSinceDecision"] = round(elapsed)
+            try:
+                empty = balance is not None and Decimal(balance) == 0
+            except ArithmeticError:
+                empty = False
+            if empty:
+                observation["settledAfterSeconds"] = round(elapsed)
+            elif elapsed >= self.DECISION_SETTLE_SECONDS:
+                self.record_decision_violation(oracles.decided_closure_is_empty(
+                    observation["accountId"], observation.get("statusAfter"), balance,
+                    "{} {} seconds before".format(watched["decisions"], round(elapsed))),
+                    observation)
+            else:
+                still.append(watched)
+        self.decision_watch = still
+
+    def record_decision_violation(self, violation, observation):
+        if violation is None:
+            return
+        row = violation.as_row()
+        row["n"] = len(self.log) + 1
+        row["action"] = "DecideRefusedClosure"
+        row["body"] = observation
+        row["inFlight"] = self.in_flight_now()
+        row["attribution"] = "an operator's {} on a refused closure payment".format(
+            " then ".join(observation.get("plan") or []))
+        row["leadUp"] = [
+            {"n": t["n"], "action": t["action"], "status": t["status"],
+             "message": t.get("message")}
+            for t in self.log[-8:]]
+        self.record_violation(row, violation)
 
     def send_operator_decision(self, held, payment, group, decision):
         """Send one decision for the group, settle what it starts, and answer what it left."""
@@ -1117,9 +1152,6 @@ class Run:
     # How long the run waits for core to settle a closure payout. In cycle 23 a returned closure
     # read CLOSED holding 3.00 straight after the sweep, and 0.00 a few minutes later.
     BALANCE_WAIT_SECONDS = 60
-    # A disaggregated closure payout settled in core after the 60-second wait ran out in cycle 26,
-    # and the run reported the paid account as still holding its money.
-    DECIDED_BALANCE_WAIT_SECONDS = 240
 
     def settled_account_reading(self, seconds=None):
         """Read the account until it holds nothing or the wait runs out, and answer the last read.
@@ -1844,6 +1876,8 @@ class Run:
             return failed
         self.note_in_flight("settlement", "a settlement sweep")
         self.sweeps += 1
+        if self.decision_watch:
+            self.check_decided_closures()
         self.refresh_batches()
         self.check_batches_settled()
         batch = self.batch
