@@ -266,3 +266,37 @@ def closed_account_is_empty(account_id, status, balance, case):
         "the bank {} the closure payment, and the account is {} holding {}".format(
             case, status, amount),
         expected="0", actual=amount)
+
+
+def operator_decision_takes_effect(group_uid, decision, status_before, status_after):
+    """An operator's decision on a waiting payment group must change the group.
+
+    `approveOrRejectPaymentGroup` takes the debtor account lock with `acquireNonBlockingLock` and
+    acts only `ifPresent`, so a contended lock makes the decision do nothing and the call succeed.
+    """
+    if status_after != status_before:
+        return None
+    return Violation(
+        "an operator decision takes effect",
+        group_uid,
+        "{} on a group at {} left it at {}".format(decision, status_before, status_after),
+        expected="a status other than {}".format(status_before), actual=status_after)
+
+
+def decided_closure_is_empty(account_id, status, balance, decision):
+    """After an operator decides a refused closure payment, the closed account holds nothing.
+
+    APPROVE sends the payment again, so the balance leaves once the bank accepts it. REJECT_FAIL
+    and CANCEL have no path that pays a CLOSED account out, so a balance left here is the finding.
+    """
+    if status not in ("CLOSED", "CANCELLED"):
+        return None
+    amount = _amount(balance)
+    if amount is None or amount.compare(Decimal("0")) == 0:
+        return None
+    return Violation(
+        "a decided closure leaves the account empty",
+        account_id,
+        "the operator sent {} for the refused closure payment, and the account is {} holding {}"
+        .format(decision, status, amount),
+        expected="0", actual=amount)

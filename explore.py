@@ -129,6 +129,8 @@ class Run:
         # What each injected closure payment left behind, which is the question the run was built
         # to answer and no oracle can answer from one read.
         self.closure_injections = []
+        # What each operator decision on a refused closure's payment group left behind.
+        self.operator_decisions = []
         # The accounts an injected closure left behind, watched over later closure sweeps.
         self.closing_watch = []
         # How many times the run has tried to injure a closure payment, whether or not the
@@ -916,7 +918,79 @@ class Run:
         payment = ledger.payment_after(before)
         if payment:
             payment = ledger.payment_by_sid(payment["sid"]) or payment
-        return self.record_closure_injection("rejected", held, payment=payment)
+        observed = self.record_closure_injection("rejected", held, payment=payment)
+        if payment and payment.get("status") == "RJCT":
+            self.decide_refused_group(held, payment)
+        return observed
+
+    # The decisions an operator can send for a group at PENDING_APPROVAL, taken in turn, one per
+    # refused closure. REJECT_DISAGGREGATE is left out: it credits nothing and changes nothing in
+    # core, so it leaves the same state as the refusal itself.
+    OPERATOR_DECISIONS = ("REJECT_FAIL", "APPROVE", "CANCEL")
+    DECIDE_GROUP = "/operations/own/payment/management/payment/groups/{}/{}"
+
+    def decide_refused_group(self, held, payment):
+        """Send an operator decision for the group a refused closure payment waits in.
+
+        The refusal moves the group to PENDING_APPROVAL in SQL and raises no ops task, so the run
+        acts as an operator would once they found it, and records where the money ends up.
+        """
+        group = ledger.group_of_payment(payment["sid"])
+        if not group or group["status"] != "PENDING_APPROVAL":
+            return None
+        decision = self.OPERATOR_DECISIONS[len(self.operator_decisions) % len(self.OPERATOR_DECISIONS)]
+        call = self.ops.call("PUT", self.DECIDE_GROUP.format(group["uid"], decision))
+        self.note_in_flight("operator decision", "an operator's {}".format(decision),
+                            held.get("accountId"))
+        retry = None
+        if decision == "APPROVE":
+            # The bank accepts again by now, so the replacement payment should settle.
+            deadline = time.monotonic() + self.PAYMENT_WAIT_SECONDS
+            while time.monotonic() < deadline:
+                self.settle_world()
+                world.enquire_payment_status(self.ops)
+                retry = ledger.retry_of_payment(payment["sid"])
+                if retry and retry.get("status") in ("ACSC", "RJCT"):
+                    break
+                time.sleep(3)
+        self.settle_world()
+        after = ledger.group_of_payment(payment["sid"]) or {}
+        account = self.settled_account_reading()
+        observation = {
+            "decision": decision,
+            "trial": self.steps,
+            "decisionStatus": call.status,
+            "accountId": held.get("accountId"),
+            "payment": payment.get("end_to_end_id"),
+            "group": group["uid"],
+            "groupBefore": group["status"],
+            "groupAfter": after.get("status"),
+            "retry": retry,
+            "statusAfter": account.get("status"),
+            "balanceAfter": account.get("balance"),
+        }
+        self.operator_decisions.append(observation)
+        found = [oracles.decided_closure_is_empty(
+            held.get("accountId"), account.get("status"), account.get("balance"), decision)]
+        if call.ok:
+            found.append(oracles.operator_decision_takes_effect(
+                group["uid"], decision, group["status"], after.get("status")))
+        for violation in filter(None, found):
+            row = violation.as_row()
+            row["n"] = len(self.log) + 1
+            row["action"] = "DecideRefusedClosure"
+            row["body"] = observation
+            row["inFlight"] = self.in_flight_now()
+            row["attribution"] = "an operator's {} on a refused closure payment".format(decision)
+            row["leadUp"] = [
+                {"n": t["n"], "action": t["action"], "status": t["status"],
+                 "message": t.get("message")}
+                for t in self.log[-8:]]
+            self.record_violation(row, violation)
+        print("  -- operator {} on group {}: {} -> {}, account {} holding {}".format(
+            decision, group["uid"][:8], group["status"], after.get("status"),
+            account.get("status"), account.get("balance")))
+        return observation
 
     def return_payment(self, payment):
         """Credit the money back to the account it left, the way the bank books a reversal.
@@ -2590,6 +2664,7 @@ class Run:
                                         if self.chain_swept_at else None),
                 },
                 "closurePayments": self.closure_injections,
+                "operatorDecisions": self.operator_decisions,
                 "operatorQueues": getattr(self, "operator_queues", None),
                 "inFlight": self.in_flight_now(),
             }, handle, indent=2)

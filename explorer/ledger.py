@@ -62,3 +62,27 @@ def payment_by_sid(sid):
     if not rows:
         return None
     return dict(zip(PAYMENT_COLUMNS, rows[0]))
+
+
+def group_of_payment(sid):
+    """The payment group a payment belongs to, as {"uid", "status"}, or None."""
+    rows = _psql(
+        "SELECT pg.uid, pg.status FROM payment_initiation pi "
+        "JOIN payment_group pg ON pg.sid = pi.payment_group_sid WHERE pi.sid = {}".format(int(sid)))
+    if not rows:
+        return None
+    return {"uid": rows[0][0], "status": rows[0][1]}
+
+
+def retry_of_payment(sid):
+    """The payment an APPROVE made in place of this one, or None.
+
+    `replacePaymentInitiation` writes the new payment's uid into the old payment's `retry_uid`.
+    """
+    rows = _psql(
+        "SELECT {} FROM payment_initiation WHERE uid = "
+        "(SELECT retry_uid FROM payment_initiation WHERE sid = {})".format(
+            ", ".join(PAYMENT_COLUMNS), int(sid)))
+    if not rows:
+        return None
+    return dict(zip(PAYMENT_COLUMNS, rows[0]))
