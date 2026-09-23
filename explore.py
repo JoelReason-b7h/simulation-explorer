@@ -799,6 +799,11 @@ class Run:
                 if settled_once:
                     refusals.append("one open account has an instruction in flight")
                     continue
+                # The driver leaves batches part paid, so after a few minutes every customer holds
+                # a deposit that no sweep completes. Cycle 25 refused the closure 18 times for that
+                # reason and never reached an operator decision. Paying what each batch still owes
+                # lets the sweep complete those deposits.
+                self.pay_off_batches()
                 self.settle_world()
                 settled_once = True
                 self._pending_cache = {}
@@ -832,6 +837,22 @@ class Run:
             return None, "funding the account for the closure answered {} and moved nothing".format(
                 getattr(funded, "status", "nothing"))
         return self.held, None
+
+    def pay_off_batches(self):
+        """Credit the bank with what every live batch still owes, and answer how many were paid."""
+        paid = 0
+        for batch in self.batches:
+            if batch.get("done") or not batch.get("paymentReference"):
+                continue
+            owed = self.owed(batch)
+            if owed <= 0:
+                continue
+            call = self.credit_and_count("{:.2f}".format(owed), batch["paymentReference"])
+            if getattr(call, "ok", False):
+                batch["paid"] += owed
+                batch.setdefault("payments", []).append({"shape": "payoff", "amount": str(owed)})
+                paid += 1
+        return paid
 
     def point_at_an_open_account(self):
         """Move the held subject onto an account that is OPEN, or failing that one that is
@@ -1767,6 +1788,7 @@ class Run:
             batch.setdefault("payments", []).append({"shape": shape, "amount": str(amount)})
             if batch["paid"] >= batch["required"] and "paid_at_sweep" not in batch:
                 batch["paid_at_sweep"] = self.sweeps
+        call.own_wire = True
         return call
 
     def poll_if_new_money(self):
