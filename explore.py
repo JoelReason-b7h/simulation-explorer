@@ -243,7 +243,8 @@ class Run:
         before_id = (before or {}).get(id_field) if isinstance(before, dict) else None
         after_id = (after or {}).get(id_field) if isinstance(after, dict) else None
         under_fault = self.live_fault()
-        found = [oracles.no_server_error(action_name, call, subject, under_fault)]
+        own_wire = getattr(call, "own_wire", False) and call.status == oracles.TRANSPORT_FAULT
+        found = [] if own_wire else [oracles.no_server_error(action_name, call, subject, under_fault)]
         if not under_fault:
             # A slow answer while the wire carries a second of injected latency is the latency,
             # not the service.
@@ -580,6 +581,10 @@ class Run:
             counterpart="GB29NWBK60161331926819")
         if getattr(call, "ok", False):
             self.credits_since_poll += 1
+        # This call crosses only the harness's own proxy into the bank simulator, so no answer
+        # means the run cut its own wire. FundAccount and PayBatchPart return it as their result,
+        # so without this mark the run reported its own cut as the service failing.
+        call.own_wire = True
         return call
 
     # Where the funding sequence is cut, and which boundary carries that step. Cutting a boundary
@@ -896,6 +901,9 @@ class Run:
                 self.note_in_flight("closure payment", "a closure payment the bank rejects",
                                     held["accountId"])
                 self.finalise_the_closure()
+                # The bank must still be rejecting when clearing sends the payment, and clearing
+                # sent one 12 seconds after the closure sweep raised the withdrawal.
+                self.wait_for_payment_after(before)
                 # Sending a payment is not the same as learning its outcome, so the rejection
                 # reaches clearing only once the status enquiry has run.
                 world.enquire_payment_status(self.ops)
@@ -909,6 +917,41 @@ class Run:
         if payment:
             payment = ledger.payment_by_sid(payment["sid"]) or payment
         return self.record_closure_injection("rejected", held, payment=payment)
+
+    def return_payment(self, payment):
+        """Credit the money back to the account it left, the way the bank books a reversal.
+
+        The simulator books "REVERSAL OF" and sets `reversal_indicator` when the end-to-end id
+        holds "reverse", and `Payments.reverseDebitOnHsbcAccount` in the acceptance corpus credits
+        `reverse-<end-to-end id>` to the real account the payment came from.
+        """
+        source = json.loads(payment.get("from_account_identifier") or "{}").get("value")
+        if not source:
+            return None
+        call = world.credit_platform_at_bank(
+            self.hsb, source, payment["amount"], "reverse-" + payment["end_to_end_id"])
+        call.own_wire = True
+        if call.ok:
+            self.credits_since_poll += 1
+        return call
+
+    # How long the run waits for clearing to send a closure payment. Clearing sent one 12 seconds
+    # after the closure sweep raised the withdrawal, so this leaves room for a slow stack.
+    PAYMENT_WAIT_SECONDS = 90
+
+    def wait_for_payment_after(self, sid):
+        """Settle until clearing has sent the payment that follows `sid`, and answer it or None.
+
+        Reading straight after the closure sweep found no payment and a CLOSED account still
+        holding its balance, and both were reported as money left behind.
+        """
+        deadline = time.monotonic() + self.PAYMENT_WAIT_SECONDS
+        while True:
+            payment = ledger.payment_after(sid)
+            if payment or time.monotonic() >= deadline:
+                return payment
+            time.sleep(3)
+            self.settle_world()
 
     def return_closure_payment(self):
         """Close a funded account, let the payment leave, then send the money back from the bank.
@@ -942,11 +985,13 @@ class Run:
         self.note_in_flight("closure payment", "a closure payment the bank returns",
                             held["accountId"])
         self.finalise_the_closure()
-        payment = ledger.payment_after(before)
+        payment = self.wait_for_payment_after(before)
         if not payment:
             return self.record_closure_injection(
                 "returned", held, note="closing raised no payment, so nothing could be returned")
-        self.credit_and_count(payment["amount"], payment["end_to_end_id"])
+        # Let the payout settle first, so the return arrives for money that has left.
+        self.settle_world()
+        self.return_payment(payment)
         self.settle_world()
         return self.record_closure_injection("returned", held, payment=payment)
 
@@ -1901,6 +1946,7 @@ class Run:
             "ok": call.ok,
             "key": list(key),
             "changes": sorted(trial.changes),
+            "attributed": trial.attributed or not trial.changes,
             # The status the entity actually holds after the call, not just the field names that
             # moved. A finding that turns on which status an entity passes through cannot be
             # settled from a list of changed field names.
@@ -2216,6 +2262,7 @@ class Run:
             "changes": sorted(projector.diff(before, after)),
             "message": verdict,
             "race": True,
+            "attributed": not projector.diff(before, after),
             "statuses": outcome.statuses,
         })
         self.publish()

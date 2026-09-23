@@ -17,7 +17,7 @@ CLEARING_DSN = os.environ.get(
     "SIM_CLEARING_DSN", "postgresql://clearing:password@localhost:5440/clearing")
 
 PAYMENT_COLUMNS = ("sid", "end_to_end_id", "creditor_reference", "amount", "status",
-                   "payment_type", "status_desc")
+                   "payment_type", "status_desc", "from_account_identifier")
 
 
 def _psql(sql, timeout=60):
