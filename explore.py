@@ -2060,10 +2060,11 @@ class Run:
             else:
                 self._last_built = (method, path, body)
                 call = self.client.call(method, path, json_body=body)
-        if (action.method or "GET").upper() != "GET" and action_name not in actions.WORLD:
-            built = getattr(self, "_last_built", None)
-            if built:
-                self.last_change = built + (action_name,)
+                # Only a call built here can be replayed. Setting this after a driven action paired
+                # that action's name with an older raw request, so ReplayLastCall sent a stale
+                # request and a 500 from a trigger was blamed on the replay.
+                if (action.method or "GET").upper() != "GET" and action_name not in actions.WORLD:
+                    self.last_change = (method, path, body, action_name)
         self.absorb(call.body, action_name)
 
         # Read the result from the subject the action was taken on, and read it BEFORE retiring
