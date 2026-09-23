@@ -972,7 +972,7 @@ class Run:
             steps.append(self.send_operator_decision(held, payment, group, decision))
         if not steps:
             return None
-        account = self.settled_account_reading()
+        account = self.settled_account_reading(self.DECIDED_BALANCE_WAIT_SECONDS)
         observation = {
             "plan": list(plan),
             "trial": self.steps,
@@ -1097,13 +1097,16 @@ class Run:
     # How long the run waits for core to settle a closure payout. In cycle 23 a returned closure
     # read CLOSED holding 3.00 straight after the sweep, and 0.00 a few minutes later.
     BALANCE_WAIT_SECONDS = 60
+    # A disaggregated closure payout settled in core after the 60-second wait ran out in cycle 26,
+    # and the run reported the paid account as still holding its money.
+    DECIDED_BALANCE_WAIT_SECONDS = 240
 
-    def settled_account_reading(self):
+    def settled_account_reading(self, seconds=None):
         """Read the account until it holds nothing or the wait runs out, and answer the last read.
 
         A refused payout never brings the balance to zero, so that case costs the whole wait.
         """
-        deadline = time.monotonic() + self.BALANCE_WAIT_SECONDS
+        deadline = time.monotonic() + (seconds or self.BALANCE_WAIT_SECONDS)
         while True:
             account = self.read("account") or {}
             balance = account.get("balance")
