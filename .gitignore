@@ -14,3 +14,6 @@ cohort.env*
 .cycles-since-wipe
 
 __pycache__/
+
+# The live page reads this; it is a copy of the running cycle.
+current.json

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import time
 from decimal import Decimal
 import sys
@@ -123,6 +124,7 @@ class Run:
         # The transition chain sweep: when it last ran, how many it has run, and what psql refused.
         self.chain_swept_at = 0.0
         self.chain_sweeps = 0
+        self.chain_baseline = set()
         self.chain_errors = []
         # What each injected closure payment left behind, which is the question the run was built
         # to answer and no oracle can answer from one read.
@@ -356,6 +358,20 @@ class Run:
     # still catches a break while the run that made it is still going.
     CHAIN_SWEEP_SECONDS = float(os.environ.get("SIM_CHAIN_SWEEP_SECONDS", "180"))
 
+    def take_chain_baseline(self):
+        """Remember the breaks that exist before the first action, so the run reports only its own.
+
+        The sweep reads whole tables, and cycles share a stack between wipes, so every later cycle
+        reported an earlier cohort's closed account as its own finding.
+        """
+        found, errors = integrity.sweep()
+        self.chain_baseline = {(f["rule"], f["subject"]) for f in found}
+        self.operator_queues = integrity.operator_queues()
+        for entry in errors:
+            print("  -- the baseline sweep could not read: {}".format(entry))
+        print("  {} breaks were already in the tables before the run".format(
+            len(self.chain_baseline)))
+
     def sweep_transition_chains(self, force=False):
         """Read the chains in core and record each break as a finding.
 
@@ -369,6 +385,7 @@ class Run:
         self.chain_swept_at = now
         self.chain_sweeps += 1
         found, errors = integrity.sweep()
+        found = [f for f in found if (f["rule"], f["subject"]) not in self.chain_baseline]
         # Ask the service to run its own integrity checks as well, and read what they wrote. The
         # harness had only ever read the chains it wrote itself, so a check the service already
         # owns could fail for a whole run and the page would say nothing about it.
@@ -379,6 +396,7 @@ class Run:
                           "injected".format(self.faulted_boundary))
         else:
             errors.extend(integrity.run_system_checks(self.ops))
+        self.operator_queues = integrity.operator_queues()
         system_found, system_errors = integrity.system_check_failures()
         found.extend(system_found)
         errors.extend(system_errors)
@@ -396,6 +414,10 @@ class Run:
             row["action"] = "TransitionChainSweep"
             row["table"] = finding["table"]
             row["row"] = finding["row"]
+            if finding["rule"] == "a closed account holds no money":
+                row["evidence"] = integrity.closed_account_evidence(finding["subject"])
+                print("  -- evidence for closed account {}: {}".format(
+                    finding["subject"], json.dumps(row["evidence"])[:1500]))
             row["inFlight"] = self.in_flight_now()
             row["leadUp"] = [
                 {"n": t["n"], "action": t["action"], "status": t["status"],
@@ -2442,7 +2464,7 @@ class Run:
             return
         name = os.path.basename(self.page)[:-len(".html")]
         view = view.replace(
-            "var SOURCE = (new URLSearchParams(location.search).get('run') || 'run') + '.json';",
+            "var SOURCE = (new URLSearchParams(location.search).get('run') || 'current') + '.json';",
             "var SOURCE = (new URLSearchParams(location.search).get('run') || {!r}) + '.json';"
             .format(name))
         with open(self.page, "w") as handle:
@@ -2495,9 +2517,15 @@ class Run:
                                         if self.chain_swept_at else None),
                 },
                 "closurePayments": self.closure_injections,
+                "operatorQueues": getattr(self, "operator_queues", None),
                 "inFlight": self.in_flight_now(),
             }, handle, indent=2)
         os.replace(scratch, target)
+        # live.html with no ?run= reads current.json, so the plain address always follows the
+        # run in progress rather than whichever run last wrote under the default name.
+        current = os.path.join(os.path.dirname(target), "current.json")
+        shutil.copyfile(target, scratch)
+        os.replace(scratch, current)
         self.write_page()
 
 
@@ -2622,6 +2650,7 @@ def main():
     print("  products {}".format(", ".join(
         "{} ({}) {}".format(name, t, p[:8]) for name, (t, p) in sorted(offered.items()))))
 
+    run.take_chain_baseline()
     step = 0
     started = time.time()
     try:

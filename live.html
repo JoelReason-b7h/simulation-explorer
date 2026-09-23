@@ -342,6 +342,11 @@ section{margin-bottom:2.2rem}
     </section>
 
     <section>
+      <h2>What an operator sees <small>the queues their screens read, as of the last sweep</small></h2>
+      <div id="queues"></div>
+    </section>
+
+    <section>
       <h2>Transition chains <small>rows in core that name the state before them</small></h2>
       <div id="chains"></div>
     </section>
@@ -724,6 +729,49 @@ function render(d){
       (c.note ? ' · ' + c.note : '') + '</div></div>';
   }).join('') || '<p class="none">No closure payment has been made to fail yet.</p>';
 
+  const queuesEl = document.getElementById('queues');
+  const q = d.operatorQueues;
+  if (queuesEl) {
+    if (!q) {
+      queuesEl.innerHTML = '<p class="none">Not read yet; the first sweep reads it.</p>';
+    } else {
+      const tasks = (q['open ops tasks'] || {}).rows || [];
+      // A group at PENDING_APPROVAL is only found by an operator who is told to look, and the
+      // PAYMENT_GROUP_PENDING_APPROVAL task is the only thing that tells them.
+      const told = {};
+      tasks.forEach(function(t){
+        if (t[0] === 'PAYMENT_GROUP_PENDING_APPROVAL') told[t[2]] = true; });
+      function block(title, entry, draw) {
+        const rows = (entry || {}).rows || [];
+        return '<h3>' + title + ' <small>' + rows.length + '</small></h3>' +
+          ((entry || {}).error ? '<p class="none">could not read: ' + entry.error + '</p>' : '') +
+          (rows.map(draw).join('') || '<p class="none">none</p>');
+      }
+      queuesEl.innerHTML =
+        block('Payment groups waiting for approval', q['payment groups waiting for approval'],
+          function(r){
+            const rejected = r[4] === 'RJCT';
+            return '<div class="find' + (rejected && !told[r[0]] ? ' bad' : '') + '"><p>' +
+              'group ' + String(r[0]).slice(0, 8) + ' · ' + r[2] + ' · payment ' + (r[3] || '?') +
+              ' <b>' + (r[4] || 'no status') + '</b>' + (r[5] ? ' — ' + r[5] : '') +
+              (r[1] ? ' · held by ' + r[1] : '') + '</p><div class="who">' +
+              (told[r[0]] ? 'an ops task tells an operator to look'
+                          : 'no ops task tells anyone it is waiting') +
+              ' · since ' + String(r[6]).slice(11, 19) + '</div></div>';
+          }) +
+        block('Flagged payments', q['flagged payments'], function(r){
+          return '<div class="find"><p><b>' + r[0] + '</b> ' + r[1] + ' ' + r[2] +
+            (r[3] ? ' — ' + r[3] : '') + '</p><div class="who">since ' +
+            String(r[4]).slice(11, 19) + '</div></div>';
+        }) +
+        block('Open ops tasks', q['open ops tasks'], function(r){
+          return '<div class="find"><p><b>' + r[0] + '</b> ' + r[1] + ' — ' + (r[3] || '') +
+            '</p><div class="who">' + String(r[2]).slice(0, 36) + ' · since ' +
+            String(r[4]).slice(11, 19) + '</div></div>';
+        });
+    }
+  }
+
   const chainsEl = document.getElementById('chains');
   const ch = d.chains || {};
   if (chainsEl) {
@@ -912,7 +960,7 @@ if (location.hash === '#graph') showTab('graph');
 // Which run to show. Each run writes <name>.json, named by SIM_RUN_NAME, so the page takes that
 // name from the URL: live.html?run=chain10. Without it the page reads run.json, which is whatever
 // the last run without a name left behind.
-var SOURCE = (new URLSearchParams(location.search).get('run') || 'run') + '.json';
+var SOURCE = (new URLSearchParams(location.search).get('run') || 'current') + '.json';
 
 function poll(){
   fetch(SOURCE + '?t=' + Date.now())

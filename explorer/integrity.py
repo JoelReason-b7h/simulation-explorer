@@ -136,6 +136,9 @@ CHECKS = (
           ON s.customer_product_account_sid = a.sid AND s.live
         WHERE s.current_state = 'CLOSED'
           AND a.product_account_balance <> 0
+          -- An account reaches CLOSED a few seconds before its payout settles back into core,
+          -- so a sweep inside that gap read two paid-out accounts as holding 3.00.
+          AND s.updated_at < now() - interval '5 minutes'
         ORDER BY s.sid DESC LIMIT {limit}
         """,
         "account {0} reads {1} and still holds {2} (platform fee {3}, row {4})",
@@ -170,6 +173,77 @@ def _psql(sql, timeout=120):
     return [line.split("|") for line in done.stdout.splitlines() if line.strip()], None
 
 
+def operator_queues(limit=LIMIT):
+    """What an operator would see waiting, read from the tables their screens read.
+
+    Not a check. It shows that the queues exist and what sits in them, so a run can say whether a
+    fault it caused reached anyone. The flagged payments screen selects `payment_state` in
+    REJECTED, RETURNED and FLAGGED from `partner_payment`, as in
+    PartnerPaymentPaginatedRepository. A payment group at PENDING_APPROVAL waits for an APPROVE or
+    REJECT decision. Open ops tasks are the only thing that tells an operator to look.
+    """
+    queues = {}
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT pp.payment_state, pp.debit_credit_mark, pp.value_amount, "
+        "left(coalesce(pp.rejection_reason, ''), 120), pp.created_at FROM partner_payment pp "
+        "WHERE pp.payment_state IN ('REJECTED', 'RETURNED', 'FLAGGED') "
+        "ORDER BY pp.sid DESC LIMIT {}".format(int(limit)))
+    queues["flagged payments"] = {"rows": rows, "error": error}
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT pg.uid, coalesce(pg.message, ''), pg.amount, pi.end_to_end_id, pi.status, "
+        "left(coalesce(pi.status_desc, ''), 120), pg.updated_at FROM payment_group pg "
+        "LEFT JOIN payment_initiation pi ON pi.payment_group_sid = pg.sid AND pi.retry_uid IS NULL "
+        "WHERE pg.status = 'PENDING_APPROVAL' ORDER BY pg.sid DESC LIMIT {}".format(int(limit)))
+    queues["payment groups waiting for approval"] = {"rows": rows, "error": error}
+    rows, error = _psql(
+        "SELECT task_type, task_status, task_key, "
+        "left(regexp_replace(task_description, '\\s+', ' ', 'g'), 120), created_at "
+        "FROM operations_tasks WHERE task_status <> 'RESOLVED' "
+        "ORDER BY sid DESC LIMIT {}".format(int(limit)))
+    queues["open ops tasks"] = {"rows": rows, "error": error}
+    return queues
+
+
+def payments_clearing_and_the_bank_disagree_on(limit=LIMIT):
+    """Payments clearing records as rejected that the bank records as paid, and the reverse.
+
+    ClearinghouseHsbcPaymentService.mapPaymentStatusReport turns a response with no status code
+    into RJCT, so a call cut after the bank accepted the payment is recorded as refused. The
+    payments enquiry skips RJCT, so clearing never learns the money left. The two databases share
+    only the end-to-end id, so the comparison is made here.
+    """
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT end_to_end_id, status, left(coalesce(status_desc, ''), 120) FROM payment_initiation "
+        "WHERE end_to_end_id IS NOT NULL AND status IN ('RJCT', 'ACSC') "
+        "ORDER BY sid DESC LIMIT 500")
+    if error:
+        return [], ["clearing payments: {}".format(error)]
+    clearing = {r[0]: r for r in rows if r}
+    if not clearing:
+        return [], []
+    found_rows, error = _psql_on(HSB_DSN,
+        "SELECT end_to_end_id, status FROM payment_transaction_status WHERE end_to_end_id IN ({})"
+        .format(", ".join("'{}'".format(i) for i in clearing)))
+    if error:
+        return [], ["the bank's payments: {}".format(error)]
+    findings = []
+    for end_to_end_id, bank_status in ((r[0], r[1]) for r in found_rows if len(r) > 1):
+        ours = clearing[end_to_end_id][1]
+        if ours == bank_status or {ours, bank_status} - {"RJCT", "ACSC"}:
+            continue
+        findings.append({
+            "rule": "clearing and the bank agree on how a payment ended",
+            "table": "payment_initiation",
+            "subject": end_to_end_id,
+            "detail": "payment {} reads {} in clearing and {} at the bank ({})".format(
+                end_to_end_id, ours, bank_status, clearing[end_to_end_id][2]),
+            "expected": "{} at the bank".format(ours),
+            "actual": bank_status,
+            "row": list(clearing[end_to_end_id]) + [bank_status],
+        })
+    return findings[:limit], []
+
+
 def sweep(limit=LIMIT):
     """Run every chain check once, and return what broke and what could not be read.
 
@@ -192,7 +266,67 @@ def sweep(limit=LIMIT):
                 "detail": shape.format(*filled[:5]),
                 "row": row,
             })
+    paid, unread = payments_clearing_and_the_bank_disagree_on(limit)
+    findings.extend(paid)
+    errors.extend(unread)
     return findings, errors
+
+
+def closed_account_evidence(account_uid):
+    """Everything that says how an account reached CLOSED while holding money, read at once.
+
+    A wipe removes these rows, and trials do not record account ids, so a closed account found by
+    the sweep and not made by the run's own injection could not be explained afterwards. The
+    evidence is read when the finding is made and saved with it.
+    """
+    evidence = {}
+    rows, error = _psql(
+        "SELECT s.sid, s.previous_state, s.current_state, s.updated_at "
+        "FROM customer_product_account_state s "
+        "JOIN customer_product_account a ON a.sid = s.customer_product_account_sid "
+        "WHERE a.uid = '{}' ORDER BY s.sid".format(account_uid))
+    evidence["core state chain"] = rows or [error]
+    rows, error = _psql(
+        "SELECT pc.uid FROM customer_product_account a "
+        "JOIN customer_account ca ON ca.sid = a.customer_account_sid "
+        "JOIN platform_customer pc ON pc.sid = ca.platform_customer_sid "
+        "WHERE a.uid = '{}'".format(account_uid))
+    if not rows:
+        evidence["customer"] = [error or "no customer found"]
+        return evidence
+    customer = rows[0][0]
+    evidence["customer"] = [[customer]]
+    owned = ("JOIN internal_account ia ON ia.sid = {t}.account_sid "
+             "JOIN account_owner ao ON ao.sid = ia.account_owner_sid "
+             "WHERE ao.uid = '{c}'")
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT cab.value_amount, cab.running_balance, cab.created_at FROM cash_account_balance cab "
+        + owned.format(t="cab", c=customer) + " ORDER BY cab.sid")
+    evidence["clearing cash lines"] = cash = rows or [error or "none"]
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT ppd.payment_direction, ppd.value_amount, ppd.payment_status, ppd.created_at "
+        "FROM partner_payment_due ppd " + owned.format(t="ppd", c=customer) + " ORDER BY ppd.sid")
+    evidence["clearing payment dues"] = rows or [error or "none"]
+    # A pooled payout leaves from the platform's account, so no column joins a payment to the
+    # customer. The payments that follow the customer's last debit by the same amount are the
+    # candidates, and the bank's own row for each says whether the money actually left.
+    debits = [r for r in cash if isinstance(r, list) and len(r) > 2 and r[0].startswith("-")]
+    if debits:
+        amount, _, at = debits[-1][0].lstrip("-"), debits[-1][1], debits[-1][2]
+        rows, error = _psql_on(CLEARING_DSN,
+            "SELECT pi.end_to_end_id, pi.status, pi.amount, left(coalesce(pi.status_desc, ''), 120), "
+            "pi.created_at FROM payment_initiation pi WHERE pi.amount = {a} AND pi.created_at "
+            "BETWEEN '{t}'::timestamptz AND '{t}'::timestamptz + interval '3 minutes' "
+            "ORDER BY pi.sid".format(a=amount, t=at))
+        evidence["clearing payments after the last debit"] = rows or [error or "none"]
+        ids = [r[0] for r in rows if r and r[0]]
+        if ids:
+            rows, error = _psql_on(HSB_DSN,
+                "SELECT end_to_end_id, status, reason, amount, created_at "
+                "FROM payment_transaction_status WHERE end_to_end_id IN ({}) ORDER BY sid".format(
+                    ", ".join("'{}'".format(i) for i in ids)))
+            evidence["the bank's record of those payments"] = rows or [error or "none"]
+    return evidence
 
 
 # The service's own integrity checks. The harness has always read the chains it wrote itself and
@@ -200,6 +334,7 @@ def sweep(limit=LIMIT):
 # money is missing.
 CLEARING_DSN = os.environ.get(
     "SIM_CLEARING_DSN", "postgresql://clearing:password@localhost:5440/clearing")
+HSB_DSN = os.environ.get("SIM_HSB_DSN", "postgresql://hsb:password@localhost:5444/hsb")
 
 # Each endpoint runs a family of checks and answers with nothing, so the run reads the rows the
 # checks write afterwards.
