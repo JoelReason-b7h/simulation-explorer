@@ -923,74 +923,138 @@ class Run:
             self.decide_refused_group(held, payment)
         return observed
 
-    # The decisions an operator can send for a group at PENDING_APPROVAL, taken in turn, one per
-    # refused closure. REJECT_DISAGGREGATE is left out: it credits nothing and changes nothing in
-    # core, so it leaves the same state as the refusal itself.
-    OPERATOR_DECISIONS = ("REJECT_FAIL", "APPROVE", "CANCEL")
+    # What an operator sends for each refused closure's waiting group, one plan per refusal, in
+    # this order. The first plan is the refusal the nominated account causes: APPROVE resends to the
+    # same creditor, so the bank refuses again and the group returns to PENDING_APPROVAL, and then
+    # REJECT_DISAGGREGATE raises the dues again against the owner's newest verified account.
+    APPROVE_WHILE_REFUSING = "APPROVE_WHILE_REFUSING"
+    OPERATOR_PLANS = (
+        (APPROVE_WHILE_REFUSING, "REJECT_DISAGGREGATE"),
+        ("REJECT_FAIL",),
+        ("APPROVE",),
+        ("CANCEL",),
+    )
     DECIDE_GROUP = "/operations/own/payment/management/payment/groups/{}/{}"
 
     def decide_refused_group(self, held, payment):
-        """Send an operator decision for the group a refused closure payment waits in.
+        """Act as the operator on the group a refused closure payment waits in.
 
         The refusal moves the group to PENDING_APPROVAL in SQL and raises no ops task, so the run
         acts as an operator would once they found it, and records where the money ends up.
         """
-        group = ledger.group_of_payment(payment["sid"])
-        if not group or group["status"] != "PENDING_APPROVAL":
+        plan = self.OPERATOR_PLANS[self.next_operator_plan() % len(self.OPERATOR_PLANS)]
+        steps = []
+        for decision in plan:
+            group = ledger.group_of_payment(payment["sid"])
+            if not group or group["status"] != "PENDING_APPROVAL":
+                break
+            steps.append(self.send_operator_decision(held, payment, group, decision))
+        if not steps:
             return None
-        decision = self.OPERATOR_DECISIONS[len(self.operator_decisions) % len(self.OPERATOR_DECISIONS)]
-        call = self.ops.call("PUT", self.DECIDE_GROUP.format(group["uid"], decision))
-        self.note_in_flight("operator decision", "an operator's {}".format(decision),
-                            held.get("accountId"))
-        retry = None
-        if decision == "APPROVE":
-            # The bank accepts again by now, so the replacement payment should settle.
-            deadline = time.monotonic() + self.PAYMENT_WAIT_SECONDS
-            while time.monotonic() < deadline:
-                self.settle_world()
-                world.enquire_payment_status(self.ops)
-                retry = ledger.retry_of_payment(payment["sid"])
-                if retry and retry.get("status") in ("ACSC", "RJCT"):
-                    break
-                time.sleep(3)
-        self.settle_world()
-        after = ledger.group_of_payment(payment["sid"]) or {}
         account = self.settled_account_reading()
         observation = {
-            "decision": decision,
+            "plan": list(plan),
             "trial": self.steps,
-            "decisionStatus": call.status,
             "accountId": held.get("accountId"),
             "payment": payment.get("end_to_end_id"),
-            "group": group["uid"],
-            "groupBefore": group["status"],
-            "groupAfter": after.get("status"),
-            "retry": retry,
+            "steps": steps,
             "statusAfter": account.get("status"),
             "balanceAfter": account.get("balance"),
         }
         self.operator_decisions.append(observation)
-        found = [oracles.decided_closure_is_empty(
-            held.get("accountId"), account.get("status"), account.get("balance"), decision)]
-        if call.ok:
-            found.append(oracles.operator_decision_takes_effect(
-                group["uid"], decision, group["status"], after.get("status")))
+        found = [step.pop("violation") for step in steps]
+        found.append(oracles.decided_closure_is_empty(
+            held.get("accountId"), account.get("status"), account.get("balance"),
+            " then ".join(s["decision"] for s in steps)))
         for violation in filter(None, found):
             row = violation.as_row()
             row["n"] = len(self.log) + 1
             row["action"] = "DecideRefusedClosure"
             row["body"] = observation
             row["inFlight"] = self.in_flight_now()
-            row["attribution"] = "an operator's {} on a refused closure payment".format(decision)
+            row["attribution"] = "an operator's {} on a refused closure payment".format(
+                " then ".join(plan))
             row["leadUp"] = [
                 {"n": t["n"], "action": t["action"], "status": t["status"],
                  "message": t.get("message")}
                 for t in self.log[-8:]]
             self.record_violation(row, violation)
-        print("  -- operator {} on group {}: {} -> {}, account {} holding {}".format(
-            decision, group["uid"][:8], group["status"], after.get("status"),
+        print("  -- operator {} on account {}: account {} holding {}".format(
+            " then ".join(s["decision"] for s in steps), (held.get("accountId") or "?")[:8],
             account.get("status"), account.get("balance")))
         return observation
+
+    # Each cycle is a new process and a cycle gets two or three refused closures, so a count held in
+    # memory would start every cycle on the first plan and never reach the last two.
+    PLAN_COUNTER = ".operator-plan-index"
+
+    def next_operator_plan(self):
+        try:
+            with open(self.PLAN_COUNTER) as f:
+                index = int(f.read().strip() or 0)
+        except (OSError, ValueError):
+            index = 0
+        try:
+            with open(self.PLAN_COUNTER, "w") as f:
+                f.write(str(index + 1))
+        except OSError:
+            pass
+        return index
+
+    def send_operator_decision(self, held, payment, group, decision):
+        """Send one decision for the group, settle what it starts, and answer what it left."""
+        refusing = decision == self.APPROVE_WHILE_REFUSING
+        sent = "APPROVE" if refusing else decision
+        normal = faults.bank_payment_status() if refusing else None
+        if refusing and not (normal and faults.set_bank_payment_status(self.BANK_REJECTS)):
+            return {"decision": decision, "note": "could not make the bank reject payments",
+                    "violation": None}
+        before = ledger.newest_payment_sid()
+        try:
+            call = self.ops.call("PUT", self.DECIDE_GROUP.format(group["uid"], sent))
+            self.note_in_flight("operator decision", "an operator's {}".format(decision),
+                                held.get("accountId"))
+            resent = None
+            if sent in ("APPROVE", "REJECT_DISAGGREGATE"):
+                # Both send a new payment: APPROVE in the same group, REJECT_DISAGGREGATE in a new
+                # group once the next send run aggregates the dues again.
+                resent = self.wait_for_payment_after(before)
+                deadline = time.monotonic() + self.PAYMENT_WAIT_SECONDS
+                while resent and resent.get("status") not in ("ACSC", "RJCT") \
+                        and time.monotonic() < deadline:
+                    world.enquire_payment_status(self.ops)
+                    self.settle_world()
+                    resent = ledger.payment_by_sid(resent["sid"]) or resent
+                    time.sleep(3)
+            self.settle_world()
+        finally:
+            if refusing:
+                faults.set_bank_payment_status(normal)
+        after = ledger.group_of_payment(payment["sid"]) or {}
+        violation = None
+        if refusing:
+            # The refused resend puts the group back at PENDING_APPROVAL, so the check is that a
+            # resend happened and the bank refused it, not that the status moved.
+            if call.ok and not (resent and resent.get("status") == "RJCT"):
+                violation = oracles.Violation(
+                    "an approved payment is sent again", group["uid"],
+                    "APPROVE while the bank refuses left no refused resend",
+                    expected="a resend at RJCT", actual=(resent or {}).get("status"))
+        elif call.ok:
+            violation = oracles.operator_decision_takes_effect(
+                group["uid"], decision, group["status"], after.get("status"))
+        print("  -- operator {} on group {}: {} -> {}, resend {}".format(
+            decision, group["uid"][:8], group["status"], after.get("status"),
+            (resent or {}).get("status")))
+        return {
+            "decision": decision,
+            "decisionStatus": call.status,
+            "group": group["uid"],
+            "groupBefore": group["status"],
+            "groupAfter": after.get("status"),
+            "resent": resent,
+            "violation": violation,
+        }
 
     def return_payment(self, payment):
         """Credit the money back to the account it left, the way the bank books a reversal.

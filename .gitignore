@@ -17,3 +17,6 @@ __pycache__/
 
 # The live page reads this; it is a copy of the running cycle.
 current.json
+
+# The operator decision plan counter, specific to one local stack.
+.operator-plan-index
