@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Direct Explorer Live</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+:root{
+  --ground:#FAFBFA; --surface:#EFF3F0; --surface-2:#E2EAE5; --ink:#101E19; --muted:#53645C;
+  --line:#D2DDD7; --accent:#0E4A3C; --accent-soft:#DBEAE3;
+  --ok:#3F7F63; --ok-soft:#DCEBE1; --rej:#A33734; --rej-soft:#F7E3E2; --wait:#8A5A12;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --s--2:.8125rem; --s--1:.9375rem; --s0:1.125rem; --s1:1.3125rem; --s2:1.5625rem; --s3:2rem;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0D1512; --surface:#15201C; --surface-2:#1E2B25; --ink:#E3EBE6; --muted:#92A49A;
+  --line:#26332D; --accent:#5FC2A3; --accent-soft:#15302A;
+  --ok:#6FC79E; --ok-soft:#15281F; --rej:#E38480; --rej-soft:#2C1B1B; --wait:#DFA24E;
+}}
+:root[data-theme="dark"]{
+  --ground:#0D1512; --surface:#15201C; --surface-2:#1E2B25; --ink:#E3EBE6; --muted:#92A49A;
+  --line:#26332D; --accent:#5FC2A3; --accent-soft:#15302A;
+  --ok:#6FC79E; --ok-soft:#15281F; --rej:#E38480; --rej-soft:#2C1B1B; --wait:#DFA24E;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:var(--s0);
+  line-height:1.55;padding-block:2rem 4rem;padding-left:1.25rem;padding-right:1.25rem}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:2.25rem}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:.75rem 1.25rem}
+h1{font-size:var(--s3);margin:0;letter-spacing:-.02em;text-wrap:balance}
+.meta{color:var(--muted);font-size:var(--s--1);font-family:var(--mono)}
+.beat{display:inline-flex;align-items:center;gap:.45rem;font-size:var(--s--2);
+  text-transform:uppercase;letter-spacing:.08em;color:var(--ok)}
+.beat::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--ok);
+  animation:pulse 1.6s ease-in-out infinite}
+.beat.done{color:var(--muted)}
+.beat.done::before{background:var(--muted);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.beat::before{animation:none}}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem}
+.tile{border-left:2px solid var(--accent);padding-left:.85rem}
+.tile.bad{border-left-color:var(--rej)}
+.tile.bad .n{color:var(--rej)}
+.tile .n{font-family:var(--mono);font-size:var(--s2);font-variant-numeric:tabular-nums;line-height:1.1}
+.tile .l{color:var(--muted);font-size:var(--s--2);text-transform:uppercase;letter-spacing:.07em;margin-top:.2rem}
+h2{font-size:var(--s1);margin:0 0 .9rem;font-weight:600;letter-spacing:-.01em}
+h2 small{color:var(--muted);font-weight:400;font-size:var(--s--1);margin-left:.5rem}
+.cols{display:grid;grid-template-columns:1fr;gap:2.25rem}
+@media (min-width:900px){.cols{grid-template-columns:1.35fr 1fr}}
+.feed{display:flex;flex-direction:column;gap:.4rem;height:32rem;overflow-y:auto;
+  overscroll-behavior:contain}
+.trial{display:grid;grid-template-columns:2.2rem 1fr auto;gap:.6rem;align-items:baseline;
+  padding:.5rem .7rem;background:var(--surface);border-radius:6px;border-left:2px solid var(--ok)}
+.trial.rej{border-left-color:var(--rej)}
+.trial.fresh{animation:slide .4s ease}
+@keyframes slide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.trial.fresh{animation:none}}
+.trial .i{font-family:var(--mono);font-size:var(--s--2);color:var(--muted);font-variant-numeric:tabular-nums}
+.trial .act{font-weight:600;font-size:var(--s--1)}
+.trial .st{font-family:var(--mono);font-size:var(--s--2);color:var(--ok)}
+.trial.rej .st{color:var(--rej)}
+.trial .chg{grid-column:2/-1;font-family:var(--mono);font-size:var(--s--2);color:var(--muted);
+  overflow-wrap:anywhere}
+.trial .chg b{color:var(--accent);font-weight:600}
+.tuple{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.15rem;align-items:stretch}
+.seg b{display:block;font-weight:500;font-size:.68em;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.1rem}
+.seg.head{display:flex;align-items:center}
+.seg{font-family:var(--mono);font-size:var(--s--2);background:var(--surface-2);color:var(--muted);
+  padding:.05rem .4rem;border-radius:3px}
+.seg.head{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.front{display:flex;flex-direction:column;gap:.7rem}
+.fr{display:flex;flex-direction:column;gap:.35rem}
+.fr .top{display:flex;align-items:center;gap:.6rem}
+.rule-top{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}
+.rule-act{font-family:var(--mono);font-size:var(--s--1);color:var(--ink)}
+.rule-x{font-size:var(--s--2);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.rule-n{margin-left:auto;font-family:var(--mono);font-size:var(--s--2);color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.rule-when{margin-top:.45rem;display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap}
+.rule-states{display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:0}
+.rule-states .tuple{margin-top:0}
+.plan{display:flex;flex-direction:column;gap:.5rem;padding:.9rem 1rem;background:var(--surface);
+  border:1px solid var(--line);border-radius:10px}
+.pl-row{min-height:2rem}
+.br{min-height:7.5rem}
+.br-now{min-height:2.4rem}
+.rk-cell{min-height:5rem}
+/* A number that changes width drags its neighbours sideways on every repaint. */
+.tile .n,.br-n,.rk-n,.rule-n,.pl-count,.fr .v{font-variant-numeric:tabular-nums}
+.map{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.7rem}
+.cds{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.6rem}
+.cd{border:1px solid var(--line);border-left:3px solid var(--s);border-radius:8px;
+  background:var(--ground);padding:.5rem .6rem;display:flex;flex-direction:column;gap:.35rem;
+  min-width:0}
+.cd.cur{border-color:var(--accent);border-left-color:var(--s)}
+.cd.hit{background:var(--accent-soft)}
+.cd-top{display:flex;align-items:baseline;gap:.4rem;justify-content:space-between}
+.cd-id{font-family:var(--mono);font-size:var(--s--2);color:var(--ink)}
+.cd-st{font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.cd-act{font-family:var(--mono);font-size:.72rem;color:var(--accent);overflow-wrap:anywhere}
+.cd-a{display:flex;justify-content:space-between;gap:.4rem;border:1px solid var(--line);
+  border-left:3px solid var(--s);border-radius:5px;padding:.2rem .4rem;background:var(--surface)}
+.cd-a.live{border-color:var(--accent);border-left-color:var(--s)}
+.cd-a.none{color:var(--muted);border-style:dashed;justify-content:center;font-size:.72rem}
+.cd-as{font-family:var(--mono);font-size:.72rem;color:var(--ink)}
+.cd-ab{font-family:var(--mono);font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.cd-b{font-size:.7rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.cd-al{display:flex;flex-wrap:wrap;gap:.3rem;justify-content:space-between;font-family:var(--mono);
+  font-size:.7rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:.2rem}
+.cd-als{color:var(--ink)}
+.cd-alr{flex-basis:100%;color:var(--rej);font-family:var(--sans)}
+.decide{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.7rem}
+.br{padding:.7rem .8rem;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.br.lit{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.br.never{opacity:.55}
+.br-head{display:flex;align-items:baseline;gap:.5rem}
+.br-name{font-family:var(--mono);font-size:var(--s--1);color:var(--ink)}
+.br-n{margin-left:auto;font-family:var(--mono);font-size:var(--s--2);color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.br-bar{height:.3rem;background:var(--surface-2);border-radius:999px;overflow:hidden;margin:.45rem 0}
+.br-bar i{display:block;height:100%;background:var(--accent);transition:width .4s ease}
+.br-why{margin:0;font-size:var(--s--2);color:var(--muted)}
+.br-now{grid-column:1/-1;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+  padding-top:.3rem;border-top:1px solid var(--line)}
+.br-detail{font-size:var(--s--2);color:var(--muted)}
+.vi{padding:.7rem .8rem;border:1px solid var(--rej);border-left-width:3px;border-radius:8px;
+  background:var(--rej-soft);margin-bottom:.6rem}
+.vi-top{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;align-items:baseline}
+.vi-rule{font-family:var(--mono);font-size:var(--s--1);color:var(--ink)}
+.vi p{margin:.3rem 0}
+.vi-n{display:flex;gap:1.2rem;font-family:var(--mono);font-size:var(--s--2);color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.vi .who{font-size:var(--s--2);color:var(--muted);margin-top:.2rem}
+.ct{width:100%;border-collapse:collapse;font-size:var(--s--1)}
+.ct th{text-align:left;font-weight:500;font-size:var(--s--2);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);padding:.3rem .5rem;border-bottom:1px solid var(--line)}
+.ct td{padding:.3rem .5rem;border-bottom:1px solid var(--line);font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
+.ct td:not(:first-child),.ct th:not(:first-child){text-align:right;width:6rem}
+.ct-a{font-family:var(--mono);color:var(--ink)}
+.ct .ok{color:var(--ok)}
+.ct .rej{color:var(--rej)}
+.cs{padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+  margin-bottom:.5rem}
+.cs-top{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:.3rem}
+.cs-n{font-family:var(--mono);font-size:var(--s--2);color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.cs-n .ok{color:var(--ok)}
+.cs-n .rej{color:var(--rej)}
+.cs .tuple{margin-top:0}
+.rk{display:flex;gap:.7rem;margin-bottom:.9rem;flex-wrap:wrap}
+.rk-cell{flex:1;min-width:11rem;padding:.7rem .8rem;border:1px solid var(--line);border-radius:9px;
+  background:var(--surface);display:flex;flex-direction:column;gap:.15rem}
+.rk-cell.zero{border-color:var(--rej)}
+.rk-cell.zero .rk-n{color:var(--rej)}
+.rk-n{font-family:var(--mono);font-size:var(--s2);font-variant-numeric:tabular-nums;
+  color:var(--ink)}
+.rk-l{font-size:var(--s--2);color:var(--muted)}
+.tg{padding:.7rem .8rem;border:1px solid var(--line);border-radius:9px;background:var(--surface);
+  margin-bottom:.6rem}
+.tg.unreachable{border-color:var(--rej)}
+.tg-top{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.tg-flag{font-size:var(--s--2);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tg.unreachable .tg-flag{color:var(--rej)}
+.tg-flag.aside{color:var(--muted)}
+section{margin-bottom:2.2rem}
+#panel-run section:last-child,#panel-reach section:last-child,#panel-found section:last-child{
+  margin-bottom:0}
+.pl-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.pl-row .tuple{margin-top:0}
+.pl-eyebrow{font-size:var(--s--2);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  min-width:9rem;flex:0 0 auto}
+.pl-steps{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;flex:1}
+.pl-why{display:flex;gap:.35rem;flex-wrap:wrap}
+.pl-arrow{color:var(--muted);font-size:var(--s--2)}
+.pl-step{font-family:var(--mono);font-size:var(--s--2);padding:.2rem .5rem;border-radius:5px;
+  border:1px solid var(--line);color:var(--muted)}
+.pl-step.taken{background:var(--accent);border-color:var(--accent);color:var(--ground);opacity:.55}
+.pl-step.now{background:var(--accent);border-color:var(--accent);color:var(--ground);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);animation:plpulse 1.6s ease-in-out infinite}
+@keyframes plpulse{50%{box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 8%, transparent)}}
+.pl-count{font-family:var(--mono);font-size:var(--s--2);color:var(--muted);
+  font-variant-numeric:tabular-nums;flex:0 0 auto}
+.pl-idle{display:flex;align-items:center;gap:.6rem}
+.pl-note{font-size:var(--s--2);color:var(--muted)}
+.bar{flex:1;height:.3rem;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .4s ease}
+.fr .v{font-family:var(--mono);font-size:var(--s--2);color:var(--muted);font-variant-numeric:tabular-nums}
+.fr .un{font-size:var(--s--2);color:var(--muted)}
+.fr .un span{color:var(--ink);font-family:var(--mono)}
+.rule{border-left:2px solid var(--rej);background:var(--rej-soft);padding:.6rem .85rem;border-radius:6px;
+  margin-bottom:.5rem}
+.trial.race{border-left-color:var(--accent);background:var(--accent-soft)}
+.trial.race .act{color:var(--accent)}
+.trial.hit{border-left-color:var(--wait);background:var(--rej-soft)}
+.find{border-left:2px solid var(--wait);background:var(--rej-soft);padding:.6rem .85rem;
+  border-radius:6px;margin-bottom:.5rem}
+.find p{margin:0;font-family:var(--mono);font-size:var(--s--1)}
+.find .who{color:var(--muted);font-size:var(--s--2);margin-top:.2rem}
+.rule p{margin:0;font-family:var(--mono);font-size:var(--s--1)}
+.rule .by{color:var(--muted);font-size:var(--s--2);margin-top:.2rem;font-family:var(--sans)}
+.none{color:var(--muted);font-size:var(--s--1)}
+.tabs{display:flex;gap:.4rem;border-bottom:1px solid var(--line);margin-bottom:-1rem}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:inherit;
+  font-size:var(--s--1);padding:.5rem .9rem;cursor:pointer;border-bottom:2px solid transparent}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.plate{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;
+  position:relative}
+.plate{background:#FCFDFC;border-color:#DAE4DE}
+/* A fixed box, not a floor: zooming scales the inner group and leaves the SVG at its own
+   natural height, so a min-height let the usable area collapse to the diagram size. */
+.plate #graph,.plate #reachgraph{height:clamp(460px,72vh,820px);padding:1rem;overflow:hidden;
+  position:relative}
+.plate svg{display:block;width:100%;height:100%;cursor:grab;max-width:none}
+/* Dragging to pan otherwise sweeps a text selection across every node label. */
+.plate,.plate svg,.plate svg *{user-select:none;-webkit-user-select:none}
+.plate svg:active{cursor:grabbing}
+.plate svg:active{cursor:grabbing}
+.hint{position:absolute;right:.7rem;bottom:.6rem;color:#78877F;font-size:var(--s--2);
+  background:#FCFDFC;padding:.15rem .5rem;border-radius:4px;border:1px solid #DAE4DE}
+.zoom{position:absolute;right:.7rem;top:.7rem;display:flex;align-items:center;gap:.3rem;
+  background:#FCFDFC;border:1px solid #DAE4DE;border-radius:6px;padding:.25rem}
+.zoom #zoom-level{font-family:var(--mono);font-size:var(--s--2);color:#3B4A44;min-width:3.2rem;
+  text-align:center;font-variant-numeric:tabular-nums}
+.zbtn{appearance:none;border:1px solid #DAE4DE;background:#EEF3F0;color:#101E19;
+  font:inherit;font-size:var(--s--1);line-height:1;width:1.9rem;height:1.9rem;border-radius:4px;
+  cursor:pointer}
+.zbtn.wide{width:auto;padding:0 .6rem;font-size:var(--s--2)}
+.zbtn:hover{background:#E2EBE6}
+.zbtn:active{background:#D6E2DB}
+.zbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.node rect{fill:var(--surface-2);stroke:var(--line)}
+.node.terminal rect{stroke:var(--rej)}
+.node text{font-family:var(--mono);font-size:11px;fill:var(--ink)}
+.node .sub{fill:var(--muted);font-size:10px}
+.edge{stroke:var(--muted);fill:none;opacity:.75}
+.edge.self{stroke:var(--accent);opacity:.7}
+.elabel{font-family:var(--mono);font-size:10.5px;fill:var(--accent);
+  paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+.elabel.cross{fill:var(--muted)}
+.lane{font-family:var(--sans);font-size:13px;fill:var(--muted);text-transform:uppercase;
+  letter-spacing:.08em}
+.edge.cross{opacity:.35;stroke-dasharray:4 3}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Direct Explorer</h1>
+    <span class="beat" id="beat">running</span>
+    <span class="meta" id="meta">waiting for a run…</span>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tab-run" role="tab" aria-selected="true" aria-controls="panel-run">Run</button>
+    <button class="tab" id="tab-reach" role="tab" aria-selected="false" aria-controls="panel-reach">Reachability</button>
+    <button class="tab" id="tab-counts" role="tab" aria-selected="false" aria-controls="panel-counts">Counts</button>
+    <button class="tab" id="tab-found" role="tab" aria-selected="false" aria-controls="panel-found">Findings</button>
+    <button class="tab" id="tab-graph" role="tab" aria-selected="false" aria-controls="panel-graph">Graph</button>
+  </div>
+
+  <div id="panel-run">
+    <section>
+      <div class="map" id="map"></div>
+    </section>
+
+    <section>
+      <h2>Route</h2>
+      <div class="plan" id="plan"></div>
+    </section>
+
+    <section>
+      <h2>Action choice <small>branch that fired · share of run</small></h2>
+      <div class="decide" id="decide"></div>
+    </section>
+
+    <section>
+      <h2>Trials <small>newest first</small></h2>
+      <div class="feed" id="feed"></div>
+    </section>
+  </div>
+
+  <div id="panel-reach" hidden>
+    <section>
+      <div class="plate">
+        <div id="reachgraph" role="img" aria-label="Reachable states"></div>
+        <div class="zoom">
+          <button type="button" id="rzoom-out" class="zbtn" aria-label="Zoom out">−</button>
+          <span id="rzoom-level">100%</span>
+          <button type="button" id="rzoom-in" class="zbtn" aria-label="Zoom in">+</button>
+          <button type="button" id="rzoom-reset" class="zbtn wide">Reset</button>
+        </div>
+        <span class="hint">drag to pan</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Targets <small>reachable, and how often reached</small></h2>
+      <div id="reach"></div>
+    </section>
+
+    <section>
+      <h2>Frontier <small>least visited first</small></h2>
+      <div class="front" id="front"></div>
+    </section>
+  </div>
+
+  <div id="panel-counts" hidden>
+    <section>
+      <h2>Per action</h2>
+      <div id="countsAction"></div>
+    </section>
+
+    <section>
+      <h2>Per action, per state</h2>
+      <div id="countsState"></div>
+    </section>
+  </div>
+
+  <div id="panel-found" hidden>
+    <section>
+      <h2>Oracle violations <small>reads that disagree with each other</small></h2>
+      <div id="violations"></div>
+    </section>
+
+    <section>
+      <h2>Race findings <small>&gt;1 accepted, or 5xx</small></h2>
+      <div id="findings"></div>
+    </section>
+
+    <section>
+      <h2>Closure payments <small>what each failed closure payment left behind</small></h2>
+      <div id="closures"></div>
+    </section>
+
+    <section>
+      <h2>Transition chains <small>rows in core that name the state before them</small></h2>
+      <div id="chains"></div>
+    </section>
+
+    <section>
+      <h2>Refusals <small>by action, with the states they fired in</small></h2>
+      <div id="rules"></div>
+    </section>
+  </div>
+
+  <div id="panel-graph" hidden>
+    <h2>Learned transitions <small>walked edges that change state</small></h2>
+    <div class="plate">
+      <div id="graph" role="img" aria-label="Learned state transitions"></div>
+      <div class="zoom">
+        <button type="button" id="zoom-out" class="zbtn" aria-label="Zoom out">−</button>
+        <span id="zoom-level">100%</span>
+        <button type="button" id="zoom-in" class="zbtn" aria-label="Zoom in">+</button>
+        <button type="button" id="zoom-reset" class="zbtn wide">Reset</button>
+      </div>
+      <span class="hint">drag to pan</span>
+    </div>
+  </div>
+</div>
+
+<script>
+if (window.mermaid) {
+  window.mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#E2EAE5', primaryTextColor: '#101E19', primaryBorderColor: '#0E4A3C',
+      lineColor: '#53645C', fontFamily: 'ui-sans-serif, system-ui, sans-serif', fontSize: '14px'
+    },
+    state: {useMaxWidth: false}
+  });
+}
+let lastCount = 0;
+
+// A state key is a positional tuple built by explorer/projector.py, so on its own it reads as a
+// column of bare words. Each entity declares what its positions mean, and every value carries that
+// label, because "PENDING" alone does not say whether it is the account's status or the customer's.
+const KEY_LABELS = {
+  customer: ['', 'customer status', 'nominated account'],
+  account: ['', 'account status', 'product', 'balance', 'deposit info', 'customer status'],
+  batch: ['', 'batch status', 'outstanding']
+};
+
+// The projector buckets rather than reporting the number, so spell the bucket out.
+const VALUE_WORDS = {
+  'balance:positive': 'more than zero',
+  'balance:zero': 'zero',
+  'balance:unknown': 'unknown',
+  'deposit info:present': 'present',
+  'deposit info:none': 'absent',
+  'nominated account:present': 'present',
+  'nominated account:none': 'none',
+  'outstanding:full': 'nothing allocated yet',
+  'outstanding:partial': 'part allocated',
+  'outstanding:zero': 'nothing to pay',
+  'outstanding:unknown': 'unknown'
+};
+
+function tuple(key){
+  const labels = KEY_LABELS[key[0]] || [];
+  return '<div class="tuple">' + key.map(function(p,i){
+    if (i === 0) return '<span class="seg head">' + p + '</span>';
+    const label = labels[i] || '';
+    const shown = VALUE_WORDS[label + ':' + p] || (p === null || p === '' ? '—' : p);
+    return '<span class="seg">' + (label ? '<b>' + label + '</b>' : '') + shown + '</span>';
+  }).join('') + '</div>';
+}
+
+// The driver aims at the nearest state that still holds an action it has never tried there, then
+// walks a sequence of actions it has already walked before. Show the sequence as a track: taken
+// steps filled, the step about to run marked, the rest outlined.
+// Three branches can choose the action, checked in this order. Light the one that chose the
+// action showing at the top of the feed, and carry each branch's share of the whole run, because
+// a branch that never fires is the interesting one.
+const BRANCHES = [
+  ['shape gap', 'pool too thin — action forced'],
+  ['route', 'learned path to untried work'],
+  ['least tried', 'no route — lowest trial count wins']
+];
+
+const STATUS_FILL = {
+  ACTIVATED: 'var(--ok)', PENDING: 'var(--wait)', CLOSED: 'var(--muted)',
+  DEACTIVATED: 'var(--muted)', FROZEN: 'var(--accent)', CANCELLED: 'var(--rej)'
+};
+
+function drawMap(world, plan, trials){
+  const host = document.getElementById('map');
+  if (!world || !world.subjects.length){ host.innerHTML = ''; return; }
+
+  // A grid that wraps, not a row. The pool grows for as long as the run lasts, so a single row
+  // turns into a strip several screens wide that has to be scrolled sideways to read.
+  const cards = world.subjects.map(function(sub){
+    const accts = (sub.accounts || []).map(function(a){
+      return '<div class="cd-a' + (a.live ? ' live' : '') + '" style="--s:' +
+        (STATUS_FILL[a.status] || 'var(--line)') + '">' +
+        '<span class="cd-as">' + (a.status || '—') + '</span>' +
+        '<span class="cd-ab">' + (a.balance === null || a.balance === undefined ? '' : a.balance) +
+        '</span></div>';
+    }).join('') || '<div class="cd-a none">no account</div>';
+
+    const batch = sub.batch
+      ? '<div class="cd-b">batch ' + (sub.batch.status || '—') + ' · ' +
+        (sub.batch.total === null || sub.batch.total === undefined ? '' : sub.batch.total) +
+        '</div>' +
+        (sub.batch.allocations || []).map(function(a){
+          return '<div class="cd-al"><span>' + (a.type || '—') + ' ' + (a.amount || '—') +
+            '</span><span class="cd-als">' + (a.status || '—') + '</span>' +
+            (a.rejection ? '<span class="cd-alr">' + a.rejection + '</span>' : '') + '</div>';
+        }).join('')
+      : '';
+
+    return '<div class="cd' + (sub.current ? ' cur' : '') + (sub.hit ? ' hit' : '') +
+      '" style="--s:' + (STATUS_FILL[sub.status] || 'var(--line)') + '">' +
+      '<div class="cd-top"><span class="cd-id">' + sub.customerId.slice(0, 8) + '</span>' +
+      '<span class="cd-st">' + (sub.status || '—') + '</span></div>' +
+      (sub.hit && world.action ? '<div class="cd-act">' + world.action + '</div>' : '') +
+      accts + batch + '</div>';
+  }).join('');
+
+  host.innerHTML = '<div class="cds">' + cards + '</div>';
+}
+
+function drawDecide(trials, counts){
+  const host = document.getElementById('decide');
+  if (!host) return;
+  const latest = trials.length ? trials[trials.length - 1] : null;
+  const live = latest && latest.why;
+  const total = Object.keys(counts || {}).reduce(function(a, k){ return a + counts[k]; }, 0) || 1;
+  host.innerHTML = BRANCHES.map(function(b){
+    const n = (counts || {})[b[0]] || 0;
+    const pct = Math.round(100 * n / total);
+    return '<div class="br' + (live === b[0] ? ' lit' : '') + (n === 0 ? ' never' : '') + '">' +
+      '<div class="br-head"><span class="br-name">' + b[0] + '</span>' +
+      '<span class="br-n">' + n + ' · ' + pct + '%</span></div>' +
+      '<p class="br-why">' + b[1] + '</p></div>';
+  }).join('') +
+  '<div class="br-now"><span class="pl-eyebrow">this step</span>' +
+  (latest ? '<span class="pl-step now">' + latest.action + '</span>' : '<span class="pl-step ahead">—</span>') +
+  '<span class="br-detail">' + ((latest && latest.why_detail) || '') + '</span></div>';
+}
+
+// A target the run has never landed on cannot be routed to, however long it runs, so say which
+// targets are reachable rather than leaving an aim that silently never gets picked.
+// The planner can only walk edges the run has already walked, so a state with no inbound edge is
+// one it can never aim at however long the run goes. Drawing the graph makes that obvious at a
+// glance: those states sit with no arrow pointing at them.
+let lastReachSource = '';
+
+function drawReach(reach, transitions){
+  const host = document.getElementById('reachgraph');
+  if (!host) return;
+  if (!reach || !transitions){ host.innerHTML = ''; return; }
+
+  const moving = transitions.filter(function(t){ return t.moved; });
+  const ids = new Map();
+  function idFor(key){
+    const k = key.join('|');
+    if (!ids.has(k)) ids.set(k, 'r' + ids.size);
+    return ids.get(k);
+  }
+  const pairs = new Map();
+  moving.forEach(function(t){
+    const k = t.from.join('|') + '>>' + t.to.join('|');
+    if (!pairs.has(k)) pairs.set(k, {from: t.from, to: t.to, actions: []});
+    const pr = pairs.get(k);
+    if (pr.actions.indexOf(t.action) < 0) pr.actions.push(t.action);
+  });
+
+  const lines = ['stateDiagram-v2', '  direction LR'];
+  pairs.forEach(function(pr){ idFor(pr.from); idFor(pr.to); });
+  reach.targets.forEach(function(t){ idFor(t.key); });
+  ids.forEach(function(id, k){
+    lines.push('  state "' + stateLabel(k.split('|')).replace(/\n/g, '<br/>') + '" as ' + id);
+  });
+  pairs.forEach(function(pr){
+    lines.push('  ' + idFor(pr.from) + ' --> ' + idFor(pr.to) + ' : ' + pr.actions.join(', '));
+  });
+  reach.targets.forEach(function(t){
+    lines.push('  class ' + idFor(t.key) + (t.is_landing ? ' aimable' : ' orphan'));
+  });
+  lines.push('  classDef aimable fill:#DBEAE3,stroke:#0E4A3C,stroke-width:2px');
+  lines.push('  classDef orphan fill:#F7E3E2,stroke:#A33734,stroke-width:2px,stroke-dasharray:4 3');
+
+  const source = lines.join('\n');
+  if (source === lastReachSource) return;
+  lastReachSource = source;
+  if (!window.mermaid){ host.innerHTML = ''; return; }
+  window.mermaid.render('reach-' + Date.now(), source).then(function(out){
+    host.innerHTML = out.svg;
+    const svg = host.querySelector('svg');
+    if (svg){
+      svg.removeAttribute('height');
+      svg.removeAttribute('width');
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      attachPanZoom(svg, 'rzoom');
+    }
+  }).catch(function(){ host.innerHTML = ''; });
+}
+
+function drawViolations(rows){
+  const host = document.getElementById('violations');
+  if (!host) return;
+  host.innerHTML = (rows || []).slice().reverse().map(function(v){
+    const numbers = v.expected === null || v.expected === undefined ? '' :
+      '<div class="vi-n"><span>expected <b>' + v.expected + '</b></span>' +
+      '<span>read <b class="rej">' + v.actual + '</b></span></div>';
+    return '<div class="vi"><div class="vi-top"><span class="vi-rule">' + v.rule + '</span>' +
+      '<span class="rule-n">#' + v.n + ' · ' + v.action + '</span></div>' +
+      '<p>' + v.detail + '</p>' + numbers +
+      '<div class="who">subject ' + v.subject + '</div></div>';
+  }).join('') || '<p class="none">No violations.</p>';
+}
+
+function drawCounts(trials){
+  const byAction = {}, byPair = {};
+  trials.forEach(function(t){
+    const a = byAction[t.action] || (byAction[t.action] = {n: 0, ok: 0, rej: 0});
+    a.n++;
+    if (t.ok) a.ok++; else a.rej++;
+
+    const id = t.action + ' :: ' + t.key.join(' :: ');
+    const pr = byPair[id] || (byPair[id] = {action: t.action, key: t.key, n: 0, ok: 0, rej: 0});
+    pr.n++;
+    if (t.ok) pr.ok++; else pr.rej++;
+  });
+
+  const actions = Object.keys(byAction).map(function(k){
+    return {name: k, v: byAction[k]};
+  }).sort(function(a, b){ return b.v.n - a.v.n; });
+
+  const host = document.getElementById('countsAction');
+  if (host){
+    host.innerHTML = '<table class="ct"><thead><tr><th>action</th><th>tried</th>' +
+      '<th>accepted</th><th>rejected</th></tr></thead><tbody>' +
+      actions.map(function(r){
+        return '<tr><td class="ct-a">' + r.name + '</td><td>' + r.v.n + '</td>' +
+          '<td class="ok">' + r.v.ok + '</td><td class="' + (r.v.rej ? 'rej' : '') + '">' +
+          r.v.rej + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  const pairs = Object.keys(byPair).map(function(k){ return byPair[k]; })
+    .sort(function(a, b){ return b.n - a.n; });
+  const host2 = document.getElementById('countsState');
+  if (host2){
+    host2.innerHTML = pairs.map(function(r){
+      return '<div class="cs"><div class="cs-top"><span class="ct-a">' + r.action + '</span>' +
+        '<span class="cs-n">' + r.n + ' tried · <b class="ok">' + r.ok + '</b> ok · ' +
+        '<b class="' + (r.rej ? 'rej' : '') + '">' + r.rej + '</b> rejected</span></div>' +
+        tuple(r.key) + '</div>';
+    }).join('') || '<p class="none">No trials.</p>';
+  }
+}
+
+function drawTargets(reach){
+  const host = document.getElementById('reach');
+  if (!host) return;
+  if (!reach){ host.innerHTML = ''; return; }
+  host.innerHTML = reach.targets.map(function(t){
+    const bad = !t.is_landing;
+    return '<div class="tg' + (bad ? ' unreachable' : '') + '">' +
+      '<div class="tg-top"><span class="tg-flag">' +
+      (bad ? 'no inbound edge, planner cannot aim here' : 'planner can aim here') + '</span>' +
+      (t.set_aside ? '<span class="tg-flag aside">blacklisted</span>' : '') +
+      '<span class="rule-n">reached ' + t.visits + '×</span></div>' +
+      tuple(t.key) +
+      '<div class="un">untried: <span>' + t.untried.join('</span>, <span>') + '</span></div></div>';
+  }).join('') || '<p class="none">No targets.</p>';
+}
+
+function drawPlan(plan){
+  const host = document.getElementById('plan');
+  if (!host) return;
+  const has = plan && plan.target;
+  // Every row is drawn whether or not there is a route, because a panel that grows from one row
+  // to four once a second shoves the whole feed down the page.
+  const blank = '<span class="pl-step ahead">—</span>';
+  const steps = has
+    ? plan.steps.map(function(name, i){
+        const cls = i < plan.done ? 'taken' : (i === plan.done ? 'now' : 'ahead');
+        return '<span class="pl-step ' + cls + '">' + name + '</span>';
+      }).join('<span class="pl-arrow">→</span>')
+    : blank;
+
+  host.innerHTML =
+    '<div class="pl-row"><span class="pl-eyebrow">from</span>' +
+      (has && plan.from ? tuple(plan.from) : blank) + '</div>' +
+    '<div class="pl-row pl-track"><span class="pl-eyebrow">route' +
+      (has && plan.state ? ' · ' + plan.state : '') + '</span>' +
+      '<div class="pl-steps">' + steps + '</div>' +
+      '<span class="pl-count">' + (has ? plan.done + '/' + plan.steps.length : '—') +
+      '</span></div>' +
+    '<div class="pl-row"><span class="pl-eyebrow">to reach</span>' +
+      (has ? tuple(plan.target) : blank) + '</div>' +
+    '<div class="pl-row"><span class="pl-eyebrow">never tried there</span>' +
+      '<div class="pl-why">' + (has && plan.why.length
+        ? plan.why.map(function(n){ return '<span class="pl-step ahead">' + n + '</span>'; }).join('')
+        : '<span class="pl-note">' + ((plan && plan.note) || 'no route') + '</span>') +
+      '</div></div>';
+}
+
+function render(d){
+  document.getElementById('meta').textContent =
+    'run ' + d.run_id + ' · ' + d.base_url + ' · platform ' + (d.platform_uid || '—').slice(0, 8);
+
+  const beat = document.getElementById('beat');
+  beat.textContent = d.finished ? 'finished' : 'running';
+  beat.className = d.finished ? 'beat done' : 'beat';
+
+  document.getElementById('tiles').innerHTML = Object.keys(d.summary).map(function(k){
+    return '<div class="tile"><div class="n">' + d.summary[k] + '</div><div class="l">' + k + '</div></div>';
+  }).join('');
+
+  const fresh = d.trials.length > lastCount;
+  const feedEl = document.getElementById('feed');
+  const wasAtTop = feedEl.scrollTop < 4;
+  const keepScroll = feedEl.scrollTop;
+  feedEl.innerHTML = d.trials.slice().reverse().map(function(t, idx){
+    const isNew = fresh && idx === 0;
+    const chg = t.changes.length
+      ? t.changes.map(function(c){ return '<b>' + c + '</b>'; }).join(' ')
+      : 'nothing changed';
+    const cls = t.race ? (t.ok ? ' race' : ' hit') : (t.ok ? '' : ' rej');
+    const shown = t.statuses ? t.statuses.join(' / ') : t.status;
+    return '<div class="trial' + cls + (isNew ? ' fresh' : '') + '">' +
+      '<span class="i">' + t.n + '</span>' +
+      '<span class="act">' + t.action + '</span>' +
+      '<span class="st">' + shown + '</span>' +
+      tuple(t.key) +
+      '<span class="chg">' + chg + '</span>' +
+      '</div>';
+  }).join('');
+  if (!wasAtTop) feedEl.scrollTop = keepScroll;
+  lastCount = d.trials.length;
+
+  drawMap(d.world, d.plan, d.trials);
+  drawViolations(d.violations);
+  drawCounts(d.trials);
+  drawReach(d.reach, d.transitions);
+  drawTargets(d.reach);
+  drawDecide(d.trials, d.why_counts);
+  drawPlan(d.plan);
+
+  const tiles = document.getElementById('tiles');
+  if (tiles && d.violations){
+    const n = d.violations.length;
+    tiles.insertAdjacentHTML('beforeend',
+      '<div class="tile' + (n ? ' bad' : '') + '"><div class="n">' + n +
+      '</div><div class="l">oracle violations</div></div>');
+  }
+
+  const most = Math.max.apply(null, d.frontier.map(function(f){ return f.visits; }).concat([1]));
+  const frontEl = document.getElementById('front');
+  if (frontEl) frontEl.innerHTML = d.frontier.map(function(f){
+    return '<div class="fr">' + tuple(f.key) +
+      '<div class="top"><div class="bar"><i style="width:' +
+      Math.round(100 * f.visits / most) + '%"></i></div><span class="v">' + f.visits +
+      '</span></div>' +
+      '<div class="un">untried: <span>' + f.untried.join('</span>, <span>') +
+      '</span></div></div>';
+  }).join('') || '<p class="none">Frontier empty.</p>';
+
+  const closEl = document.getElementById('closures');
+  if (closEl) closEl.innerHTML = (d.closurePayments || []).map(function(c){
+    const p = c.payment || {};
+    const stranded = c.balanceAfter && parseFloat(c.balanceAfter) > 0
+      && (c.statusAfter === 'CLOSED' || c.statusAfter === 'CANCELLED');
+    return '<div class="find' + (stranded ? ' bad' : '') + '"><p>the bank ' + c.case +
+      ' the closure payment, and the account reads <b>' + (c.statusAfter || 'unknown') +
+      '</b> holding <b>' + (c.balanceAfter === null || c.balanceAfter === undefined
+        ? 'unknown' : c.balanceAfter) + '</b></p>' +
+      '<div class="who">trial ' + c.trial + ' · account ' + String(c.accountId || '').slice(0, 8) +
+      (p.end_to_end_id ? ' · payment ' + p.end_to_end_id + ' ' + (p.status || '') +
+        ' ' + (p.amount || '') : ' · no payment was raised') +
+      (c.note ? ' · ' + c.note : '') + '</div></div>';
+  }).join('') || '<p class="none">No closure payment has been made to fail yet.</p>';
+
+  const chainsEl = document.getElementById('chains');
+  const ch = d.chains || {};
+  if (chainsEl) {
+    const broken = (d.violations || []).filter(function(v){
+      return v.action === 'TransitionChainSweep'; });
+    chainsEl.innerHTML =
+      '<p class="none">' + (ch.sweeps || 0) + ' sweeps, last one ' +
+      (ch.sweptSecondsAgo === null || ch.sweptSecondsAgo === undefined
+        ? 'not yet' : ch.sweptSecondsAgo + 's ago') + ' · ' +
+      broken.length + ' broken chains · ' + ((ch.errors || []).length) +
+      ' queries the database refused</p>' +
+      broken.map(function(v){
+        return '<div class="find bad"><p>' + v.detail + '</p><div class="who">' + v.rule +
+          ' · ' + (v.table || '') + ' · seen ' + (v.count || 1) + '</div></div>';
+      }).join('') +
+      (ch.errors || []).map(function(e){
+        return '<div class="find"><p>' + e + '</p></div>'; }).join('');
+  }
+
+  const findings = d.trials.filter(function(t){ return t.race && t.message; });
+  document.getElementById('findings').innerHTML = findings.map(function(f){
+    return '<div class="find"><p>' + f.message + '</p><div class="who">' + f.action +
+      ' — statuses ' + (f.statuses || []).join(', ') + '</div></div>';
+  }).join('') || '<p class="none">No findings.</p>';
+
+  // An error message on its own is not a rule, because it does not say when the API applies it.
+  // Group by action and message, and carry the states the refusal actually fired in: that pair
+  // is the precondition, and it is the part no specification writes down.
+  const byRule = {};
+  d.trials.forEach(function(t){
+    if (t.race || t.ok || !t.message) return;
+    const id = t.action + ' :: ' + t.message;
+    if (!byRule[id]) byRule[id] = {action: t.action, message: t.message, count: 0, states: [], seen: {}};
+    const r = byRule[id];
+    r.count++;
+    const sk = t.key.join(' :: ');
+    if (!r.seen[sk]) { r.seen[sk] = 1; r.states.push(t.key); }
+  });
+  const rules = Object.keys(byRule).map(function(k){ return byRule[k]; })
+    .sort(function(a, b){ return b.count - a.count; });
+
+  document.getElementById('rules').innerHTML = rules.map(function(r){
+    return '<div class="rule">' +
+      '<div class="rule-top"><span class="rule-act">' + r.action + '</span>' +
+      '<span class="rule-x">rejected</span>' +
+      '<span class="rule-n">' + r.count + '×</span></div>' +
+      '<p>' + r.message + '</p>' +
+      '<div class="rule-when"><span class="pl-eyebrow">in these states</span>' +
+      '<div class="rule-states">' + r.states.map(tuple).join('') + '</div></div>' +
+      '</div>';
+  }).join('') || '<p class="none">No rejections.</p>';
+
+  drawGraph(d.transitions);
+}
+
+
+// ---- the learned graph -------------------------------------------------------------------
+// Rendered by Mermaid, which lays the graph out properly. Only transitions that change state are
+// drawn: every read self-loops on every state, and those labels bury the edges that carry shape.
+let lastSource = '';
+
+function stateLabel(key){
+  const labels = KEY_LABELS[key[0]] || [];
+  const detail = key.slice(2).map(function(p, i){
+    const label = labels[i + 2] || '';
+    const shown = VALUE_WORDS[label + ':' + p] || p;
+    return p ? (label ? label + ' ' + shown : shown) : '';
+  }).filter(Boolean).join(' · ');
+  const head = key[0] + ' ' + (labels[1] || 'state') + ' ' + (key[1] || 'absent');
+  return head + (detail ? '\n' + detail : '');
+}
+
+function mermaidSource(transitions){
+  const moving = transitions.filter(function(t){ return t.moved; });
+  if (!moving.length) return null;
+
+  const ids = new Map();
+  function idFor(key){
+    const k = key.join('|');
+    if (!ids.has(k)) ids.set(k, 's' + ids.size);
+    return ids.get(k);
+  }
+
+  // Collapse parallel actions between the same two states onto one edge.
+  const pairs = new Map();
+  moving.forEach(function(t){
+    const k = t.from.join('|') + '>>' + t.to.join('|');
+    if (!pairs.has(k)) pairs.set(k, {from: t.from, to: t.to, actions: [], count: 0});
+    const p = pairs.get(k);
+    if (p.actions.indexOf(t.action) < 0) p.actions.push(t.action);
+    p.count += t.count;
+  });
+
+  const lines = ['stateDiagram-v2', '  direction LR'];
+  ids.clear();
+  pairs.forEach(function(p){ idFor(p.from); idFor(p.to); });
+  ids.forEach(function(id, k){
+    lines.push('  state "' + stateLabel(k.split('|')).replace(/\n/g, '<br/>') + '" as ' + id);
+  });
+  pairs.forEach(function(p){
+    const label = p.actions.map(function(a){ return a.replace(/^RACE /, '⇉ '); }).join(', ') +
+      (p.count > 1 ? ' ×' + p.count : '');
+    lines.push('  ' + idFor(p.from) + ' --> ' + idFor(p.to) + ' : ' + label);
+  });
+  return lines.join('\n');
+}
+
+function drawGraph(transitions){
+  const host = document.getElementById('graph');
+  if (!transitions){ return; }
+  const source = mermaidSource(transitions);
+  if (!source){
+    host.innerHTML = '<p class="none">No state changes.</p>';
+    return;
+  }
+  if (source === lastSource) return;
+  lastSource = source;
+
+  if (!window.mermaid){
+    host.innerHTML = '<p class="none">Mermaid failed to load.</p>';
+    return;
+  }
+  window.mermaid.render('learned-' + Date.now(), source).then(function(out){
+    host.innerHTML = out.svg;
+    const svg = host.querySelector('svg');
+    if (svg){
+      svg.removeAttribute('height');
+      svg.removeAttribute('width');
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      attachPanZoom(svg, 'zoom');
+    }
+  }).catch(function(err){
+    host.innerHTML = '<p class="none">Could not draw the diagram: ' + err.message + '</p>';
+  });
+}
+
+function attachPanZoom(svg, prefix){
+  let scale = 1, tx = 0, ty = 0, dragging = false, lastX = 0, lastY = 0;
+  const inner = svg.querySelector('g');
+  function apply(){
+    if (inner) inner.setAttribute('transform',
+      'translate(' + tx + ' ' + ty + ') scale(' + scale + ')');
+    const readout = document.getElementById(prefix + '-level');
+    if (readout) readout.textContent = Math.round(scale * 100) + '%';
+  }
+  function zoom(factor){ scale = Math.min(4, Math.max(0.2, scale * factor)); apply(); }
+
+  const out = document.getElementById(prefix + '-out');
+  const inn = document.getElementById(prefix + '-in');
+  const res = document.getElementById(prefix + '-reset');
+  if (out) out.onclick = function(){ zoom(0.8); };
+  if (inn) inn.onclick = function(){ zoom(1.25); };
+  if (res) res.onclick = function(){ scale = 1; tx = 0; ty = 0; apply(); };
+
+  svg.addEventListener('pointerdown', function(e){
+    dragging = true; lastX = e.clientX; lastY = e.clientY; svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointermove', function(e){
+    if (!dragging) return;
+    tx += e.clientX - lastX; ty += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY; apply();
+  });
+  svg.addEventListener('pointerup', function(e){
+    dragging = false; svg.releasePointerCapture(e.pointerId);
+  });
+  apply();
+}
+
+const PANELS = ['run', 'reach', 'counts', 'found', 'graph'];
+function showTab(which){
+  PANELS.forEach(function(name){
+    document.getElementById('panel-' + name).hidden = name !== which;
+    const tab = document.getElementById('tab-' + name);
+    tab.setAttribute('aria-selected', String(name === which));
+    tab.classList.toggle('on', name === which);
+  });
+}
+PANELS.forEach(function(name){
+  document.getElementById('tab-' + name).addEventListener('click', function(){ showTab(name); });
+});
+
+
+
+if (location.hash === '#graph') showTab('graph');
+
+// Which run to show. Each run writes <name>.json, named by SIM_RUN_NAME, so the page takes that
+// name from the URL: live.html?run=chain10. Without it the page reads run.json, which is whatever
+// the last run without a name left behind.
+var SOURCE = (new URLSearchParams(location.search).get('run') || 'run') + '.json';
+
+function poll(){
+  fetch(SOURCE + '?t=' + Date.now())
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ if (d) render(d); })
+    .catch(function(){});
+}
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Output of a run, rewritten every cycle.
+chain*.json
+chain*.html
+chain*.log
+run*.json
+run*.html
+run*.log
+cycle*.log
+cycle*-partial.json
+*.log
+
+# The current cohort and the wipe counter, both specific to one local stack.
+cohort.env*
+.cycles-since-wipe
+
+__pycache__/
