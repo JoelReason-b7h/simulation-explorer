@@ -169,7 +169,7 @@ h2 small{color:var(--muted);font-weight:400;font-size:var(--s--1);margin-left:.5
 .tg.unreachable .tg-flag{color:var(--rej)}
 .tg-flag.aside{color:var(--muted)}
 section{margin-bottom:2.2rem}
-#panel-run section:last-child,#panel-reach section:last-child,#panel-found section:last-child{
+#panel-run section:last-child,#panel-reach section:last-child,#panel-found section:last-child,#panel-ops section:last-child{
   margin-bottom:0}
 .pl-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
 .pl-row .tuple{margin-top:0}
@@ -264,6 +264,7 @@ section{margin-bottom:2.2rem}
     <button class="tab" id="tab-reach" role="tab" aria-selected="false" aria-controls="panel-reach">Reachability</button>
     <button class="tab" id="tab-counts" role="tab" aria-selected="false" aria-controls="panel-counts">Counts</button>
     <button class="tab" id="tab-found" role="tab" aria-selected="false" aria-controls="panel-found">Findings</button>
+    <button class="tab" id="tab-ops" role="tab" aria-selected="false" aria-controls="panel-ops">Ops</button>
     <button class="tab" id="tab-graph" role="tab" aria-selected="false" aria-controls="panel-graph">Graph</button>
   </div>
 
@@ -342,11 +343,6 @@ section{margin-bottom:2.2rem}
     </section>
 
     <section>
-      <h2>What an operator sees <small>the queues their screens read, as of the last sweep</small></h2>
-      <div id="queues"></div>
-    </section>
-
-    <section>
       <h2>Transition chains <small>rows in core that name the state before them</small></h2>
       <div id="chains"></div>
     </section>
@@ -354,6 +350,18 @@ section{margin-bottom:2.2rem}
     <section>
       <h2>Refusals <small>by action, with the states they fired in</small></h2>
       <div id="rules"></div>
+    </section>
+  </div>
+
+  <div id="panel-ops" hidden>
+    <section>
+      <h2>Operator decisions <small>what each decision on a refused closure's group left behind</small></h2>
+      <div id="decisions"></div>
+    </section>
+
+    <section>
+      <h2>What an operator sees <small>the queues their screens read, as of the last sweep</small></h2>
+      <div id="queues"></div>
     </section>
   </div>
 
@@ -729,6 +737,26 @@ function render(d){
       (c.note ? ' · ' + c.note : '') + '</div></div>';
   }).join('') || '<p class="none">No closure payment has been made to fail yet.</p>';
 
+  const decEl = document.getElementById('decisions');
+  if (decEl) decEl.innerHTML = (d.operatorDecisions || []).map(function(o){
+    const stranded = o.balanceAfter && parseFloat(o.balanceAfter) > 0
+      && (o.statusAfter === 'CLOSED' || o.statusAfter === 'CANCELLED');
+    const steps = (o.steps || []).map(function(s){
+      const r = s.resent || {};
+      return '<div class="who">' + s.decision + ' → HTTP ' + (s.decisionStatus || '?') +
+        ' · group ' + String(s.group || '').slice(0, 8) + ' ' + (s.groupBefore || '?') +
+        ' → ' + (s.groupAfter || '?') +
+        (r.end_to_end_id ? ' · resend ' + r.end_to_end_id + ' ' + (r.status || 'no status')
+                         : (s.note ? ' · ' + s.note : ' · no resend')) + '</div>';
+    }).join('');
+    return '<div class="find' + (stranded ? ' bad' : '') + '"><p><b>' +
+      (o.plan || []).join(' then ') + '</b> on payment ' + (o.payment || '?') +
+      ': the account reads <b>' + (o.statusAfter || 'unknown') + '</b> holding <b>' +
+      (o.balanceAfter === null || o.balanceAfter === undefined ? 'unknown' : o.balanceAfter) +
+      '</b></p>' + steps + '<div class="who">trial ' + o.trial + ' · account ' +
+      String(o.accountId || '').slice(0, 8) + '</div></div>';
+  }).join('') || '<p class="none">No operator decision has been sent yet; the first follows the first refused closure.</p>';
+
   const queuesEl = document.getElementById('queues');
   const q = d.operatorQueues;
   if (queuesEl) {
@@ -940,7 +968,7 @@ function attachPanZoom(svg, prefix){
   apply();
 }
 
-const PANELS = ['run', 'reach', 'counts', 'found', 'graph'];
+const PANELS = ['run', 'reach', 'counts', 'found', 'ops', 'graph'];
 function showTab(which){
   PANELS.forEach(function(name){
     document.getElementById('panel-' + name).hidden = name !== which;

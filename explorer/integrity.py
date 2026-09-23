@@ -244,6 +244,49 @@ def payments_clearing_and_the_bank_disagree_on(limit=LIMIT):
     return findings[:limit], []
 
 
+def accounts_core_and_clearing_disagree_on_closing(limit=LIMIT):
+    """Accounts core holds open that clearing has soft-closed.
+
+    `cancelDirectCustomerAccount` calls clearing's softClose inside its own transaction, before it
+    moves the account to CANCELLED. When the answer is lost, clearing has committed the soft close
+    and core rolls back, so core keeps the account and later opens it, and clearing rejects every
+    external credit to it. The two databases share only the clearing account uid, so the
+    comparison is made here. Two minutes of quiet on the core state keeps a close in progress,
+    which soft-closes first and commits CLOSING a moment later, out of the finding.
+    """
+    rows, error = _psql_on(CORE_DSN,
+        "SELECT eia.account_uid, cpa.uid, dca.status, s.updated_at FROM direct_customer_account dca "
+        "JOIN customer_product_account cpa ON cpa.sid = dca.customer_product_account_sid "
+        "JOIN entity_internal_account eia ON eia.sid = dca.entity_internal_account_sid "
+        "JOIN customer_product_account_state s ON s.customer_product_account_sid = cpa.sid AND s.live "
+        "WHERE dca.status IN ('REQUESTED', 'OPEN') AND s.updated_at < now() - interval '2 minutes' "
+        "ORDER BY dca.sid DESC LIMIT 1000")
+    if error:
+        return [], ["core accounts: {}".format(error)]
+    core = {r[0]: r for r in rows if r}
+    if not core:
+        return [], []
+    closed, error = _psql_on(CLEARING_DSN,
+        "SELECT account_uid FROM internal_account WHERE soft_closed AND account_uid IN ({})"
+        .format(", ".join("'{}'".format(u) for u in core)))
+    if error:
+        return [], ["clearing accounts: {}".format(error)]
+    findings = []
+    for (account_uid,) in (r[:1] for r in closed if r):
+        _, product_account, status, since = core[account_uid]
+        findings.append({
+            "rule": "core and clearing agree on whether an account is closed",
+            "table": "direct_customer_account",
+            "subject": product_account,
+            "detail": "account {} reads {} in core, and clearing has soft-closed {}".format(
+                product_account, status, account_uid),
+            "expected": "soft_closed false in clearing",
+            "actual": "soft_closed true",
+            "row": list(core[account_uid]),
+        })
+    return findings[:limit], []
+
+
 def sweep(limit=LIMIT):
     """Run every chain check once, and return what broke and what could not be read.
 
@@ -268,6 +311,9 @@ def sweep(limit=LIMIT):
             })
     paid, unread = payments_clearing_and_the_bank_disagree_on(limit)
     findings.extend(paid)
+    errors.extend(unread)
+    split, unread = accounts_core_and_clearing_disagree_on_closing(limit)
+    findings.extend(split)
     errors.extend(unread)
     return findings, errors
 
