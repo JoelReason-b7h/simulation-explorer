@@ -935,6 +935,28 @@ class Run:
             self.credits_since_poll += 1
         return call
 
+    # How long the run waits for core to settle a closure payout. In cycle 23 a returned closure
+    # read CLOSED holding 3.00 straight after the sweep, and 0.00 a few minutes later.
+    BALANCE_WAIT_SECONDS = 60
+
+    def settled_account_reading(self):
+        """Read the account until it holds nothing or the wait runs out, and answer the last read.
+
+        A refused payout never brings the balance to zero, so that case costs the whole wait.
+        """
+        deadline = time.monotonic() + self.BALANCE_WAIT_SECONDS
+        while True:
+            account = self.read("account") or {}
+            balance = account.get("balance")
+            try:
+                empty = balance is not None and Decimal(str(balance)) == 0
+            except ArithmeticError:
+                empty = False
+            if empty or time.monotonic() >= deadline:
+                return account
+            time.sleep(3)
+            self.settle_world()
+
     # How long the run waits for clearing to send a closure payment. Clearing sent one 12 seconds
     # after the closure sweep raised the withdrawal, so this leaves room for a slow stack.
     PAYMENT_WAIT_SECONDS = 90
@@ -1016,7 +1038,7 @@ class Run:
 
     def record_closure_injection(self, case, held, payment=None, note=None):
         """Read back what the injection left, and keep watching whether the account ever closes."""
-        account = self.read("account") or {}
+        account = self.settled_account_reading()
         observation = {
             "case": case,
             "trial": self.steps,
