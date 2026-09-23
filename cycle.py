@@ -17,7 +17,10 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[1]
+# The checkout whose compose files and launch scripts bring the stack up. The images are built from
+# origin/main, and main's compose and env files differ from this branch's old base, so the stack is
+# launched from a worktree at main that carries the toxiproxy changes the harness needs.
+REPO = Path(os.environ.get("SIM_STACK_REPO", HERE.parents[1]))
 
 
 # The ops credentials live in performance-testing/data/auth, which is gitignored, so this worktree

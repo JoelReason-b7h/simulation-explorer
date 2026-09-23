@@ -15,15 +15,16 @@ import subprocess
 
 CLEARING_DSN = os.environ.get(
     "SIM_CLEARING_DSN", "postgresql://clearing:password@localhost:5440/clearing")
+CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
 
 PAYMENT_COLUMNS = ("sid", "end_to_end_id", "creditor_reference", "amount", "status",
                    "payment_type", "status_desc", "from_account_identifier")
 
 
-def _psql(sql, timeout=60):
+def _psql(sql, timeout=60, dsn=CLEARING_DSN):
     try:
         done = subprocess.run(
-            ["psql", CLEARING_DSN, "-tA", "-F", "|", "-v", "ON_ERROR_STOP=1", "-c", sql],
+            ["psql", dsn, "-tA", "-F", "|", "-v", "ON_ERROR_STOP=1", "-c", sql],
             capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return []
@@ -59,6 +60,38 @@ def payment_by_sid(sid):
     """Read one payment again, which is how the run learns what the bank answered."""
     rows = _psql("SELECT {} FROM payment_initiation WHERE sid = {}".format(
         ", ".join(PAYMENT_COLUMNS), int(sid)))
+    if not rows:
+        return None
+    return dict(zip(PAYMENT_COLUMNS, rows[0]))
+
+
+def clearing_account_of(product_account_uid):
+    """The clearing internal account uid behind a core product account, or None."""
+    rows = _psql(
+        "SELECT eia.account_uid FROM direct_customer_account dca "
+        "JOIN customer_product_account cpa ON cpa.sid = dca.customer_product_account_sid "
+        "JOIN entity_internal_account eia ON eia.sid = dca.entity_internal_account_sid "
+        "WHERE cpa.uid = '{}'".format(str(product_account_uid).replace("'", "")), dsn=CORE_DSN)
+    return rows[0][0] if rows and rows[0] else None
+
+
+def payment_for_account_after(sid, clearing_account_uid):
+    """The first payment after the given row that pays out this account's dues, or None.
+
+    One closure sweep closes every account waiting for it, so the first payment after the injection
+    can belong to another account. In cycle 29 the run decided another account's group that way and
+    read the injected account, which it had never touched.
+    """
+    rows = _psql(
+        "SELECT {} FROM payment_initiation pi "
+        "JOIN payment_group pg ON pg.sid = pi.payment_group_sid "
+        "WHERE pi.sid > {} AND pi.is_return IS NOT TRUE AND EXISTS ("
+        "  SELECT 1 FROM partner_payment_due ppd "
+        "  JOIN internal_account ia ON ia.sid = ppd.account_sid "
+        "  WHERE ppd.aggregate_uid = pg.uid AND ia.account_uid = '{}') "
+        "ORDER BY pi.sid LIMIT 1".format(
+            ", ".join("pi." + c for c in PAYMENT_COLUMNS), int(sid),
+            str(clearing_account_uid).replace("'", "")))
     if not rows:
         return None
     return dict(zip(PAYMENT_COLUMNS, rows[0]))

@@ -460,10 +460,28 @@ class Run:
         held = self.held
         if not held.get("customerId") or not held.get("accountId"):
             return None
-        call = self.client.call(
-            "GET", "/direct/v1/customers/{customerId}/accounts/{accountId}/transactions".format(
-                **held))
-        return _rows(call.body) if call.ok else None
+        # The listing answers 50 rows a page, newest first. Summing the first page alone dropped the
+        # oldest deposit once an account passed 50 transactions, and the balance oracle reported a
+        # 3.00 gap eleven times on one account in cycle 29.
+        path = "/direct/v1/customers/{customerId}/accounts/{accountId}/transactions".format(**held)
+        rows = []
+        for page in range(self.TRANSACTION_PAGES):
+            call = self.client.call(
+                "GET", "{}?skip={}&take={}".format(path, page * self.TRANSACTION_PAGE,
+                                                   self.TRANSACTION_PAGE))
+            if not call.ok:
+                return None
+            chunk = _rows(call.body)
+            rows.extend(chunk)
+            if len(chunk) < self.TRANSACTION_PAGE:
+                return rows
+        # More rows than the run will read: an incomplete sum would report a false gap.
+        return None
+
+    # `take` allows 1000 (ExternalDirectCustomerTransactionPaginatedQueryBean), so one page covers
+    # nearly every account the run builds.
+    TRANSACTION_PAGE = 1000
+    TRANSACTION_PAGES = 5
 
     def pending_instructions(self, account_id=None, remember=True):
         """How many instructions are still in flight, for this customer or for one of its accounts.
@@ -926,7 +944,7 @@ class Run:
                 self.finalise_the_closure()
                 # The bank must still be rejecting when clearing sends the payment, and clearing
                 # sent one 12 seconds after the closure sweep raised the withdrawal.
-                self.wait_for_payment_after(before)
+                self.wait_for_payment_after(before, held.get("accountId"))
                 # Sending a payment is not the same as learning its outcome, so the rejection
                 # reaches clearing only once the status enquiry has run.
                 world.enquire_payment_status(self.ops)
@@ -936,7 +954,9 @@ class Run:
             self.faulted_boundary = None
         if close is None or not close.ok:
             return close
-        payment = ledger.payment_after(before)
+        clearing_account = ledger.clearing_account_of(held.get("accountId"))
+        payment = (ledger.payment_for_account_after(before, clearing_account) if clearing_account
+                   else None)
         if payment:
             payment = ledger.payment_by_sid(payment["sid"]) or payment
         observed = self.record_closure_injection("rejected", held, payment=payment)
@@ -1039,7 +1059,7 @@ class Run:
             if sent in ("APPROVE", "REJECT_DISAGGREGATE"):
                 # Both send a new payment: APPROVE in the same group, REJECT_DISAGGREGATE in a new
                 # group once the next send run aggregates the dues again.
-                resent = self.wait_for_payment_after(before)
+                resent = self.wait_for_payment_after(before, held.get("accountId"))
                 deadline = time.monotonic() + self.PAYMENT_WAIT_SECONDS
                 while resent and resent.get("status") not in ("ACSC", "RJCT") \
                         and time.monotonic() < deadline:
@@ -1123,15 +1143,18 @@ class Run:
     # after the closure sweep raised the withdrawal, so this leaves room for a slow stack.
     PAYMENT_WAIT_SECONDS = 90
 
-    def wait_for_payment_after(self, sid):
+    def wait_for_payment_after(self, sid, account_id=None):
         """Settle until clearing has sent the payment that follows `sid`, and answer it or None.
 
         Reading straight after the closure sweep found no payment and a CLOSED account still
-        holding its balance, and both were reported as money left behind.
+        holding its balance, and both were reported as money left behind. Given an account, only
+        a payment of that account's dues counts, because the sweep closes other accounts too.
         """
+        clearing_account = ledger.clearing_account_of(account_id) if account_id else None
         deadline = time.monotonic() + self.PAYMENT_WAIT_SECONDS
         while True:
-            payment = ledger.payment_after(sid)
+            payment = (ledger.payment_for_account_after(sid, clearing_account) if clearing_account
+                       else ledger.payment_after(sid))
             if payment or time.monotonic() >= deadline:
                 return payment
             time.sleep(3)
@@ -1169,7 +1192,7 @@ class Run:
         self.note_in_flight("closure payment", "a closure payment the bank returns",
                             held["accountId"])
         self.finalise_the_closure()
-        payment = self.wait_for_payment_after(before)
+        payment = self.wait_for_payment_after(before, held["accountId"])
         if not payment:
             return self.record_closure_injection(
                 "returned", held, note="closing raised no payment, so nothing could be returned")
