@@ -237,6 +237,49 @@ def duplicate_one_message(queue):
     return messages[0].get("MessageId")
 
 
+DEAD_LETTER_QUEUE = "e2e-dlq"
+
+
+def dead_letter_messages(limit=20):
+    """The messages waiting on the dead letter queue, read without taking them off it.
+
+    A zero visibility timeout leaves each message for the next read, and the dead letter queue has
+    no redrive of its own, so the extra receive it counts moves nothing. SQS hands back at most ten
+    messages a read and picks them itself, so several reads collect the set.
+    Returns the messages and the error the read gave, if it gave one.
+    """
+    found = {}
+    for _ in range(5):
+        got = _aws("sqs", "receive-message", "--queue-url", QUEUE.format(DEAD_LETTER_QUEUE),
+                   "--visibility-timeout", "0", "--max-number-of-messages", "10",
+                   "--attribute-names", "All", "--message-attribute-names", "All")
+        if not got:
+            return [], "the aws command could not run"
+        if got.returncode != 0:
+            return [], got.stderr.strip()[:300]
+        if not got.stdout.strip():
+            break
+        try:
+            messages = json.loads(got.stdout).get("Messages") or []
+        except ValueError:
+            return [], "the queue answered with something that is not JSON"
+        if not messages:
+            break
+        for message in messages:
+            attributes = message.get("Attributes") or {}
+            source = attributes.get("DeadLetterQueueSourceArn") or "an unnamed queue"
+            found[message["MessageId"]] = {
+                "id": message["MessageId"],
+                "source": source.rsplit(":", 1)[-1],
+                "receives": attributes.get("ApproximateReceiveCount"),
+                "sentAt": attributes.get("SentTimestamp"),
+                "body": (message.get("Body") or "")[:300],
+            }
+        if len(found) >= limit:
+            break
+    return list(found.values())[:limit], None
+
+
 def stop_service(which, timeout=60):
     """Stop a service, leaving its queues to fill up behind it."""
     container = RESTARTABLE.get(which)

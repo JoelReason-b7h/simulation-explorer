@@ -343,6 +343,11 @@ section{margin-bottom:2.2rem}
     </section>
 
     <section>
+      <h2>Notice closures <small>a NOTICE account closed after its partial withdrawal fell due</small></h2>
+      <div id="notice-closures"></div>
+    </section>
+
+    <section>
       <h2>Transition chains <small>rows in core that name the state before them</small></h2>
       <div id="chains"></div>
     </section>
@@ -663,7 +668,8 @@ function drawPlan(plan){
 
 function render(d){
   document.getElementById('meta').textContent =
-    'run ' + d.run_id + ' · ' + d.base_url + ' · platform ' + (d.platform_uid || '—').slice(0, 8);
+    'run ' + d.run_id + ' · ' + d.base_url + ' · platform ' + (d.platform_uid || '—').slice(0, 8) +
+    (d.products ? ' · products ' + Object.keys(d.products).join(', ') : '');
 
   const beat = document.getElementById('beat');
   beat.textContent = d.finished ? 'finished' : 'running';
@@ -736,6 +742,17 @@ function render(d){
         ' ' + (p.amount || '') : ' · no payment was raised') +
       (c.note ? ' · ' + c.note : '') + '</div></div>';
   }).join('') || '<p class="none">No closure payment has been made to fail yet.</p>';
+
+  const noticeEl = document.getElementById('notice-closures');
+  if (noticeEl) noticeEl.innerHTML = (d.noticeClosures || []).map(function(c){
+    return '<div class="find"><p>closed <b>' + c.order + '</b> the notice processor, and the ' +
+      'close answered <b>' + c.closeStatus + '</b>; the account reads <b>' +
+      (c.statusAfter || 'unknown') + '</b> holding <b>' + (c.balanceAfter === null ||
+        c.balanceAfter === undefined ? 'unknown' : c.balanceAfter) + '</b></p>' +
+      '<div class="who">trial ' + c.trial + ' · account ' + String(c.accountId || '').slice(0, 8) +
+      ' · partial ' + c.partialStatus + ' · processor ' + c.processorStatus +
+      (c.closeMessage ? ' · ' + c.closeMessage : '') + '</div></div>';
+  }).join('') || '<p class="none">No notice closure has run yet.</p>';
 
   const decEl = document.getElementById('decisions');
   if (decEl) decEl.innerHTML = (d.operatorDecisions || []).map(function(o){
@@ -816,6 +833,8 @@ function render(d){
         ? 'not yet' : ch.sweptSecondsAgo + 's ago') + ' · ' +
       broken.length + ' broken chains · ' + ((ch.errors || []).length) +
       ' queries the database refused</p>' +
+      ((ch.rules || []).length
+        ? '<p class="none">checks: ' + ch.rules.join(' · ') + '</p>' : '') +
       broken.map(function(v){
         return '<div class="find bad"><p>' + v.detail + '</p><div class="who">' + v.rule +
           ' · ' + (v.table || '') + ' · seen ' + (v.count || 1) + '</div></div>';

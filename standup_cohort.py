@@ -31,6 +31,7 @@ PLATFORM_NAME = "Harness Direct Platform"
 PRODUCT_NAME = "Harness Instant Access"
 TERM_PRODUCT_NAME = "Harness One Year Term"
 SHORT_TERM_PRODUCT_NAME = "Harness One Month Term"
+NOTICE_PRODUCT_NAME = "Harness Two Day Notice"
 
 
 def today():
@@ -151,6 +152,24 @@ def short_term_product_body(bank_uid):
     body["periodFeature"] = {
         "noticePeriod": 0, "termPeriod": 1, "coolOffPeriod": "NONE",
         "sayePeriod": None, "earlyWithdrawalPenaltyDays": None}
+    return body
+
+
+def notice_product_body(bank_uid):
+    """A two-day NOTICE product, so a notice withdrawal and a notice closure are reachable.
+
+    ProductTypeValidator refuses a notice period below one day. The due date is core's own date
+    plus the notice period, and nothing in the run moves core's clock, so NoticeFallsDue brings a
+    withdrawal due rather than waiting two real days for it.
+    """
+    body = product_body(bank_uid)
+    body["externalId"] = "harness-notice-a"
+    body["name"] = NOTICE_PRODUCT_NAME
+    body["productType"] = "NOTICE"
+    body["periodFeature"] = {
+        "noticePeriod": 2, "termPeriod": 0, "coolOffPeriod": "NONE",
+        "sayePeriod": None, "earlyWithdrawalPenaltyDays": None}
+    body["rateDetail"] = {"grossRate": 0.04, "startDate": today()}
     return body
 
 
@@ -276,6 +295,14 @@ def main():
              "/operations/approvals/{}/accept".format(uid_from(short_proposal.body)), {}).body)
     print("      shortTermProductUid {}".format(short_term_uid))
 
+    notice_proposal = step(ops, "propose the two day NOTICE product", "POST",
+                           "/operations/proposals/banks/{}/products".format(bank_uid),
+                           notice_product_body(bank_uid))
+    notice_uid = uid_from(
+        step(ops, "approve the two day NOTICE product", "POST",
+             "/operations/approvals/{}/accept".format(uid_from(notice_proposal.body)), {}).body)
+    print("      noticeProductUid {}".format(notice_uid))
+
     platform = step(ops, "create the POOLED direct platform", "POST",
                     "/operations/platforms", platform_body(bank_uid))
     platform_uid = uid_from(platform.body)
@@ -289,6 +316,9 @@ def main():
 
     step(ops, "grant one month TERM access with a zero fee", "POST",
          "/operations/own/access", access_body(bank_uid, platform_uid, short_term_uid))
+
+    step(ops, "grant NOTICE product access with a zero fee", "POST",
+         "/operations/own/access", access_body(bank_uid, platform_uid, notice_uid))
 
     step(ops, "schedule accruals and realisations", "POST",
          "/operations/banks/{}/schedules/ACCRUALS_AND_REALISATIONS".format(bank_uid),

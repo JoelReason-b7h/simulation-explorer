@@ -141,6 +141,10 @@ class Run:
         # The trial the run last tried an injection on, so the attempts spread out rather than
         # firing on consecutive trials against a pool that has not settled yet.
         self.closure_forced_at = 0
+        # What each notice closure injection did, and the counters that space the attempts out.
+        self.notice_closures = []
+        self.notice_attempts = 0
+        self.notice_forced_at = 0
 
     @property
     def held(self):
@@ -1372,6 +1376,9 @@ class Run:
             "FundAccountInterrupted": type(self).fund_account_interrupted,
             "AdvanceBusinessDay": type(self).advance_business_day,
             "ProcessClosures": type(self).process_closures,
+            "NoticeFallsDue": type(self).notice_falls_due,
+            "ProcessDueNotice": type(self).process_due_notice,
+            "CloseNoticeAfterDue": type(self).close_notice_after_due,
             "SetKycStatus": type(self).set_kyc_status,
             "SlowTheBank": type(self).slow_the_bank,
             "BreakTheBank": type(self).break_the_bank,
@@ -1655,6 +1662,177 @@ class Run:
         call = world.process_closures(self.ops)
         self.check_watched_closures()
         return call
+
+    def notice_falls_due(self):
+        """Bring this NOTICE account's waiting withdrawals due, then run the notice processor."""
+        held = self.held
+        if (self.subjects[self.current].get("productType") or "INSTANT") != "NOTICE":
+            return Call("POST", "notice-falls-due", 412,
+                        {"message": "only a NOTICE account has a notice withdrawal to fall due"}, 0)
+        moved = world.bring_notice_due(held.get("accountId"))
+        if moved is None:
+            return Call("POST", "notice-falls-due", 412,
+                        {"message": "core could not be read to bring the notice due"}, 0)
+        if not moved:
+            return Call("POST", "notice-falls-due", 409,
+                        {"message": "the account has no notice withdrawal waiting"}, 0)
+        self.note_in_flight("notice", "a notice withdrawal brought due and raised",
+                            held.get("accountId"))
+        return world.process_due_notice(self.ops)
+
+    # The two orders the injection alternates between. "after": the processor raises the partial
+    # withdrawal and settles it, then the customer closes. "during": the close and the processor
+    # start together, so the close can land between the processor's read and its raise.
+    NOTICE_CLOSURE_ORDERS = ("after", "during")
+    NOTICE_PARTIAL = "1.00"
+    TRIALS_BEFORE_A_NOTICE_CLOSURE = 40
+    NOTICE_ATTEMPTS_ALLOWED = 10
+    NOTICE_SETTLE_ROUNDS = 6
+
+    def notice_subject(self):
+        """Stand on a NOTICE account that can take a partial withdrawal, funding it if need be."""
+        saved = self.current
+        refusals = []
+        for i, subject in enumerate(self.subjects):
+            if subject.get("closed") or not subject.get("customerId"):
+                continue
+            if (subject.get("productType") or "INSTANT") != "NOTICE":
+                continue
+            if not subject.get("accountId") or not subject.get("accountReference"):
+                continue
+            self.current = i
+            self.point_at_an_open_account()
+            account = self.read("account") or {}
+            if account.get("status") not in ("OPEN", "REQUESTED"):
+                refusals.append("the NOTICE account reads {}".format(account.get("status")))
+                continue
+            if self.pending_instructions(account_id=subject["accountId"], remember=False):
+                self.pay_off_batches()
+                self.settle_world()
+                self._pending_cache = {}
+                if self.pending_instructions(account_id=subject["accountId"], remember=False):
+                    refusals.append("the NOTICE account has an instruction in flight")
+                    continue
+                account = self.read("account") or {}
+            if self.balance_of(account) <= Decimal(self.NOTICE_PARTIAL):
+                # Core refuses a deposit line with "Customer is not in a state to deposit" unless
+                # the customer is ACTIVATED, and the batch still answers 200. The one NOTICE
+                # customer of cycle 42 was born PENDING, so every funding moved nothing.
+                if not self.activate_for_deposit(subject["customerId"]):
+                    refusals.append("the NOTICE customer did not become ACTIVATED")
+                    continue
+                funded = self.fund_account()
+                self._pending_cache = {}
+                account = self.read("account") or {}
+                if self.balance_of(account) <= Decimal(self.NOTICE_PARTIAL):
+                    refusals.append("funding the NOTICE account answered {} and moved nothing"
+                                    .format(getattr(funded, "status", "nothing")))
+                    continue
+            return self.held, None
+        self.current = saved
+        return None, "; ".join(sorted(set(refusals))[:3]) or "no NOTICE account in the pool"
+
+    ACTIVATION_WAIT_SECONDS = 30
+
+    def activate_for_deposit(self, customer_id):
+        """Make the customer ACTIVATED through the simulator, and wait until core reads it."""
+        def status():
+            call = self.client.call("GET", "/direct/v1/customers/{}".format(customer_id))
+            return call.body.get("customerStatus") if call.ok and isinstance(call.body, dict) else None
+        if status() == "ACTIVATED":
+            return True
+        if not self.sim or not getattr(world.set_kyc_status(self.sim, customer_id, "ACTIVATED"),
+                                       "ok", False):
+            return False
+        deadline = time.monotonic() + self.ACTIVATION_WAIT_SECONDS
+        while time.monotonic() < deadline:
+            if status() == "ACTIVATED":
+                return True
+            time.sleep(2)
+        return False
+
+    @staticmethod
+    def balance_of(account):
+        try:
+            return Decimal(str(account.get("balance") or "0"))
+        except (ArithmeticError, ValueError):
+            return Decimal("0")
+
+    def close_notice_after_due(self):
+        """Close a NOTICE account whose partial withdrawal is already due and being raised.
+
+        `orchestrateNoticeClosureRequest` cancels every pending partial withdrawal on status alone,
+        so a partial that the notice processor has already raised is cancelled while its money
+        still moves. The payout then cannot complete a CANCELLED instruction. The sweep judges what
+        is left: a cancelled withdrawal that pays out, and a message on the dead letter queue.
+        """
+        live = self.live_fault()
+        if live:
+            return Call("POST", "close-notice-after-due", 412,
+                        {"message": "{} is already injected".format(live)}, 0)
+        self.notice_attempts += 1
+        self.notice_forced_at = self.steps
+        held, refused = self.notice_subject()
+        if not held:
+            return Call("POST", "close-notice-after-due", 412, {"message": refused}, 0)
+        order = self.NOTICE_CLOSURE_ORDERS[
+            len(self.notice_closures) % len(self.NOTICE_CLOSURE_ORDERS)]
+        partial = self.client.call(
+            "POST", "/direct/v1/customers/{customerId}/accounts/{accountId}/instruction"
+                    .format(**held),
+            json_body={"instructionRequestType": "WITHDRAW", "productId": held["productId"],
+                       "amount": self.NOTICE_PARTIAL,
+                       "instructionReference": self.mint("n", 36)})
+        if not partial.ok:
+            return partial
+        if not world.bring_notice_due(held["accountId"]):
+            return Call("POST", "close-notice-after-due", 412,
+                        {"message": "the partial withdrawal left no notice row to bring due"}, 0)
+        close_path = ("/direct/v1/customers/{customerId}/accounts/{accountId}/close"
+                      "?reason=NO_LONGER_NEEDED".format(**held))
+        if order == "after":
+            processed = world.process_due_notice(self.ops)
+            self.settle_world()
+            close = self.client.call("POST", close_path)
+        else:
+            (processed, close), _ = race.fire([
+                lambda: world.process_due_notice(self.ops),
+                lambda: self.client.call("POST", close_path),
+            ])
+        self.note_in_flight("notice", "a notice closure after the partial fell due",
+                            held["accountId"])
+        # The partial's payout reaches the consumer that fails only once the bank has paid it and
+        # clearing has read that debit, so poll and enquire rather than settle alone.
+        for _ in range(self.NOTICE_SETTLE_ROUNDS):
+            world.enquire_payment_status(self.ops)
+            world.poll_bank_transactions(self.ops)
+            world.drain_transactions(self.ops)
+            world.settle_payments(self.ops)
+            time.sleep(5)
+        self.sweeps += 1
+        account = self.read("account") or {}
+        body = getattr(close, "body", None)
+        self.notice_closures.append({
+            "order": order,
+            "trial": self.steps,
+            "customerId": held.get("customerId"),
+            "accountId": held.get("accountId"),
+            "partialStatus": partial.status,
+            "processorStatus": getattr(processed, "status", None),
+            "closeStatus": getattr(close, "status", None),
+            "closeMessage": body.get("message") if isinstance(body, dict) else None,
+            "statusAfter": account.get("status"),
+            "balanceAfter": account.get("balance"),
+        })
+        print("  -- notice closure {}: account {} close answered {}, account reads {} holding {}"
+              .format(order, (held.get("accountId") or "?")[:8], getattr(close, "status", None),
+                      account.get("status"), account.get("balance")))
+        return close
+
+    def process_due_notice(self):
+        """Run the notice processor, which raises every notice withdrawal already due."""
+        self.note_in_flight("notice", "a notice processor run")
+        return world.process_due_notice(self.ops)
 
     def place_batch(self):
         """A new batch across as many customers as the pool offers, unpaid, alongside any others.
@@ -2319,6 +2497,15 @@ class Run:
             wanted = self.CLOSURE_INJECTIONS[len(self.closure_injections)]
             if self.someone_can(wanted):
                 return wanted
+        # One notice closure of each order per run, forced for the same reason as the closure
+        # payments: the path is four actions deep, on a product that few customers open.
+        if (len(self.notice_closures) < len(self.NOTICE_CLOSURE_ORDERS)
+                and not self.live_fault()
+                and self.notice_attempts < self.NOTICE_ATTEMPTS_ALLOWED
+                and self.steps >= self.TRIALS_BEFORE_A_NOTICE_CLOSURE
+                and self.steps - self.notice_forced_at >= self.TRIALS_BETWEEN_CLOSURE_ATTEMPTS
+                and self.someone_can("CloseNoticeAfterDue")):
+            return "CloseNoticeAfterDue"
         return None
 
     def ruled_out_here(self, name):
@@ -2778,6 +2965,7 @@ class Run:
                 "run_id": self.run_id,
                 "base_url": self.client.base_url,
                 "platform_uid": self.platform_uid,
+                "products": {label: kind for label, (kind, _) in sorted(self.products.items())},
                 "trials": self.log,
                 "summary": self.explorer.summary(),
                 "frontier": [{"key": list(k), "visits": v, "untried": sorted(u)}
@@ -2806,12 +2994,14 @@ class Run:
                 "transitions": self.explorer.transitions(),
                 "chains": {
                     "sweeps": self.chain_sweeps,
+                    "rules": integrity.SWEEP_RULES,
                     "errors": self.chain_errors,
                     "sweptSecondsAgo": (round(time.time() - self.chain_swept_at)
                                         if self.chain_swept_at else None),
                 },
                 "closurePayments": self.closure_injections,
                 "operatorDecisions": self.operator_decisions,
+                "noticeClosures": self.notice_closures,
                 "operatorQueues": getattr(self, "operator_queues", None),
                 "inFlight": self.in_flight_now(),
             }, handle, indent=2)

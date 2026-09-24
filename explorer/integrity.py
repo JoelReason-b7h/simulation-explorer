@@ -18,6 +18,8 @@ from __future__ import annotations
 import os
 import subprocess
 
+from explorer import faults
+
 CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
 
 # How many broken rows one query reports. A chain that breaks across a whole cohort would put
@@ -287,6 +289,92 @@ def accounts_core_and_clearing_disagree_on_closing(limit=LIMIT):
     return findings[:limit], []
 
 
+def cancelled_withdrawals_that_pay_out(limit=LIMIT):
+    """CANCELLED withdrawals whose money still left savings or still went to the nominated account.
+
+    A cancelled withdrawal is right to carry dues only when the bank refused the payout and an
+    operator sent REJECT_FAIL, which leaves its PLATFORM due FAILED. Otherwise:
+
+    - an INTERNAL due that is PRODUCED moved the money from savings to the cash account, and
+    - a PLATFORM due that is EXPECTED, SENT or PRODUCED pays the nominated account.
+
+    Closing a NOTICE account does both: the notice processor raises the partial withdrawal, the
+    close cancels it on status alone, and the close then drains the cash account. Clearing never
+    stores core's PLATFORM due in that case, so the INTERNAL due is the one that shows it. The two
+    databases share only the due uid.
+    """
+    rows, error = _psql_on(CORE_DSN,
+        "SELECT p.payment_due_uid, p.payment_due_type, i.uid, i.amount, i.full_balance_withdrawal "
+        "FROM direct_customer_instruction i "
+        "JOIN payment_due_direct_customer_instruction p ON p.direct_instruction_sid = i.sid "
+        "WHERE i.status = 'CANCELLED' AND i.instruction_type = 'WITHDRAWAL' "
+        "ORDER BY i.sid DESC LIMIT 1000")
+    if error:
+        return [], ["cancelled withdrawals: {}".format(error)]
+    dues = {r[0]: r for r in rows if len(r) > 4}
+    if not dues:
+        return [], []
+    statuses, error = _psql_on(CLEARING_DSN,
+        "SELECT uid, payment_status FROM partner_payment_due WHERE uid IN ({})"
+        .format(", ".join("'{}'".format(u) for u in dues)))
+    if error:
+        return [], ["the dues of cancelled withdrawals: {}".format(error)]
+    status_of = {r[0]: r[1] for r in statuses if len(r) > 1}
+    by_instruction = {}
+    for due_uid, due_type, instruction, amount, full in dues.values():
+        held = by_instruction.setdefault(instruction, {"amount": amount, "full": full, "dues": []})
+        held["dues"].append((due_type, due_uid, status_of.get(due_uid, "absent")))
+    findings = []
+    for instruction, held in by_instruction.items():
+        platform_failed = any(t == "PLATFORM" and s == "FAILED" for t, _, s in held["dues"])
+        moved = [(t, u, s) for t, u, s in held["dues"]
+                 if (t == "INTERNAL" and s == "PRODUCED")
+                 or (t == "PLATFORM" and s in ("EXPECTED", "SENT", "PRODUCED"))]
+        if platform_failed or not moved:
+            continue
+        findings.append({
+            "rule": "a cancelled withdrawal pays nothing out",
+            "table": "direct_customer_instruction",
+            "subject": instruction,
+            "detail": "withdrawal {} of {} (full balance {}) is CANCELLED, and clearing holds {}"
+                      .format(instruction, held["amount"], held["full"], ", ".join(
+                          "its {} due {} {}".format(t, u, s) for t, u, s in held["dues"])),
+            "expected": "no INTERNAL due PRODUCED and no live PLATFORM due",
+            "actual": ", ".join("{} {}".format(t, s) for t, _, s in moved),
+            "row": [instruction] + [u for _, u, _ in held["dues"]],
+        })
+    return findings[:limit], []
+
+
+def dead_letters(limit=LIMIT):
+    """Messages that failed on every delivery and went to the dead letter queue.
+
+    Every queue on the local stack sends to `e2e-dlq` after 8 receives, so a consumer that throws
+    for good leaves its message here and nothing else in the stack reports it. The message id is
+    the subject, so the run's baseline keeps a message from an earlier run out of the findings.
+    """
+    found, error = faults.dead_letter_messages(limit)
+    if error:
+        return [], ["the dead letter queue: {}".format(error)]
+    return [{
+        "rule": "no message goes to the dead letter queue",
+        "table": faults.DEAD_LETTER_QUEUE,
+        "subject": message["id"],
+        "detail": "a message from {} failed {} deliveries: {}".format(
+            message["source"], message["receives"], message["body"]),
+        "row": [message["id"], message["source"], message["sentAt"]],
+    } for message in found], []
+
+
+# Every rule the sweep applies, so the live page can name the checks that found nothing.
+SWEEP_RULES = [rule for rule, _, _, _ in CHECKS] + [
+    "clearing and the bank agree on how a payment ended",
+    "core and clearing agree on whether an account is closed",
+    "a cancelled withdrawal pays nothing out",
+    "no message goes to the dead letter queue",
+]
+
+
 def sweep(limit=LIMIT):
     """Run every chain check once, and return what broke and what could not be read.
 
@@ -314,6 +402,12 @@ def sweep(limit=LIMIT):
     errors.extend(unread)
     split, unread = accounts_core_and_clearing_disagree_on_closing(limit)
     findings.extend(split)
+    errors.extend(unread)
+    paid_out, unread = cancelled_withdrawals_that_pay_out(limit)
+    findings.extend(paid_out)
+    errors.extend(unread)
+    dead, unread = dead_letters(limit)
+    findings.extend(dead)
     errors.extend(unread)
     return findings, errors
 

@@ -211,6 +211,18 @@ CORE_SIDE = [
     # Finishes an account that CloseAccount left at CLOSING. Same placeholder path, same reason.
     Action("ProcessClosures", "POST", "/direct/v1/batches",
            needs=["accountId"], entity="account"),
+    # Brings this account's waiting notice withdrawals due, then runs the notice processor, which
+    # the 03:00 cron does. Grouped because a due date with no processor run moves no money, and a
+    # race against CloseAccount then lands the close while the processor raises the withdrawal.
+    Action("NoticeFallsDue", "POST", "/direct/v1/batches",
+           needs=["accountId"], entity="account"),
+    # Places a partial withdrawal on a NOTICE account, brings it due, and closes the account
+    # after or during the processor run. The driver forces it; see close_notice_after_due.
+    Action("CloseNoticeAfterDue", "POST", "/direct/v1/batches",
+           needs=["customerId", "accountId", "accountReference"], entity="account"),
+    # The notice processor alone, for every account whose notice is already due.
+    Action("ProcessDueNotice", "POST", "/direct/v1/batches",
+           needs=["accountId"], entity="account"),
     # Fault injection: forces the customer's compliance status through the simulator. The path is
     # a placeholder, because set_kyc_status posts to the simulator rather than the Direct API.
     Action("SetKycStatus", "POST", "/direct/v1/customers",
@@ -289,13 +301,13 @@ CORE_SIDE = [
 
 # Spends the entity, so the driver forks rather than burning its only one.
 SPENDS = {"CloseCustomer", "CloseAccount", "CancelAccountOpening",
-          "RejectClosurePayment", "ReturnClosurePayment"}
+          "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue"}
 
 # Actions the run never races, against each other or against anything else. Each one changes the
 # bank simulator for the whole stack and then puts it back, so two of them at once leave the bank
 # in whichever state the slower one restored, and neither result means anything. One run raced
 # RejectClosurePayment against itself and the returned closure was never tried at all.
-NEVER_RACED = {"RejectClosurePayment", "ReturnClosurePayment"}
+NEVER_RACED = {"RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue"}
 
 # Acts on the whole stack rather than on the entity the driver is standing on. A world action
 # conflicts with nothing, so it takes no part in the limit on how many calls of a race may win.
@@ -307,10 +319,10 @@ EXPENSIVE_FAULTS = {
     "SlowBankForClearing", "BreakBankForClearing",
     "RestartClearing", "RestartCore", "RestartBank",
     "FundAccountInterrupted", "FundAccountDuplicated", "DuplicateMessages",
-    "RejectClosurePayment", "ReturnClosurePayment",
+    "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
 }
 
-WORLD = {"SettleWorld", "AdvanceBusinessDay", "ProcessClosures",
+WORLD = {"SettleWorld", "AdvanceBusinessDay", "ProcessClosures", "ProcessDueNotice",
          "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
          "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
          "RestartClearing", "RestartCore", "RestartBank",

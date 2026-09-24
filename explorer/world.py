@@ -6,7 +6,10 @@ unless the harness asks; each call below stands in for a cron that would otherwi
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
+import uuid
 from datetime import date
 from pathlib import Path
 
@@ -130,6 +133,49 @@ def enquire_payment_status(ops_client):
 def process_closures(ops_client):
     """Sweeps every account sitting at CLOSING, which is what finishes a close."""
     return ops_client.call("POST", PROCESS_CLOSURES)
+
+
+def process_due_notice(ops_client):
+    """Raises every notice withdrawal whose due date has come, which the 03:00 cron does.
+
+    DirectNoticeWithdrawalOperations reads the due rows in one transaction and raises them in a
+    second one, and it locks an account only when that account already reads CLOSING, so a close
+    that lands between the two is the case worth racing against it.
+    """
+    return ops_client.call("POST", PROCESS_DUE_NOTICE)
+
+
+CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
+
+
+def bring_notice_due(account_uid):
+    """Moves the account's waiting notice withdrawals to fall due today, in core's own date.
+
+    The due date is core's date plus the notice period, and the run never moves core's clock,
+    because every timestamp core writes would move with it. The acceptance helper TimeTravel moves
+    payment dues the same way. Returns how many rows moved, or None when core could not be read.
+    """
+    try:
+        uuid.UUID(str(account_uid))
+    except ValueError:
+        return None
+    sql = (
+        "UPDATE direct_customer_account_notice n "
+        "SET due_date = (now() AT TIME ZONE 'Europe/London')::date "
+        "FROM direct_customer_instruction i "
+        "JOIN direct_customer_account dca ON dca.sid = i.direct_customer_account_sid "
+        "JOIN customer_product_account cpa ON cpa.sid = dca.customer_product_account_sid "
+        "WHERE n.direct_instruction_sid = i.sid AND n.processed_at IS NULL "
+        "AND n.due_date > (now() AT TIME ZONE 'Europe/London')::date "
+        "AND cpa.uid = '{}' RETURNING n.sid".format(account_uid))
+    try:
+        done = subprocess.run(["psql", CORE_DSN, "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                              capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    return len([line for line in done.stdout.splitlines() if line.strip().isdigit()])
 
 
 def settle_payments(ops_client):
