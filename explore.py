@@ -578,11 +578,11 @@ class Run:
         if not isinstance(body, dict):
             return
         target = self.subjects[self.current]
-        if action_name == "CreateCustomer" and body.get("customerId") and target.get("customerId"):
+        if action_name in actions.CREATES and body.get("customerId") and target.get("customerId"):
             target = {}
             self.subjects.append(target)
             self.current = len(self.subjects) - 1
-        if action_name == "CreateCustomer" and not target.get("productId"):
+        if action_name in actions.CREATES and not target.get("productId"):
             product_type, product_id = self.product_for_new_subject()
             target["productId"] = product_id
             target["productType"] = product_type
@@ -592,7 +592,8 @@ class Run:
                       "batchPaymentReference"):
             if body.get(field):
                 target[field] = body[field]
-        if action_name in ("CreateCustomer", "OpenAccount") and target.get("customerId"):
+        if ((action_name in actions.CREATES or action_name == "OpenAccount")
+                and target.get("customerId")):
             fleet.share_subject(target["customerId"], body.get("accountId"),
                                 target.get("productId"))
         if body.get("accountId"):
@@ -1551,6 +1552,7 @@ class Run:
             "ProcessDueNotice": type(self).process_due_notice,
             "CloseNoticeAfterDue": type(self).close_notice_after_due,
             "SetKycStatus": type(self).set_kyc_status,
+            "CreateKycFailedCustomer": type(self).create_kyc_failed_customer,
             "SlowTheBank": type(self).slow_the_bank,
             "BreakTheBank": type(self).break_the_bank,
             "SlowClearing": type(self).slow_clearing,
@@ -1808,6 +1810,25 @@ class Run:
         # The simulator answers with no body, so the trial would record no change at all. Read the
         # customer back, which is the state the run actually wants to see.
         return self.client.call("GET", "/direct/v1/customers/{}".format(held["customerId"]))
+
+    def create_kyc_failed_customer(self):
+        """Create a customer whose surname makes the compliance simulator fail its first KYC check.
+
+        Refused while too much of the pool is already stopped, for the same reason SetKycStatus
+        falls back to ACTIVATED: a pool of stopped customers can open and fund nothing.
+        """
+        if self.too_many_stopped():
+            return Call("POST", "create-kyc-failed-customer", 412,
+                        {"message": "too many live customers already sit outside ACTIVATED"}, 0)
+        method, path, body = actions.BY_NAME["CreateKycFailedCustomer"].build(
+            self.held, self.mint)
+        call = self.client.call(method, path, json_body=body)
+        if getattr(call, "ok", False) and isinstance(call.body, dict):
+            # The check result comes back through compliance's queue, so the stop lands on a later
+            # trial than the create.
+            self.note_in_flight("compliance", "a KYC failure for {}".format(
+                body["person"]["lastName"]), call.body.get("customerId"))
+        return call
 
     def advance_business_day(self):
         """Puts the cohort's bank one business day forward, accruing and realising over that day.

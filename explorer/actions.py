@@ -52,7 +52,26 @@ def surname_for(reference):
     return SURNAMES[sum(ord(c) for c in reference[-5:]) % len(SURNAMES)]
 
 
+# The surnames that stop a customer at the first KYC check, and only those. The draw above leaves
+# a failure to chance, so a short run can make none; CreateKycFailedCustomer asks for one outright.
+# Each token is one the acceptance suite already uses, and none of them contains "pass", which
+# DefaultCheckResponseProcessor tests first and which would clear the IDV check.
+FAILING_SURNAMES = ("Pep", "Sanc", "Idv", "Advm")
+
+
+def failing_surname_for(reference):
+    return FAILING_SURNAMES[sum(ord(c) for c in reference[-5:]) % len(FAILING_SURNAMES)]
+
+
 def customer_body(held, mint):
+    return person_body(mint, surname_for)
+
+
+def kyc_failed_customer_body(held, mint):
+    return person_body(mint, failing_surname_for)
+
+
+def person_body(mint, surname):
     reference = mint("cust", 128)
     return {
         "accountHolderType": "INDIVIDUAL",
@@ -70,7 +89,7 @@ def customer_body(held, mint):
         }],
         "person": {
             "title": "MR", "firstName": "Sim",
-            "lastName": "Explorer {}".format(surname_for(reference)),
+            "lastName": "Explorer {}".format(surname(reference)),
             "dateOfBirth": "1995-03-07",
             "address": {
                 "addressLine1": "123 Example Street", "addressLine2": "Flat 4B",
@@ -169,6 +188,10 @@ def nominated_account_body(held, mint):
 CORE_SIDE = [
     Action("CreateCustomer", "POST", "/direct/v1/customers",
            body=customer_body, entity="customer"),
+    # A customer compliance stops at birth. Driven, so that it can refuse while too much of the
+    # pool already sits outside ACTIVATED; see create_kyc_failed_customer.
+    Action("CreateKycFailedCustomer", "POST", "/direct/v1/customers",
+           body=kyc_failed_customer_body, entity="customer"),
     Action("ReadCustomer", "GET", "/direct/v1/customers/{customerId}",
            needs=["customerId"], entity="customer"),
     Action("ReadBalances", "GET", "/direct/v1/customers/{customerId}/balances",
@@ -342,13 +365,14 @@ WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", 
          "RestartClearing", "RestartCore", "RestartBank",
          "DuplicateMessages", "StopDuplicating"}
 
-# Actions whose after-read looks at a DIFFERENT object than the before-read. Only CreateCustomer
-# qualifies: it moves the driver onto the new customer, so an edge from the old customer's state
-# to the new one's reading is fabricated, and the run walked that false edge in a loop.
+# Actions whose after-read looks at a DIFFERENT object than the before-read. Only the two customer
+# creations qualify: each moves the driver onto the new customer, so an edge from the old
+# customer's state to the new one's reading is fabricated, and the run walked that false edge in
+# a loop.
 #
 # OpenAccount and FundAccount also create something, but they act on the same customer and the
 # same account slot, so `account absent -> account REQUESTED` and `OPEN zero -> OPEN positive`
 # are real edges. Excluding them left the learned graph with 3 moving edges across 15 states.
-CREATES = {"CreateCustomer"}
+CREATES = {"CreateCustomer", "CreateKycFailedCustomer"}
 
 BY_NAME = {action.name: action for action in CORE_SIDE}
