@@ -88,6 +88,16 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     holds as RJCT while the bank paid it, so this is most likely finding 1 seen from the account's
     side. Not proven without the rows, which the wipe removed.
 
+14. **A TERM account opens for a requested amount far above the product's deposit maximum.**
+    `DirectAccountValidator.validateAccountOpeningOrder` (`DirectAccountValidator.java:46-65`) checks
+    only that a TERM amount is present; `AccountOpeningRequest.orderAmount` carries no bound, and
+    nothing compares it with `depositRequirementMax` or `maximumAvailable` (the latter is read by no
+    validator at all). Fleet 11 opened one for 99999999999999.99 against a maximum of 1000000 and got
+    201. The deposit maximum is still enforced when money arrives (`MaxDepositValidator`, in
+    `DIRECT_RAIL_POST_POLICY`), so no money is at risk; the stored `requested_amount` is shown to the
+    platform while the account is REQUESTED, and a REQUESTED account blocks a second opening on the
+    product. Low severity. Evidence: `fleet11-p1.json`.
+
 Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
 platforms' sweeps were in flight (8 in fleets 3 and 4). The wipe removed their stack traces; from
 fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`.
