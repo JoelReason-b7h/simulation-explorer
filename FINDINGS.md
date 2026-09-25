@@ -18,6 +18,12 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    Near SAV-11636, and a separate defect. Evidence: cycle 48, `060b83a9` (`chain48.json`).
    Again in fleet 5: PaymentSettled for account `71cc626a`, CLOSING, went to the DLQ after 13
    deliveries (`fleet5-p0.json`, stack in `archive/fleet5.tgz`).
+   Fleet 10 shows the other face of it: `PaymentInformationSqsConsumer` fails with "Unable to find
+   direct accounts for payment dues" from `PaymentDueDirectCustomerAccountService.
+   fetchAccountsForPaymentDues` (`:193`), 8 deliveries each for dues `e1782ca9` and `a145407e`. The
+   method throws when any due in the message has no Direct account with an instruction, while its
+   neighbour around `:181` logs the missing dues and settles the rest, so one unresolvable due
+   dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`.
 3. **An empty preloaded account pool fails with a generic error and retries to the DLQ.**
    `InternalAccountCreationService.java:64`. Evidence: cycle 48 (`chain48.json`).
 4. **A closure TransferExpectation for an account clearing never created leaves money on a CLOSED

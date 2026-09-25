@@ -127,6 +127,30 @@ def keep_service_errors(name):
     return kept
 
 
+CLEARING_DSN = "postgresql://clearing:password@localhost:5440/clearing"
+
+
+def exception_copies():
+    """How far clearing's repeated EXCEPTION lines (finding 7) grew this cycle, before the cleanup.
+
+    Kept on the summary because a wipe removes the rows, and fleet 10's jump to 4081 repeats could
+    not be looked at afterwards. Returns the lines, the distinct bank entries, and the five entries
+    with the most copies with their first and last insert.
+    """
+    sql = ("WITH e AS (SELECT entry_ref, count(*) AS n, min(created_at) AS first, "
+           "max(created_at) AS last FROM account_statement_line WHERE status = 'EXCEPTION' "
+           "AND created_at > now() - interval '3 hours' GROUP BY entry_ref) "
+           "SELECT (SELECT sum(n) FROM e), (SELECT count(*) FROM e), "
+           "(SELECT string_agg(entry_ref || ' x' || n || ' ' || first || '..' || last, '; ') "
+           "FROM (SELECT * FROM e ORDER BY n DESC LIMIT 5) top)")
+    done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "|", "-c", sql],
+                          capture_output=True, text=True, timeout=120)
+    if done.returncode != 0 or not done.stdout.strip():
+        return {"error": done.stderr.strip()[:200]}
+    lines, entries, top = (done.stdout.strip().split("|") + ["", "", ""])[:3]
+    return {"lines": lines, "entries": entries, "mostCopied": top}
+
+
 def sanity(name, seconds, runs):
     """What says the harness itself misbehaved in this cycle, as plain sentences."""
     problems = []
@@ -195,6 +219,7 @@ def main():
         summary["sanity"].append("no cohorts file, so the standup did not finish")
     else:
         bank = cohorts[0]["bankUid"]
+        summary["exceptionCopies"] = exception_copies()
         # The runs are over, so the last repeats they left are cleared before MI_RECON is cut.
         cleared = subprocess.run([sys.executable, str(HERE / "checks" / "ignore_repeats.py")],
                                  cwd=str(HERE), capture_output=True, text=True, timeout=3000)
