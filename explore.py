@@ -10,6 +10,7 @@ entity_internal_account, because no ops endpoint exposes it.
 from __future__ import annotations
 
 import json
+from datetime import date, timedelta
 import os
 import shutil
 import time
@@ -599,6 +600,41 @@ class Run:
             if body["accountId"] not in [a["id"] for a in seen]:
                 seen.append({"id": body["accountId"],
                              "reference": body.get("accountReference")})
+
+    # A fee rise lowers the customer's rate, so it must start at least fifteen days out plus the
+    # product's notice; a fall may start today. The run alternates the two, so the accruals of a
+    # long cycle cross both kinds of change.
+    PLATFORM_FEE_HIGH = "0.0050"
+    PLATFORM_FEE_LOW = "0.0001"
+    PLATFORM_FEE_LEAD_DAYS = 45
+
+    def change_platform_fee(self):
+        """Propose a change to this platform's fee on the product the subject holds, and approve it."""
+        held = self.held
+        product = held.get("productId") or self.product_id
+        if not self.platform_uid or not product:
+            return Call("POST", "ChangePlatformFee", 412, {"message": "no platform product"}, 0)
+        raising = not getattr(self, "platform_fee_raised", False)
+        start = date.today() + timedelta(days=self.PLATFORM_FEE_LEAD_DAYS if raising else 0)
+        proposal = self.ops.call(
+            "POST", "/operations/proposals/platforms/{}/platform-products/{}/platform-fee-rate"
+            .format(self.platform_uid, product),
+            json_body={"rate": self.PLATFORM_FEE_HIGH if raising else self.PLATFORM_FEE_LOW,
+                       "startDate": start.isoformat()})
+        approval = (proposal.body or {}).get("approvalUid") if isinstance(proposal.body, dict) \
+            else None
+        if not proposal.ok or not approval:
+            return proposal
+        accepted = self.ops.call("POST", "/operations/approvals/{}/accept".format(approval), json_body={})
+        if accepted.ok:
+            self.platform_fee_raised = raising
+            self.note_in_flight("fee", "a platform fee change from {}".format(start))
+        return Call("POST", "ChangePlatformFee", accepted.status, {
+            "message": "{} the platform fee to {} from {}: proposal {}, approval {}".format(
+                "raised" if raising else "lowered",
+                self.PLATFORM_FEE_HIGH if raising else self.PLATFORM_FEE_LOW, start,
+                proposal.status, accepted.status),
+            "approval": accepted.body}, proposal.elapsed_ms + accepted.elapsed_ms)
 
     def weird_call(self):
         """Send a real request with one thing wrong or strange in it, and judge the answer.
@@ -1534,6 +1570,7 @@ class Run:
             "ProbeOtherPlatform": type(self).probe_other_platform,
             "RunDataFeed": type(self).run_data_feed,
             "WeirdCall": type(self).weird_call,
+            "ChangePlatformFee": type(self).change_platform_fee,
         }
 
     # How long a received message stays hidden from other consumers while duplication is on.
