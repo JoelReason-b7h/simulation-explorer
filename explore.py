@@ -1553,6 +1553,7 @@ class Run:
             "CloseNoticeAfterDue": type(self).close_notice_after_due,
             "SetKycStatus": type(self).set_kyc_status,
             "CreateKycFailedCustomer": type(self).create_kyc_failed_customer,
+            "UpdateCustomer": type(self).update_customer,
             "SlowTheBank": type(self).slow_the_bank,
             "BreakTheBank": type(self).break_the_bank,
             "SlowClearing": type(self).slow_clearing,
@@ -1828,6 +1829,28 @@ class Run:
             # trial than the create.
             self.note_in_flight("compliance", "a KYC failure for {}".format(
                 body["person"]["lastName"]), call.body.get("customerId"))
+        return call
+
+    def update_customer(self):
+        """Change this customer's contact details, address and income through the Direct API."""
+        held = self.held
+        path = "/direct/v1/customers/{}".format(held["customerId"])
+        read = self.client.call("GET", path)
+        persons = read.body.get("persons") if read.ok and isinstance(read.body, dict) else None
+        last_name = persons[0].get("lastName") if persons else None
+        if not last_name:
+            return Call("PUT", "update-customer", 412,
+                        {"message": "could not read the surname the update has to keep"}, 0)
+        subject = self.subjects[self.current]
+        turn = subject.get("updateTurn", 0)
+        subject["updateTurn"] = turn + 1
+        call = self.client.call(
+            "PUT", path, json_body=actions.update_customer_body(self.mint, last_name, turn))
+        if getattr(call, "ok", False):
+            # The update raises a fresh compliance check, whose answer comes back through
+            # compliance's queue on a later trial.
+            self.note_in_flight("compliance", "a KYC recheck after a details update",
+                                held["customerId"])
         return call
 
     def advance_business_day(self):

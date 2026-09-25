@@ -168,6 +168,38 @@ def withdraw_body(held, mint):
     }
 
 
+# Details an update can move without touching who the customer is. Each update takes the next
+# of each, so successive updates change something every time and the run never sends a no-op.
+UPDATE_ADDRESSES = (
+    {"addressLine1": "7 Second Street", "addressLine2": "Flat 1", "town": "Manchester",
+     "county": "Greater Manchester", "postCode": "M1 1AE", "country": "GBR"},
+    {"addressLine1": "123 Example Street", "addressLine2": "Flat 4B", "town": "London",
+     "county": "Greater London", "postCode": "E54HNB", "country": "GBR"},
+)
+UPDATE_PHONES = ("07783746575", "+447783746576", "07783746574")
+UPDATE_INCOMES = ("50000.00", "72500.50", "18000.00")
+
+
+def update_customer_body(mint, last_name, turn):
+    """A details update that resends the surname the customer already has.
+
+    Core sends every person update to compliance, and the simulator decides the new check from
+    the surname alone, so a changed surname would re-decide KYC: a Pep customer renamed would
+    clear, and a Pass customer renamed would stop. The surname is held, and everything else moves.
+    """
+    return {
+        "accountHolderType": "INDIVIDUAL",
+        "person": {
+            "lastName": last_name,
+            "email": "{}@example.com".format(mint("upd", 40)),
+            "phoneNumber": UPDATE_PHONES[turn % len(UPDATE_PHONES)],
+            "address": UPDATE_ADDRESSES[turn % len(UPDATE_ADDRESSES)],
+            "annualIncome": UPDATE_INCOMES[turn % len(UPDATE_INCOMES)],
+        },
+        "tags": {"simUpdate": str(turn)},
+    }
+
+
 def nominated_account_body(held, mint):
     # The account sits under a `nominatedAccount` field rather than at the top level; a flat body
     # is rejected with "Unrecognized field" on the first key the service does not know.
@@ -195,6 +227,10 @@ CORE_SIDE = [
     Action("ReadCustomer", "GET", "/direct/v1/customers/{customerId}",
            needs=["customerId"], entity="customer"),
     Action("ReadBalances", "GET", "/direct/v1/customers/{customerId}/balances",
+           needs=["customerId"], entity="customer"),
+    # Driven, because the body has to carry the surname the customer already has, and only a
+    # read of the customer holds it; see update_customer.
+    Action("UpdateCustomer", "PUT", "/direct/v1/customers/{customerId}",
            needs=["customerId"], entity="customer"),
     Action("AddNominatedAccount", "PATCH", "/direct/v1/customers/{customerId}/nominated-account",
            needs=["customerId"], body=nominated_account_body, entity="customer"),
