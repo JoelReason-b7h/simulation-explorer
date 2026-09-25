@@ -91,10 +91,11 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 14. **A TERM account opens for a requested amount far above the product's deposit maximum.**
     `DirectAccountValidator.validateAccountOpeningOrder` (`DirectAccountValidator.java:46-65`) checks
     only that a TERM amount is present; `AccountOpeningRequest.orderAmount` carries no bound, and
-    nothing compares it with `depositRequirementMax` or `maximumAvailable` (the latter is read by no
-    validator at all). Fleet 11 opened one for 99999999999999.99 against a maximum of 1000000 and got
-    201. The deposit maximum is still enforced when money arrives (`MaxDepositValidator`, in
-    `DIRECT_RAIL_POST_POLICY`), so no money is at risk; the stored `requested_amount` is shown to the
+    nothing at opening compares it with `depositRequirementMax` or `maximumAvailable`. Fleet 11
+    opened one for 99999999999999.99 against a maximum of 1000000 and got 201. Both limits are
+    enforced when money arrives, against the deposit itself: `MaxDepositValidator` and
+    `MaxAvailableValidator` run in `DIRECT_RAIL_POST_POLICY`, and a deposit is matched to its account
+    by the account's own internal account, not by `requested_amount`. So no money is at risk; the stored `requested_amount` is shown to the
     platform while the account is REQUESTED, and a REQUESTED account blocks a second opening on the
     product. Low severity. Evidence: `fleet11-p1.json`.
 
