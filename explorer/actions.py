@@ -278,6 +278,10 @@ CORE_SIDE = [
     # A valid request with one thing wrong or strange in it (explorer/weird.py). It must never
     # answer 5xx, an invalid one must be refused, and a refused one must change nothing.
     Action("WeirdCall", "POST", "/direct/v1/customers", needs=["customerId"], entity="customer"),
+    # This platform's own fee on one of its products, proposed and approved through ops. It moves
+    # only this platform's customers' reduced gross rate, so every run in a fleet may take it.
+    Action("ChangePlatformFee", "POST", "/direct/v1/batches", needs=["accountId"],
+           entity="account"),
     Action("RunDataFeed", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     Action("ProbeOtherPlatform", "GET", "/direct/v1/customers/{customerId}",
            needs=["customerId"], entity="customer"),
