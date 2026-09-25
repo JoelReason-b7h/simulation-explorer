@@ -45,10 +45,26 @@ ANCHOR = "create_proxy clearing-to-bank 0.0.0.0:20002 hot-sauce-bank:10002\n"
 
 
 def _set_lines(path, wanted):
+    """Set each KEY=value in place, and append only the keys the file does not have.
+
+    Moving the keys to the end each time made two calls on one file, the flags and then the routes
+    in core.env, reorder each other's lines on every run. The patch then always reported a change,
+    and every cycle wiped the stack, which removed the evidence of the cycle before it.
+    """
     before = path.read_text()
-    keys = {line.split("=", 1)[0] for line in wanted}
-    lines = [line for line in before.splitlines() if line.split("=", 1)[0] not in keys]
-    after = "\n".join(lines + list(wanted)) + "\n"
+    values = dict(line.split("=", 1) for line in wanted)
+    lines, seen = [], set()
+    for line in before.splitlines():
+        key = line.split("=", 1)[0]
+        if key in values:
+            if key in seen:
+                continue
+            seen.add(key)
+            lines.append("{}={}".format(key, values[key]))
+        else:
+            lines.append(line)
+    lines += [line for line in wanted if line.split("=", 1)[0] not in seen]
+    after = "\n".join(lines) + "\n"
     if after == before:
         return False
     path.write_text(after)
