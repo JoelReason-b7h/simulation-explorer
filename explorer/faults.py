@@ -273,7 +273,9 @@ def dead_letter_messages(limit=20):
                 "source": source.rsplit(":", 1)[-1],
                 "receives": attributes.get("ApproximateReceiveCount"),
                 "sentAt": attributes.get("SentTimestamp"),
-                "body": (message.get("Body") or "")[:300],
+                # The whole message, because it is often the only evidence left: fleet 10's two
+                # PaymentSettled dead letters kept 300 characters, which cut off the payment dues.
+                "body": (message.get("Body") or "")[:20000],
             }
         if len(found) >= limit:
             break

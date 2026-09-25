@@ -81,7 +81,12 @@ def main():
         patched = cycle.stack_patch.patch(cycle.REPO)
         local_auth.serve()
     wiped = False
-    if os.environ.get("SKIP_RESTART") != "1" and (cycle.due_a_wipe() or patched):
+    # The stack is wiped only when a patch changed what it reads at start, or when asked with
+    # SIM_FORCE_WIPE=1. A wipe on a timer destroyed the rows behind fleet 10's findings before
+    # they were traced, and a stack that carries on also ages its banks across cycles.
+    if os.environ.get("SKIP_RESTART") != "1" and (
+            patched or os.environ.get("SIM_FORCE_WIPE") == "1"):
+        cycle.dump_databases("{}-before-wipe".format(name))
         cycle.restart_stack()
         wiped = True
     else:

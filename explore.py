@@ -2504,6 +2504,7 @@ class Run:
                          if s.get("customerId") and not s.get("closed")]) > 1
         remaining = constructible if spendable else [
             n for n in constructible if n not in actions.SPENDS] or constructible
+        remaining = [n for n in remaining if n not in actions.DISABLED] or ["CreateCustomer"]
         if fleet.is_member():
             # Only faults were left to try here, and a member takes none, so it grows the pool
             # instead: returning nothing ended the whole run after 39 trials.

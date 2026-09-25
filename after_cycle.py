@@ -233,6 +233,11 @@ def main():
     file_failures = [k for k in ("feed", "mi") if summary.get(k, {}).get("exit")]
     quiet = not summary["sanity"] and not new_rules and not file_failures
     summary["quiet"] = quiet
+    if not quiet:
+        # Something in this cycle needs looking at, so keep the rows behind it.
+        import cycle
+        kept = cycle.dump_databases(name)
+        summary["databases"] = str(kept) if kept else None
     summary["next"] = min(seconds * 2, MAX_SECONDS) if quiet else MIN_SECONDS
     LENGTH.write_text(str(summary["next"]))
 

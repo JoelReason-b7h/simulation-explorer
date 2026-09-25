@@ -71,6 +71,29 @@ def force_down():
     print("    forced {} containers away after the teardown stalled".format(len(ids)))
 
 
+DATABASES = ("core", "clearing", "hsb", "compliance")
+
+
+def dump_databases(label):
+    """Keep every local database as it stands, in archive/<label>-db/, before anything replaces it.
+
+    A wipe recreates the databases, and fleet 10's two dead-lettered PaymentSettled messages could
+    not be traced afterwards because their payment dues went with it. A dump of all four is about
+    twelve megabytes. Returns the directory, or None when no dump could be taken.
+    """
+    target = HERE / "archive" / "{}-db".format(label)
+    target.mkdir(parents=True, exist_ok=True)
+    taken = []
+    for db in DATABASES:
+        with open(target / "{}.dump".format(db), "wb") as handle:
+            done = subprocess.run(["docker", "exec", "docker-postgres-1", "pg_dump", "-U", db,
+                                   "-Fc", db], stdout=handle, stderr=subprocess.PIPE, timeout=600)
+        if done.returncode == 0:
+            taken.append(db)
+    print("    kept the {} databases in {}".format(", ".join(taken) or "no", target))
+    return target if taken else None
+
+
 def restart_stack():
     print("  wiping and relaunching the stack")
     try:
