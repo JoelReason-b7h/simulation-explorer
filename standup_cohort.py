@@ -19,6 +19,9 @@ Two differences, both because a freshly launched local stack has no platforms at
 from __future__ import annotations
 
 import json
+import subprocess
+import uuid
+import os
 import sys
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -32,6 +35,8 @@ PRODUCT_NAME = "Harness Instant Access"
 TERM_PRODUCT_NAME = "Harness One Year Term"
 SHORT_TERM_PRODUCT_NAME = "Harness One Month Term"
 NOTICE_PRODUCT_NAME = "Harness Two Day Notice"
+VIRTUAL_ACCOUNT_BATCH = 2000
+VIRTUAL_ACCOUNT_REDRAWS = 20
 
 
 def today():
@@ -175,8 +180,8 @@ def notice_product_body(bank_uid):
 
 def platform_body(bank_uid):
     return {
-        "tradingName": PLATFORM_NAME,
-        "legalName": PLATFORM_NAME,
+        "tradingName": PLATFORM_NAME + os.environ.get("SIM_PLATFORM_SUFFIX", ""),
+        "legalName": PLATFORM_NAME + os.environ.get("SIM_PLATFORM_SUFFIX", ""),
         # The contact's wire field is `accountManager`, not `name`: PartnerContactRequest maps it
         # onto an internal field called name, and the generated ops template shows the getter.
         "accountManagerContact": {
@@ -237,6 +242,33 @@ def schedule_body():
     }
 
 
+SHARED_TEST_CLIENT = "5ldvheuf83ic4pftapi5p5ntp8"
+CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
+
+
+def own_client(platform_uid):
+    """Give the new platform a client of its own, so several platforms can run at once.
+
+    Outside prod, creating a direct platform upserts core's `direct-model-test-clientId` onto the
+    new platform ON CONFLICT (client_id), so the shared client only ever reaches the newest one.
+    Renaming the row frees the shared id for the next platform, and the harness's own token server
+    signs a token for any client id. Returns the client id to put in the token.
+    """
+    uuid.UUID(platform_uid)
+    client_id = "sim-{}".format(platform_uid)
+    sql = ("UPDATE platform_client_link SET client_id = '{0}' WHERE client_id = '{1}' "
+           "AND platform_sid = (SELECT sid FROM partner_platform WHERE uid = '{2}') "
+           "RETURNING client_id").format(client_id, SHARED_TEST_CLIENT, platform_uid)
+    done = subprocess.run(["psql", CORE_DSN, "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                          capture_output=True, text=True, timeout=60)
+    renamed = client_id in done.stdout
+    print("  {} {:44} {}".format("ok " if renamed else "REJ", "give the platform its own client",
+                                 client_id if renamed else done.stderr.strip()[:300]))
+    if not renamed:
+        raise SystemExit(1)
+    return client_id
+
+
 def uid_from(body):
     if isinstance(body, str):
         return body.strip('"')
@@ -261,6 +293,19 @@ def main():
     settings = config.load("local")
     ops = BearerClient(settings["ops_base_url"], world.ops_token(settings))
     print("standing up a cohort on {}".format(settings["ops_base_url"]))
+
+    # A fleet puts several platforms on one bank, so the platforms race on the bank's business
+    # date, its accrual run and its pool of accounts. The first standup makes the bank and its
+    # products; each later one names them and makes only its own platform.
+    reuse = os.environ.get("SIM_REUSE_COHORT")
+    if reuse:
+        known = json.loads(reuse)
+        bank_uid, product_uid = known["bankUid"], known["productUid"]
+        term_product_uid, short_term_uid = known["termProductUid"], known["shortTermProductUid"]
+        notice_uid = known["noticeProductUid"]
+        print("      reusing bankUid {}".format(bank_uid))
+        return stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid,
+                                 short_term_uid, notice_uid)
 
     bank = step(ops, "create direct bank", "POST", "/operations/proposals/banks", bank_body())
     bank_uid = uid_from(bank.body)
@@ -303,6 +348,12 @@ def main():
              "/operations/approvals/{}/accept".format(uid_from(notice_proposal.body)), {}).body)
     print("      noticeProductUid {}".format(notice_uid))
 
+    return stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid,
+                             short_term_uid, notice_uid, first=True)
+
+
+def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, short_term_uid,
+                      notice_uid, first=False):
     platform = step(ops, "create the POOLED direct platform", "POST",
                     "/operations/platforms", platform_body(bank_uid))
     platform_uid = uid_from(platform.body)
@@ -320,28 +371,49 @@ def main():
     step(ops, "grant NOTICE product access with a zero fee", "POST",
          "/operations/own/access", access_body(bank_uid, platform_uid, notice_uid))
 
-    step(ops, "schedule accruals and realisations", "POST",
-         "/operations/banks/{}/schedules/ACCRUALS_AND_REALISATIONS".format(bank_uid),
-         schedule_body())
+    if first:
+        step(ops, "schedule accruals and realisations", "POST",
+             "/operations/banks/{}/schedules/ACCRUALS_AND_REALISATIONS".format(bank_uid),
+             schedule_body())
 
     # The bank mints the virtual account IBANs, so they must exist there before clearing claims
     # them. Skip this and the clearing preload still succeeds, but the bank does not know the IBAN,
     # so a payment into it books against the master account and the statement line ends at
     # EXCEPTION with no subledger attributed.
-    hsb = BearerClient(settings["hsb_base_url"])
-    call = hsb.call("POST", "/hsb/accounts/virtual", json_body={
-        "amount": 10,
-        "realAccountType": "DIRECT",
-        "currency": "GBP",
-        "connectorType": "INVESTEC",
-        "taxWrapperType": "DEFAULT",
-    })
-    print("  {} {:44} {}".format("ok " if call.ok else "REJ",
-                                 "open virtual accounts at the bank", call.status))
-    if not call.ok:
-        print("      {}".format(json.dumps(call.body)[:300]))
-        raise SystemExit(1)
+    # Each account the run opens claims one of these, and clearing throws on every delivery of
+    # AccountRequested once none is AVAILABLE. Ten ran out 70 minutes into a long run. The bank
+    # draws each batch's numbers at random without making them distinct, so one large batch hits
+    # its own duplicate IBAN and fails whole; small batches rarely do, and a failed one is redrawn.
+    wanted = int(os.environ.get("SIM_VIRTUAL_ACCOUNTS", "100000")) if first else int(
+        os.environ.get("SIM_VIRTUAL_ACCOUNTS_PER_PLATFORM", "0"))
+    hsb = BearerClient(settings["hsb_base_url"], timeout=300.0)
+    opened, redrawn = 0, 0
+    while opened < wanted:
+        amount = min(VIRTUAL_ACCOUNT_BATCH, wanted - opened)
+        call = hsb.call("POST", "/hsb/accounts/virtual", json_body={
+            "amount": amount,
+            "realAccountType": "DIRECT",
+            "currency": "GBP",
+            "connectorType": "INVESTEC",
+            "taxWrapperType": "DEFAULT",
+        })
+        if call.ok:
+            opened += amount
+            continue
+        redrawn += 1
+        if redrawn > VIRTUAL_ACCOUNT_REDRAWS:
+            print("  REJ {:44} {}".format("open virtual accounts at the bank", call.status))
+            print("      {} of {} opened: {}".format(opened, wanted, json.dumps(call.body)[:300]))
+            raise SystemExit(1)
+    print("  ok  {:44} {} opened, {} batches redrawn".format(
+        "open virtual accounts at the bank", opened, redrawn))
     hsb.close()
+
+    client_id = own_client(platform_uid)
+    # adapter learns banks and platforms only from the partner file core writes every five
+    # minutes, and that scheduler is off locally.
+    step(ops, "refresh the partner file adapter reads", "POST",
+         "/operations/processor/partners/refresh")
 
     # Creating the platform records a request in core for its own internal account, left at status
     # INACTIVE, and clearing gets the PLATFORM account_owner row but no account. The schedulers
@@ -356,9 +428,10 @@ def main():
     print("    platformUid {}".format(platform_uid))
     print("    productUid  {}".format(product_uid))
     print("    termProductUid {}".format(term_product_uid))
+    print("    shortTermProductUid {}".format(short_term_uid))
+    print("    noticeProductUid {}".format(notice_uid))
+    print("    clientId    {}".format(client_id))
     print()
-    print("  Creating the platform links the shared test client, so check which platform it")
-    print("  points at before trusting it — linkApiClient returns 200 even when it changes nothing.")
     ops.close()
     return 0
 

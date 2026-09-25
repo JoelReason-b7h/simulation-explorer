@@ -16,8 +16,8 @@ import time
 from decimal import Decimal
 import sys
 
-from explorer import (actions, config, driver, faults, integrity, ledger, oracles, preflight,
-                      projector, race, world)
+from explorer import (actions, config, driver, faults, fleet, integrity, ledger, oracles,
+                      preflight, projector, race, triallog, world)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -40,7 +40,8 @@ class Run:
         self.run_id = driver.run_id()
         name = os.environ.get("SIM_RUN_NAME", "run")
         self.page = os.path.join(os.path.dirname(os.path.abspath(__file__)), name + ".html")
-        self.log = []
+        self.log = triallog.TrialLog(self.page[:-len(".html")] + ".trials.jsonl")
+        self.published_at = 0.0
         self.counter = 0
         self.product_id = None
         # A pool of subjects, not one. With a single customer the driver can never spend an
@@ -352,6 +353,8 @@ class Run:
         self.in_flight.append(
             {"kind": kind, "what": what, "subject": subject, "trial": self.steps})
         del self.in_flight[:-40]
+        if subject is None:
+            fleet.note(kind, what)
 
     def in_flight_now(self):
         """The started work that could still land on this trial."""
@@ -360,7 +363,7 @@ class Run:
             window = self.ASYNC_WINDOW_TRIALS.get(entry["kind"], self.DEFAULT_ASYNC_WINDOW)
             if 0 <= self.steps - entry["trial"] <= window:
                 live.append(entry)
-        return live
+        return live + fleet.others_in_flight()
 
     # How often the transition chains are read. The queries read whole tables, so running them
     # after each trial would cost more than the trials do; three minutes keeps the trial rate and
@@ -388,6 +391,10 @@ class Run:
         it: a read answers with the status the entity holds now, which a lawful move and an
         unlawful one both leave behind.
         """
+        # The sweep reads every platform's rows, so in a fleet only the conductor runs it and
+        # each break is reported once.
+        if fleet.is_member():
+            return 0
         now = time.time()
         if not force and now - self.chain_swept_at < self.CHAIN_SWEEP_SECONDS:
             return 0
@@ -1511,6 +1518,7 @@ class Run:
         self.faults.add(boundary, name, kind, attributes)
         self.faulted_boundary = boundary
         self.faulted_at = self.steps
+        fleet.note("fault", note)
         return Call("POST", boundary, 200, {
             "message": "{}, for the next {} trials".format(note, self.FAULT_WINDOW_TRIALS)}, 0)
 
@@ -2165,13 +2173,22 @@ class Run:
             self.pick_account()
             constructible = self.explorer.constructible(self.held)
         if not constructible:
-            return False
+            # Nothing left to do from this subject. A long run must not end on that, so it makes
+            # another customer, as the shape gap does when the pool runs thin.
+            self.current = self.pick_subject(for_action="CreateCustomer")
+            constructible = ["CreateCustomer"]
+            self.why = "nothing constructible"
         # Spending an entity is allowed once another subject exists to fall back on, which is what
         # lets the driver reach the closed and cancelled states at all.
         spendable = len([s for s in self.subjects
                          if s.get("customerId") and not s.get("closed")]) > 1
         remaining = constructible if spendable else [
             n for n in constructible if n not in actions.SPENDS] or constructible
+        if fleet.is_member():
+            # Only faults were left to try here, and a member takes none, so it grows the pool
+            # instead: returning nothing ended the whole run after 39 trials.
+            remaining = [n for n in remaining if n not in fleet.STACK_FAULTS] or [
+                "CreateCustomer"]
 
         # Read first, so the state key that chooses the action is the same key the trial is
         # recorded against. Choosing on one key and counting on another leaves every count at
@@ -2448,6 +2465,8 @@ class Run:
             else:
                 subject.pop("accountReference", None)
 
+    POOL_LIVE = int(os.environ.get("SIM_POOL_LIVE", "6"))
+
     def shape_gap(self):
         """Names the action that would widen the run, or None when the pool is already varied.
 
@@ -2461,7 +2480,7 @@ class Run:
         # Six live customers rather than three, because a batch spans the pool and the batch
         # states worth reaching are the wide ones. With three, every batch touched one or two
         # customers and the "many customers" batch state was never built.
-        if len(live) < 6:
+        if len(live) < self.POOL_LIVE:
             return "CreateCustomer"
         # The pool has to hold a live customer for every product type, or that product's states
         # are unreachable however long the run goes. A pool capped at three customers while one
@@ -2490,6 +2509,7 @@ class Run:
         # is in force, and that refusal starts no wait, so asking every trial spent the whole
         # fault window on refusals.
         if (len(self.closure_injections) < len(self.CLOSURE_INJECTIONS)
+                and not fleet.is_member()
                 and not self.live_fault()
                 and self.closure_attempts < self.CLOSURE_ATTEMPTS_ALLOWED
                 and self.steps >= self.TRIALS_BEFORE_A_CLOSURE_PAYMENT_FAILS
@@ -2500,6 +2520,7 @@ class Run:
         # One notice closure of each order per run, forced for the same reason as the closure
         # payments: the path is four actions deep, on a product that few customers open.
         if (len(self.notice_closures) < len(self.NOTICE_CLOSURE_ORDERS)
+                and not fleet.is_member()
                 and not self.live_fault()
                 and self.notice_attempts < self.NOTICE_ATTEMPTS_ALLOWED
                 and self.steps >= self.TRIALS_BEFORE_A_NOTICE_CLOSURE
@@ -2652,6 +2673,10 @@ class Run:
             calls.append(lambda m=method, p=path, b=body: self.client.call(m, p, json_body=b))
 
         results, elapsed = race.fire(calls)
+        # Read the entity the race acted on before taking the identifiers it hands back. A
+        # CreateCustomer leg hands back a new PENDING customer, and reading that one after a
+        # CloseCustomer leg reported a close that had worked as one that moved nothing.
+        after = self.read(entity)
 
         # Take the identifiers a race hands back, and apply the same spend bookkeeping a single
         # action gets. Without this the driver kept the identifiers it held before the race: an
@@ -2670,7 +2695,6 @@ class Run:
                     subject.pop("accountId", None)
                     subject.pop("accountReference", None)
 
-        after = self.read(entity)
         outcome = race.RaceOutcome(list(names), results, before, after, elapsed, actions.BY_NAME,
                                    world=actions.WORLD, spends=actions.SPENDS,
                                    terminal=oracles.TERMINAL)
@@ -2684,7 +2708,7 @@ class Run:
         print("  {} {:34} {} in {:.0f}ms{}".format(
             mark, label, outcome.statuses, elapsed, "  <- " + verdict if verdict else ""))
 
-        self.explorer.record_race(key, verdict, changed=bool(projector.diff(before, after)))
+        self.explorer.record_race(key, verdict)
         for name, result in zip(names, results):
             self.check(name, result, entity, before, after)
         self.log.append({
@@ -2696,7 +2720,7 @@ class Run:
             "changes": sorted(projector.diff(before, after)),
             "message": verdict,
             "race": True,
-            "attributed": not projector.diff(before, after),
+            "attributed": True,
             "statuses": outcome.statuses,
         })
         self.publish()
@@ -2931,7 +2955,7 @@ class Run:
     def write_page(self):
         """Put this run's own copy of the live view beside its data, once.
 
-        `live.html` is the view: it polls the data once a second and carries the tabs, the graph
+        `live.html` is the view: it polls the data every five seconds and carries the tabs, the graph
         and the world panel. The run gives it a copy of its own rather than a link, so a finished
         run keeps a page that still works when a later run overwrites nothing of it.
         """
@@ -2952,8 +2976,13 @@ class Run:
             handle.write(view)
         self._page_written = True
 
+    PUBLISH_SECONDS = 5
+
     def publish(self, finished=False):
-        # Write then rename: the page fetches this once a second, and a reader that catches a
+        if not finished and time.time() - self.published_at < self.PUBLISH_SECONDS:
+            return
+        self.published_at = time.time()
+        # Write then rename: the page fetches this every five seconds, and a reader that catches a
         # half-written file gets a parse error rather than stale-but-valid data.
         target = self.page.replace(".html", ".json")
         # The temporary name carries this process's id. Two runs sharing one temporary name means
@@ -2966,7 +2995,8 @@ class Run:
                 "base_url": self.client.base_url,
                 "platform_uid": self.platform_uid,
                 "products": {label: kind for label, (kind, _) in sorted(self.products.items())},
-                "trials": self.log,
+                "trials": self.log[:],
+                "trialTotals": self.log.totals(),
                 "summary": self.explorer.summary(),
                 "frontier": [{"key": list(k), "visits": v, "untried": sorted(u)}
                              for v, k, u in self.explorer.frontier()],
@@ -3004,7 +3034,7 @@ class Run:
                 "noticeClosures": self.notice_closures,
                 "operatorQueues": getattr(self, "operator_queues", None),
                 "inFlight": self.in_flight_now(),
-            }, handle, indent=2)
+            }, handle)
         os.replace(scratch, target)
         # live.html with no ?run= reads current.json, so the plain address always follows the
         # run in progress rather than whichever run last wrote under the default name.
@@ -3096,13 +3126,18 @@ def main():
 
     # Put every queue timeout, every stopped service and every toxic back when the run ends,
     # whether it ends by itself, by KeyboardInterrupt, or because cycle.py sent it SIGTERM.
-    faults.install_cleanup()
+    # In a fleet the conductor owns toxiproxy. A member that set up or tore down the shared bank
+    # proxy would cut the conductor's traffic in the middle of its trial.
+    if not fleet.is_member():
+        faults.install_cleanup()
 
     run = Run(client, ops, hsb, platform_uid, virtual_iban, sim)
     # Route the run's own bank credits through toxiproxy, so a network fault can be injected on
     # that one path. Without toxiproxy the run keeps the direct client and the fault actions say
     # so rather than pretending to inject anything.
-    if run.faults.start():
+    if fleet.is_member():
+        print("  a fleet member: the conductor injects the faults")
+    elif run.faults.start():
         run.hsb = BearerClient(faults.THROUGH_PROXY)
         hsb.close()
         hsb = run.hsb
@@ -3168,7 +3203,8 @@ def main():
     run.publish(finished=True)
     print()
     print("  page: {}".format(run.page))
-    run.faults.close()
+    if not fleet.is_member():
+        run.faults.close()
     for c in (client, ops, hsb, sim):
         if c is not None:
             c.close()

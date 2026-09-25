@@ -51,7 +51,8 @@ class Explorer:
         self.steps = 0
         self.tried = defaultdict(int)
         self.visits = defaultdict(int)
-        self.trials = []
+        self.solo_trials = 0
+        self.rejected = 0
         self.unattributed = 0
         # What was actually buildable while the run stood in each state. Without this the frontier
         # counts actions whose identifiers that state cannot supply, so it never clears.
@@ -124,7 +125,9 @@ class Explorer:
         self.visits[key] += 1
         self.solo[key] += 1
         trial = Trial(action, key, call.status, changes, attributed)
-        self.trials.append(trial)
+        self.solo_trials += 1
+        if not 200 <= call.status < 300:
+            self.rejected += 1
         return trial
 
     def frontier(self):
@@ -141,13 +144,11 @@ class Explorer:
                 pending.append((seen, key, untried))
         return sorted(pending)
 
-    def record_race(self, key, finding, changed=False):
+    def record_race(self, key, finding):
         self.races += 1
         self.visits[key] += 1
-        # Several actions were in flight, so a change cannot be blamed on one of them. That is
-        # what the unattributed count measures, and nothing was feeding it.
-        if changed:
-            self.unattributed += 1
+        # A raced change belongs to the race as a whole. The unattributed count is for a change
+        # with nothing in flight, which is what would show one cohort reaching into another.
         if finding:
             self.race_findings += 1
 
@@ -191,13 +192,12 @@ class Explorer:
         return None
 
     def summary(self):
-        rejected = sum(1 for t in self.trials if not 200 <= t.status < 300)
         return {
-            "trials": len(self.trials) + self.races,
+            "trials": self.solo_trials + self.races,
             "races": self.races,
             "race findings": self.race_findings,
             "distinct states": len(self.visits),
-            "rejections": rejected,
+            "rejections": self.rejected,
             "unattributed changes": self.unattributed,
             "frontier": len(self.frontier()),
         }

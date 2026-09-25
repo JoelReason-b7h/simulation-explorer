@@ -578,18 +578,8 @@ function drawViolations(rows){
   }).join('') || '<p class="none">No violations.</p>';
 }
 
-function drawCounts(trials){
-  const byAction = {}, byPair = {};
-  trials.forEach(function(t){
-    const a = byAction[t.action] || (byAction[t.action] = {n: 0, ok: 0, rej: 0});
-    a.n++;
-    if (t.ok) a.ok++; else a.rej++;
-
-    const id = t.action + ' :: ' + t.key.join(' :: ');
-    const pr = byPair[id] || (byPair[id] = {action: t.action, key: t.key, n: 0, ok: 0, rej: 0});
-    pr.n++;
-    if (t.ok) pr.ok++; else pr.rej++;
-  });
+function drawCounts(totals){
+  const byAction = totals.byAction;
 
   const actions = Object.keys(byAction).map(function(k){
     return {name: k, v: byAction[k]};
@@ -606,8 +596,7 @@ function drawCounts(trials){
       }).join('') + '</tbody></table>';
   }
 
-  const pairs = Object.keys(byPair).map(function(k){ return byPair[k]; })
-    .sort(function(a, b){ return b.n - a.n; });
+  const pairs = totals.byPair.slice().sort(function(a, b){ return b.n - a.n; });
   const host2 = document.getElementById('countsState');
   if (host2){
     host2.innerHTML = pairs.map(function(r){
@@ -679,7 +668,8 @@ function render(d){
     return '<div class="tile"><div class="n">' + d.summary[k] + '</div><div class="l">' + k + '</div></div>';
   }).join('');
 
-  const fresh = d.trials.length > lastCount;
+  const newest = d.trials.length ? d.trials[d.trials.length - 1].n : 0;
+  const fresh = newest > lastCount;
   const feedEl = document.getElementById('feed');
   const wasAtTop = feedEl.scrollTop < 4;
   const keepScroll = feedEl.scrollTop;
@@ -699,11 +689,11 @@ function render(d){
       '</div>';
   }).join('');
   if (!wasAtTop) feedEl.scrollTop = keepScroll;
-  lastCount = d.trials.length;
+  lastCount = newest;
 
   drawMap(d.world, d.plan, d.trials);
   drawViolations(d.violations);
-  drawCounts(d.trials);
+  drawCounts(d.trialTotals);
   drawReach(d.reach, d.transitions);
   drawTargets(d.reach);
   drawDecide(d.trials, d.why_counts);
@@ -843,7 +833,7 @@ function render(d){
         return '<div class="find"><p>' + e + '</p></div>'; }).join('');
   }
 
-  const findings = d.trials.filter(function(t){ return t.race && t.message; });
+  const findings = d.trialTotals.raceFindings;
   document.getElementById('findings').innerHTML = findings.map(function(f){
     return '<div class="find"><p>' + f.message + '</p><div class="who">' + f.action +
       ' — statuses ' + (f.statuses || []).join(', ') + '</div></div>';
@@ -852,18 +842,7 @@ function render(d){
   // An error message on its own is not a rule, because it does not say when the API applies it.
   // Group by action and message, and carry the states the refusal actually fired in: that pair
   // is the precondition, and it is the part no specification writes down.
-  const byRule = {};
-  d.trials.forEach(function(t){
-    if (t.race || t.ok || !t.message) return;
-    const id = t.action + ' :: ' + t.message;
-    if (!byRule[id]) byRule[id] = {action: t.action, message: t.message, count: 0, states: [], seen: {}};
-    const r = byRule[id];
-    r.count++;
-    const sk = t.key.join(' :: ');
-    if (!r.seen[sk]) { r.seen[sk] = 1; r.states.push(t.key); }
-  });
-  const rules = Object.keys(byRule).map(function(k){ return byRule[k]; })
-    .sort(function(a, b){ return b.count - a.count; });
+  const rules = d.trialTotals.refusals.slice().sort(function(a, b){ return b.count - a.count; });
 
   document.getElementById('rules').innerHTML = rules.map(function(r){
     return '<div class="rule">' +
@@ -1021,7 +1000,7 @@ function poll(){
     .catch(function(){});
 }
 poll();
-setInterval(poll, 1000);
+setInterval(poll, 5000);
 </script>
 </body>
 </html>

@@ -17,6 +17,10 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+
+import stack_patch  # noqa: E402
+from explorer import config, local_auth  # noqa: E402
 # The checkout whose compose files and launch scripts bring the stack up. The images are built from
 # origin/main, and main's compose and env files differ from this branch's old base, so the stack is
 # launched from a worktree at main that carries the toxiproxy changes the harness needs.
@@ -99,7 +103,7 @@ def child_env():
 def stand_up():
     print("  standing up the cohort")
     done = subprocess.run([sys.executable, "standup_cohort.py"], cwd=str(HERE),
-                          capture_output=True, text=True, timeout=600, env=child_env())
+                          capture_output=True, text=True, timeout=2400, env=child_env())
     sys.stdout.write("".join("    " + line + "\n" for line in done.stdout.splitlines()))
     if done.returncode != 0:
         print(done.stderr[-2000:])
@@ -209,8 +213,12 @@ def main():
     seconds = int(sys.argv[1]) if len(sys.argv) > 1 else 300
     run_name = sys.argv[2] if len(sys.argv) > 2 else "run"
     stop_any_running_cycle()
+    patched = False
+    if config.load("local").get("local_auth"):
+        patched = stack_patch.patch(REPO)
+        local_auth.serve()
     wiped = False
-    if os.environ.get("SKIP_RESTART") != "1" and due_a_wipe():
+    if os.environ.get("SKIP_RESTART") != "1" and (due_a_wipe() or patched):
         restart_stack()
         wiped = True
     else:

@@ -19,6 +19,8 @@ if str(PERF_ROOT) not in sys.path:
 
 from lib.auth import CognitoUserAuth  # noqa: E402
 
+from explorer import local_auth  # noqa: E402
+
 DRAIN_TRANSACTIONS = "/operations/hsbc/statement/transactions/process"
 POLL_TRANSACTIONS = "/operations/hsbc/statement/transactions/poll"
 PLATFORM_SCHEDULED_TASK = "/operations/batch/processor/platform/{}/{}/sync"
@@ -34,6 +36,8 @@ SET_KYC_STATUS = "/simulator/direct/customer/{}/kyc/check"
 
 
 def ops_token(settings):
+    if settings.get("local_auth"):
+        return local_auth.ops_token()
     auth = CognitoUserAuth(
         settings.get("cognito_client_id"),
         settings.get("cognito_username"),

@@ -11,6 +11,8 @@ import os
 import re
 from pathlib import Path
 
+from explorer import local_auth
+
 PERF_ROOT = Path(__file__).resolve().parents[2] / "performance-testing"
 ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)(?::-([^}]*))?\}")
 
@@ -82,6 +84,12 @@ def load(env_name="local"):
     # therefore wins over an auth file, which is meant for the deployed environments.
     if env_name == "local":
         settings.update(_e2e_pooled_credentials())
+
+    # Local tokens come from explorer.local_auth, so a run on the local stack needs no network.
+    # SIM_LOCAL_AUTH=0 goes back to the dev Cognito pool.
+    if env_name == "local" and os.environ.get("SIM_LOCAL_AUTH", "1") != "0":
+        settings["local_auth"] = "1"
+        settings["auth_token_url"] = "http://localhost:{}/oauth2/token".format(local_auth.PORT)
 
     for key in list(settings):
         override = os.environ.get(key)
