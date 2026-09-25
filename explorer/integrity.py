@@ -146,6 +146,26 @@ CHECKS = (
         "account {0} reads {1} and still holds {2} (platform fee {3}, row {4})",
     ),
     (
+        # SAV-11278 caps a Direct withdrawal by the available balance, the ledger balance less the
+        # other outbound instructions still waiting. Overlapping withdrawals that together ask for
+        # more than the account holds show the cap was checked against the ledger alone.
+        "open withdrawals never ask for more than the account holds",
+        "direct_customer_instruction",
+        """
+        SELECT a.uid, sum(coalesce(i.amount, 0)), a.product_account_balance, count(*),
+               max(i.sid)
+        FROM direct_customer_instruction i
+        JOIN direct_customer_account d ON d.sid = i.direct_customer_account_sid
+        JOIN customer_product_account a ON a.sid = d.customer_product_account_sid
+        WHERE i.status IN ('PENDING', 'HELD')
+          AND i.instruction_type IN ('WITHDRAWAL', 'PRODUCT_TRANSFER_OUT')
+        GROUP BY a.uid, a.product_account_balance
+        HAVING sum(coalesce(i.amount, 0)) > a.product_account_balance + 0.005
+        ORDER BY max(i.sid) DESC LIMIT {limit}
+        """,
+        "account {0} has {3} open outbound instructions for {1} and holds {2} (newest {4})",
+    ),
+    (
         "the order status equals its newest state row",
         "customer_product_order",
         """

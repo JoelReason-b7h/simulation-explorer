@@ -22,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -59,7 +60,11 @@ def fetch(bank_uid, family="direct"):
     if done.returncode != 0:
         raise SystemExit("could not read s3://{}/archive/{}/{}/: {}".format(
             BUCKET, family, bank_uid, done.stderr.strip()[:300]))
-    return sorted(target.glob("*.csv"), key=lambda p: p.name.split("_", 1)[-1])
+    # One feed run writes its files under one timestamp, and a file may name only what an earlier
+    # file of the same run introduced, so ties go in the order the entities depend on each other.
+    rank = {"PRODUCT": 0, "CUSTOMER": 1, "ACCOUNT": 2, "TRANSACTION": 3, "RECON": 4}
+    return sorted(target.glob("*.csv"), key=lambda p: (p.name.split("_", 1)[-1],
+                                                       rank.get(p.name.split("_", 1)[0], 9)))
 
 
 class File:
@@ -89,6 +94,12 @@ class Findings:
 
 def money(value):
     return Decimal(value or "0")
+
+
+def day(value):
+    """The date part of a feed date. ValueDate is sent as 2026-10-05T00:00:00Z and a business date
+    as 2026-10-05, so compared as strings a transaction sorted after its own day's ACCOUNT file."""
+    return (value or "")[:10]
 
 
 def check_envelope(f, out):
@@ -190,7 +201,7 @@ def check_history(files, out):
             elif not first:
                 out.add("a transaction is sent once", f.name, "TransactionId {}".format(ident), r)
             seen[f.entity].add(ident)
-            delivered[f.entity][f.business_date].add(ident)
+            delivered[f.entity][day(f.business_date)].add(ident)
         if f.entity == "ACCOUNT":
             for r in f.rows:
                 customers_of_account[r["AccountId"]] = r.get("CustomerId")
@@ -202,11 +213,12 @@ def check_history(files, out):
                     out.add("an account's product was sent first", f.name,
                             "account {} names product {}".format(r["AccountId"],
                                                                  r.get("ProductId")), r)
-                accrued_by_date[f.business_date][r["AccountId"]] = money(
+                accrued_by_date[day(f.business_date)][r["AccountId"]] = money(
                     r.get("AccruedInterestAmount"))
-                balance_by_date[f.business_date][r["AccountId"]] = money(r.get("AccountBalance"))
+                balance_by_date[day(f.business_date)][r["AccountId"]] = money(
+                    r.get("AccountBalance"))
         if f.entity == "TRANSACTION":
-            ordered = sorted(f.rows, key=lambda r: (r.get("ValueDate", ""),
+            ordered = sorted(f.rows, key=lambda r: (day(r.get("ValueDate")),
                                                     r.get("BookingDateTime", "")))
             for r in ordered:
                 account = r.get("AccountId")
@@ -215,7 +227,7 @@ def check_history(files, out):
                             "transaction {} names account {}".format(r.get("TransactionId"),
                                                                      account), r)
                 amount, updated = money(r.get("Amount")), money(r.get("UpdatedBalance"))
-                daily_transactions[r.get("ValueDate")] += 1
+                daily_transactions[day(r.get("ValueDate"))] += 1
                 if account in last_balance:
                     step = updated - last_balance[account]
                     if abs(step) != abs(amount):
@@ -249,19 +261,19 @@ def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, 
             out.add("RECON carries one row", f.name, "no rows")
             continue
         r = f.rows[0]
-        day = r.get("BusinessEffectiveDate")
-        if day != f.business_date:
+        recon_day = day(r.get("BusinessEffectiveDate"))
+        if recon_day != day(f.business_date):
             out.add("the RECON row is for the HDR's business date", f.name,
-                    "row {} HDR {}".format(day, f.business_date), r)
-        if previous and day <= previous:
+                    "row {} HDR {}".format(recon_day, f.business_date), r)
+        if previous and recon_day <= previous:
             out.add("RECON moves forward one business date at a time", f.name,
-                    "{} follows {}".format(day, previous), r)
-        previous = day
+                    "{} follows {}".format(recon_day, previous), r)
+        previous = recon_day
         expected = {
-            "TotalCustomerCount": len(cumulative(delivered["CUSTOMER"], day)),
-            "TotalAccountCount": len(cumulative(delivered["ACCOUNT"], day)),
-            "TotalProductCount": len(cumulative(delivered["PRODUCT"], day)),
-            "DailyTransactionCount": daily_transactions.get(day, 0),
+            "TotalCustomerCount": len(cumulative(delivered["CUSTOMER"], recon_day)),
+            "TotalAccountCount": len(cumulative(delivered["ACCOUNT"], recon_day)),
+            "TotalProductCount": len(cumulative(delivered["PRODUCT"], recon_day)),
+            "DailyTransactionCount": daily_transactions.get(recon_day, 0),
         }
         for column, want in expected.items():
             if int(r.get(column) or 0) != want:
@@ -269,7 +281,7 @@ def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, 
                         "RECON says {}, the files give {}".format(r.get(column), want), r)
         balances, accrued = {}, {}
         for d in sorted(accrued_by_date):
-            if d <= day:
+            if d <= recon_day:
                 accrued.update(accrued_by_date[d])
         want_accrued = sum(accrued.values(), Decimal(0)).quantize(PENNY)
         if money(r.get("TotalAccruedInterest")) != want_accrued:
@@ -279,9 +291,9 @@ def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, 
         latest = {}
         for g in files:
             if g.entity == "TRANSACTION":
-                for t in sorted(g.rows, key=lambda t: (t.get("ValueDate", ""),
+                for t in sorted(g.rows, key=lambda t: (day(t.get("ValueDate")),
                                                        t.get("BookingDateTime", ""))):
-                    if t.get("ValueDate", "") <= day:
+                    if day(t.get("ValueDate")) <= recon_day:
                         latest[t["AccountId"]] = money(t.get("UpdatedBalance"))
         balances = sum(latest.values(), Decimal(0)).quantize(PENNY)
         if money(r.get("TotalBalanceAtEndOfDay")) != balances:
@@ -297,10 +309,11 @@ def check_account_against_transactions(files, out):
     for f in files:
         if f.entity == "TRANSACTION":
             for t in f.rows:
-                events.append((t.get("ValueDate", ""), 0, t.get("BookingDateTime", ""), "T", t, f))
+                events.append((day(t.get("ValueDate")), 0, t.get("BookingDateTime", ""), "T", t,
+                               f))
         elif f.entity == "ACCOUNT":
             for a in f.rows:
-                events.append((f.business_date, 1, "", "A", a, f))
+                events.append((day(f.business_date), 1, "", "A", a, f))
     for _, _, _, kind, row, f in sorted(events, key=lambda e: e[:3]):
         if kind == "T":
             latest[row["AccountId"]] = money(row.get("UpdatedBalance"))
@@ -310,6 +323,65 @@ def check_account_against_transactions(files, out):
                     "account {} reads {}, its last transaction left {}".format(
                         row["AccountId"], row.get("AccountBalance"), latest[row["AccountId"]]),
                     row)
+
+
+CORE_DSN = "postgresql://core:password@localhost:5432/core"
+
+
+def core_rows(sql):
+    done = subprocess.run(["psql", CORE_DSN, "-tA", "-F", "\t", "-c", sql], capture_output=True,
+                          text=True, timeout=60)
+    if done.returncode != 0:
+        return None
+    return [line.split("\t") for line in done.stdout.splitlines() if line.strip()]
+
+
+def files_in_core(bank_uid):
+    rows = core_rows("SELECT count(*) FROM investec_file f JOIN partner_bank b ON b.sid = f.bank_sid "
+                     "WHERE b.uid = '{}'".format(bank_uid))
+    return int(rows[0][0]) if rows else None
+
+
+def check_against_core(files, bank_uid, out):
+    """Each file's trailer against the row core keeps for it, which core wrote from the same run."""
+    rows = core_rows("SELECT f.file_name, f.data_record_count, f.insert_record_count, "
+                     "f.update_record_count, coalesce(f.control_total_sha256, '') "
+                     "FROM investec_file f JOIN partner_bank b ON b.sid = f.bank_sid "
+                     "WHERE b.uid = '{}'".format(bank_uid))
+    if rows is None:
+        out.add("core's file rows can be read", "investec_file", "psql failed")
+        return
+    known = {}
+    for r in rows:
+        if r[0]:
+            known.setdefault(r[0], []).append(r)
+    for name, same in known.items():
+        sealed = [r for r in same if r[4]]
+        if len(sealed) > 1:
+            # The archive key is the file name, and the name carries the extract time to the
+            # second, so the later file replaced the earlier one in S3 and at the bank.
+            out.add("no two sealed files share one name", name,
+                    "{} sealed files, counts {}".format(len(sealed), [r[1] for r in sealed]))
+
+    def counts(row, f):
+        want = [row[1], row[2], row[3]] if f.entity in DELTA else [row[1]]
+        return [str(int(x or 0)) for x in want]
+
+    for f in files:
+        same = known.get(f.name)
+        if not same:
+            out.add("every archived file has a row in core", f.name, "no investec_file row")
+            continue
+        have = [f.trl[3], f.trl[4], f.trl[5]] if f.entity in DELTA else [f.trl[3]]
+        have = [str(int(x or 0)) for x in have]
+        if not any(counts(r, f) == have and (not r[4] or r[4] == f.trl[-1]) for r in same):
+            out.add("the trailer equals a file core sealed under that name", f.name,
+                    "file {} {}, core {}".format(have, f.trl[-1][:12],
+                                                [(counts(r, f), r[4][:12]) for r in same]))
+    archived = {f.name for f in files}
+    for name, same in known.items():
+        if any(r[4] for r in same) and name not in archived:
+            out.add("every sealed file is archived", name, "sealed in core, not in S3")
 
 
 def generate(bank_uid, times):
@@ -322,14 +394,29 @@ def generate(bank_uid, times):
     # adapter finds a bank only in the partner file core writes every five minutes, and the
     # schedulers are off locally, so a new bank's files fail with "No partner bank".
     ops.call("POST", "/operations/processor/partners/refresh")
-    statuses = []
+    # The feed ships one business date a run, and a run of the harness moves the bank many dates
+    # on, so a fixed number of rounds left the feed months behind and RECON, which waits for the
+    # feed to reach its target date, never ran. Ask until three rounds in a row write nothing.
+    statuses = {}
+    still = 0
+    before = files_in_core(bank_uid)
     for _ in range(times):
+        world.mark_feed_files_sent(bank_uid)
         for event in ("DIRECT_DATA_FEED", "DIRECT_DATA_RECON"):
             call = ops.call("POST", "/operations/batch/processor/bank/{}/{}/sync".format(
                 bank_uid, event))
-            statuses.append("{} {}".format(event, call.status))
+            key = "{} {}".format(event, call.status)
+            statuses[key] = statuses.get(key, 0) + 1
+            # A file is named by its extract time to the second, so two runs inside one second
+            # write the same name and the later replaces the earlier (see the name check).
+            time.sleep(1.1)
+        after = files_in_core(bank_uid)
+        still = still + 1 if after == before else 0
+        before = after
+        if still >= 3:
+            break
     ops.close()
-    return statuses
+    return ["{} x{}".format(k, v) for k, v in statuses.items()]
 
 
 def main():
@@ -347,6 +434,7 @@ def main():
         check_envelope(f, out)
     check_history(files, out)
     check_account_against_transactions(files, out)
+    check_against_core(files, args.bank_uid, out)
     by_entity = defaultdict(int)
     for f in files:
         by_entity[f.entity] += 1

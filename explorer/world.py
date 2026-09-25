@@ -10,10 +10,13 @@ import os
 import subprocess
 import sys
 import uuid
-from datetime import date
+import fcntl
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 PERF_ROOT = Path(__file__).resolve().parents[2] / "performance-testing"
+LONDON = ZoneInfo("Europe/London")
 if str(PERF_ROOT) not in sys.path:
     sys.path.insert(0, str(PERF_ROOT))
 
@@ -75,6 +78,34 @@ def credit_platform_at_bank(hsb_client, virtual_iban, amount, reference, counter
     )
 
 
+POLL_MARK = Path(os.environ.get("SIM_POLL_MARK", Path(__file__).resolve().parents[1] / ".poll-mark"))
+POLL_OVERLAP_SECONDS = 2
+
+
+def _next_poll_window():
+    """The window since the last poll by any run on this machine, as London wall-clock times.
+
+    With no window the endpoint re-reads the last 30 minutes, and clearing inserts every entry it
+    reads again: a line it cannot allocate is never matched as a duplicate, so 126 unallocated
+    credits became 5809 EXCEPTION lines in one cycle. The scheduler in a deployed environment polls
+    each period once, so the harness does the same, with a two-second overlap at the edge.
+    """
+    now = datetime.now(LONDON).replace(microsecond=0)
+    with open(POLL_MARK, "a+") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        handle.seek(0)
+        try:
+            last = datetime.fromisoformat(handle.read().strip())
+        except ValueError:
+            last = now - timedelta(minutes=30)
+        start = max(last - timedelta(seconds=POLL_OVERLAP_SECONDS),
+                    now.replace(hour=0, minute=0, second=0))
+        handle.seek(0)
+        handle.truncate()
+        handle.write(now.isoformat())
+    return start.time().isoformat(), now.time().isoformat()
+
+
 def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIRECT",
                            currency="GBP", transactions_date=None):
     """Pulls what the bank holds into clearing as statement lines.
@@ -82,12 +113,14 @@ def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIREC
     Crediting the bank alone leaves `account_statement_line` empty, so processing finds nothing and
     every call still returns 200. The corpus polls before it processes.
     """
+    start, end = _next_poll_window()
     return ops_client.call("POST", POLL_TRANSACTIONS, json_body={
         "connectorType": connector,
         "realAccountType": account_type,
         "internalCurrencyCode": currency,
         "transactionsDate": transactions_date or date.today().isoformat(),
         "taxWrapperType": "DEFAULT",
+        "transactionTimePeriodRequest": {"transactionTimeFrom": start, "transactionTimeTo": end},
     })
 
 
@@ -189,3 +222,99 @@ def settle_payments(ops_client):
         ops_client.call("POST", SETTLE_TRANSFERS),
         ops_client.call("POST", PROCESS_GROUPS),
     ]
+
+
+STATEMENT_EXCEPTIONS = "/operations/account/statement/exceptions"
+STATEMENT_LINE = "/operations/account/statement/{}"
+
+
+def ignore_repeated_exceptions(ops_client):
+    """Mark each repeat of an unallocated bank entry IGNORED, as a duplicate of its first copy.
+
+    Clearing inserts a bank entry again every time a poll reads it, and never matches the copies it
+    cannot allocate (FINDINGS.md, finding 7), so each unallocated credit became dozens of EXCEPTION
+    lines and MI_RECON listed 30006 items for a few hundred payments. An operator clears a repeat
+    this way, through the same endpoint, so the first copy stays in the queue and the report.
+    Returns (lines read, lines ignored, refusals), or None when the queue could not be read.
+    """
+    listed = ops_client.call("GET", STATEMENT_EXCEPTIONS)
+    lines_read = listed.body if listed.ok and isinstance(listed.body, list) else None
+    if lines_read is None:
+        # The list is not paged, so past about 30000 lines ops-api refuses clearing's answer with
+        # ContentLengthExceededException at its 10MB limit. The lines are then read from clearing's
+        # table, and the update still goes through the ops endpoint an operator would use.
+        lines_read = _exception_lines_from_clearing()
+    if lines_read is None:
+        return None
+    groups = {}
+    for line in lines_read:
+        key = (line.get("primaryInternalAccountIdentity"), line.get("entryRef"),
+               line.get("accountServicerRef"), str(line.get("amount")),
+               line.get("debitCreditMark"), line.get("bookingDate"))
+        groups.setdefault(key, []).append(line)
+    ignored, refused = 0, 0
+    for lines in groups.values():
+        if len(lines) < 2 or not lines[0].get("entryRef"):
+            continue
+        lines.sort(key=lambda l: (l.get("createdAt") or "", l["accountStatementLineUid"]))
+        first = lines[0]["accountStatementLineUid"]
+        for line in lines[1:]:
+            done = ops_client.call("PATCH", STATEMENT_LINE.format(line["accountStatementLineUid"]),
+                                   json_body={"status": "IGNORED", "duplicateOf": first})
+            if done.ok:
+                ignored += 1
+            else:
+                refused += 1
+    return len(lines_read), ignored, refused
+
+
+def mark_feed_files_sent(bank_uid):
+    """Record the bank's sealed feed files as delivered, the way adapter does after an SFTP push.
+
+    adapter sets investec_file.sent_at only when the bank has a push sink, and no local bank has
+    one. The feed lets INTEREST back into its choice of date only after a file for the day has
+    been sent, so without this every interest-only day was skipped and RECON, which waits for
+    those rows, never sealed (FINDINGS.md, finding 8). Returns the rows marked, or None.
+    """
+    try:
+        uuid.UUID(str(bank_uid))
+    except ValueError:
+        return None
+    sql = ("UPDATE investec_file f SET sent_at = now() FROM partner_bank b "
+           "WHERE b.sid = f.bank_sid AND b.uid = '{}' AND f.sent_at IS NULL "
+           "AND f.control_total_sha256 IS NOT NULL RETURNING f.sid").format(bank_uid)
+    try:
+        done = subprocess.run(["psql", CORE_DSN, "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                              capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    return len([line for line in done.stdout.splitlines() if line.strip().isdigit()])
+
+
+CLEARING_DSN = os.environ.get("SIM_CLEARING_DSN",
+                              "postgresql://clearing:password@localhost:5440/clearing")
+
+
+def _exception_lines_from_clearing():
+    sql = ("SELECT uid, primary_internal_account_sid, entry_ref, account_servicer_ref, amount, "
+           "debit_credit_mark, booking_date, created_at FROM account_statement_line "
+           "WHERE status = 'EXCEPTION'")
+    try:
+        done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-c", sql],
+                              capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    lines = []
+    for raw in done.stdout.splitlines():
+        cells = raw.split("\t")
+        if len(cells) < 8:
+            continue
+        lines.append({"accountStatementLineUid": cells[0],
+                      "primaryInternalAccountIdentity": cells[1], "entryRef": cells[2],
+                      "accountServicerRef": cells[3], "amount": cells[4],
+                      "debitCreditMark": cells[5], "bookingDate": cells[6], "createdAt": cells[7]})
+    return lines

@@ -43,6 +43,8 @@ STACK_FAULTS = {
     "FundAccountInterrupted", "FundAccountDuplicated",
     "DuplicateMessages", "StopDuplicating",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
+    # Bank-wide, so one run asks for it: the feed of one bank is one sequence of files.
+    "RunDataFeed",
 }
 
 
@@ -94,3 +96,43 @@ def others_in_flight():
                                                                            entry["run"]),
                          "subject": None, "trial": None})
     return live
+
+
+def _subjects_file():
+    return EVENTS[:-len(".events.jsonl")] + ".subjects.jsonl" if EVENTS else None
+
+
+def share_subject(customer_id, account_id=None, product_id=None):
+    """Tell the other runs about a customer this platform holds, so they can try to reach it."""
+    path = _subjects_file()
+    if not path or not customer_id:
+        return
+    try:
+        with open(path, "a") as handle:
+            handle.write(json.dumps({"run": NAME, "customerId": customer_id,
+                                     "accountId": account_id, "productId": product_id}) + "\n")
+    except OSError:
+        pass
+
+
+def foreign_subject(pick):
+    """A customer of another platform, chosen with `pick` from the most recent ones, or None."""
+    path = _subjects_file()
+    if not path:
+        return None
+    try:
+        with open(path, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            handle.seek(max(0, handle.tell() - READ_BYTES))
+            lines = handle.read().decode(errors="replace").splitlines()
+    except OSError:
+        return None
+    theirs = []
+    for raw in lines:
+        try:
+            entry = json.loads(raw)
+        except ValueError:
+            continue
+        if entry.get("run") != NAME:
+            theirs.append(entry)
+    return pick(theirs) if theirs else None

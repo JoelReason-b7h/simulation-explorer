@@ -370,6 +370,24 @@ class Run:
     # still catches a break while the run that made it is still going.
     CHAIN_SWEEP_SECONDS = float(os.environ.get("SIM_CHAIN_SWEEP_SECONDS", "180"))
 
+    IGNORE_REPEATS_SECONDS = 60
+
+    def ignore_repeats_now(self):
+        """Clear the repeated EXCEPTION lines clearing inserts on each poll (finding 7).
+
+        Left alone they grew to 30006 in one cycle and every poll of the queue slowed with them.
+        One run in a fleet does it, once a minute, because the queue is shared.
+        """
+        if fleet.is_member() or not self.ops:
+            return
+        now = time.time()
+        if now - getattr(self, "_repeats_cleared_at", 0.0) < self.IGNORE_REPEATS_SECONDS:
+            return
+        self._repeats_cleared_at = now
+        result = world.ignore_repeated_exceptions(self.ops)
+        if result and result[1]:
+            print("  -- ignored {} repeated exception lines of {}".format(result[1], result[0]))
+
     def take_chain_baseline(self):
         """Remember the breaks that exist before the first action, so the run reports only its own.
 
@@ -573,11 +591,78 @@ class Run:
                       "batchPaymentReference"):
             if body.get(field):
                 target[field] = body[field]
+        if action_name in ("CreateCustomer", "OpenAccount") and target.get("customerId"):
+            fleet.share_subject(target["customerId"], body.get("accountId"),
+                                target.get("productId"))
         if body.get("accountId"):
             seen = target.setdefault("accounts", [])
             if body["accountId"] not in [a["id"] for a in seen]:
                 seen.append({"id": body["accountId"],
                              "reference": body.get("accountReference")})
+
+    def run_data_feed(self):
+        """Ask core for the bank's data feed and then its RECON, as their schedules would.
+
+        RECON moves one business date per run and the feed holds until the RECON before it is
+        sealed, so the pair is asked for together. checks/direct_feed.py reads the files after the
+        cycle; here the run only records that the files were cut while its trials were in flight.
+        """
+        if not self.bank_uid:
+            return Call("POST", "RunDataFeed", 412, {"message": "BANK_UID is not set"}, 0)
+        self.note_in_flight("feed", "a data feed and RECON run")
+        world.mark_feed_files_sent(self.bank_uid)
+        feed = self.ops.call("POST", "/operations/batch/processor/bank/{}/DIRECT_DATA_FEED/sync"
+                             .format(self.bank_uid))
+        recon = self.ops.call("POST", "/operations/batch/processor/bank/{}/DIRECT_DATA_RECON/sync"
+                              .format(self.bank_uid))
+        worst = feed if not feed.ok else recon
+        return Call("POST", "RunDataFeed", worst.status, {
+            "message": "feed {} recon {}".format(feed.status, recon.status),
+            "feed": feed.body, "recon": recon.body}, feed.elapsed_ms + recon.elapsed_ms)
+
+    def probe_other_platform(self):
+        """Reach for another platform's customer with this platform's token.
+
+        Each call must be refused, because the platform in the token is the tenant boundary. A 2xx
+        on any of them is a breach, whatever the body says, so the finding carries the answer.
+        """
+        theirs = fleet.foreign_subject(lambda found: found[self.steps % len(found)])
+        if not theirs:
+            return Call("GET", "ProbeOtherPlatform", 412,
+                        {"message": "no other platform has shared a customer yet"}, 0)
+        customer = theirs["customerId"]
+        calls = [
+            ("read the customer", self.client.call("GET", "/direct/v1/customers/{}".format(
+                customer))),
+            ("read the balances", self.client.call(
+                "GET", "/direct/v1/customers/{}/balances".format(customer))),
+            ("read the instructions", self.client.call(
+                "GET", "/direct/v1/customers/{}/instructions".format(customer))),
+        ]
+        if theirs.get("accountId") and theirs.get("productId"):
+            reference = self.mint("x", 36)
+            calls.append(("withdraw from the account", self.client.call(
+                "POST", "/direct/v1/customers/{}/accounts/{}/instruction".format(
+                    customer, theirs["accountId"]),
+                json_body={"instructionRequestType": "WITHDRAW",
+                           "productId": theirs["productId"], "amount": "0.01",
+                           "instructionReference": reference})))
+        for what, call in calls:
+            if call.ok:
+                violation = oracles.Violation(
+                    "a platform cannot reach another platform's customer", customer,
+                    "{} of {}'s customer answered {}".format(what, theirs["run"], call.status),
+                    expected="a refusal", actual="{} {}".format(call.status, str(call.body)[:300]))
+                row = violation.as_row()
+                row["n"] = len(self.log) + 1
+                row["action"] = "ProbeOtherPlatform"
+                row["body"] = call.body if isinstance(call.body, (dict, list)) else str(call.body)
+                row["inFlight"] = []
+                row["attribution"] = "ProbeOtherPlatform alone"
+                self.record_violation(row, violation)
+        worst = max(calls, key=lambda c: (c[1].ok, c[1].status))[1]
+        return Call("GET", "ProbeOtherPlatform", 403 if not worst.ok else worst.status,
+                    {"message": "; ".join("{} {}".format(w, c.status) for w, c in calls)}, 0)
 
     def fund_account(self):
         """The grouped action §3 declares as plumbing: batch, credit, poll, process, dues, settle.
@@ -1403,6 +1488,8 @@ class Run:
             "ReturnClosurePayment": type(self).return_closure_payment,
             "DuplicateMessages": type(self).duplicate_messages,
             "StopDuplicating": type(self).stop_duplicating,
+            "ProbeOtherPlatform": type(self).probe_other_platform,
+            "RunDataFeed": type(self).run_data_feed,
         }
 
     # How long a received message stays hidden from other consumers while duplication is on.
@@ -2152,6 +2239,7 @@ class Run:
         self.steps += 1
         self.explorer.steps = self.steps
         self.sweep_transition_chains()
+        self.ignore_repeats_now()
         self.rotate_batch()
         # Journey shape drives what to construct; entity keys drive what to do to what exists.
         # Without this the pool only grows when CreateCustomer happens to be the least-tried

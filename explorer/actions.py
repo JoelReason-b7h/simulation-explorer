@@ -271,6 +271,13 @@ CORE_SIDE = [
            needs=["customerId", "accountId", "accountReference"], entity="account"),
     Action("ReturnClosurePayment", "POST", "/direct/v1/batches",
            needs=["customerId", "accountId", "accountReference"], entity="account"),
+    # In a fleet, this platform's token against another platform's customer and account. The
+    # platform is the tenant boundary, so every one of these calls must be refused.
+    # The bank's Direct data feed and its RECON, asked for in the middle of the traffic rather than
+    # after it, so the feed's cut of the day races deposits, withdrawals and the accrual run.
+    Action("RunDataFeed", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
+    Action("ProbeOtherPlatform", "GET", "/direct/v1/customers/{customerId}",
+           needs=["customerId"], entity="customer"),
     Action("PlaceWithdrawal", "POST",
            "/direct/v1/customers/{customerId}/accounts/{accountId}/instruction",
            needs=["customerId", "accountId", "productId"], body=withdraw_body),
@@ -322,7 +329,7 @@ EXPENSIVE_FAULTS = {
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
 }
 
-WORLD = {"SettleWorld", "AdvanceBusinessDay", "ProcessClosures", "ProcessDueNotice",
+WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", "ProcessDueNotice",
          "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
          "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
          "RestartClearing", "RestartCore", "RestartBank",

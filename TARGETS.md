@@ -8,8 +8,6 @@ changed or broke, and what the harness should see afterwards.
 - SAV-11278 (`ccbb5b8`): a Direct withdrawal is capped by the available balance, which is the
   ledger balance less other pending outbound. Two overlapping withdrawals on one account must not
   both pass. A zero-available closing withdrawal ends CANCELLED.
-- SAV-11590 (`add0f82`): the pooled payment-due list no longer defaults to AWAITING when a
-  `paymentId` or `raisedOn` filter is given, so a settled due is returned by its payment id.
 - SAV-11067 (`4c2ffba`): every webhook is written inside its business transaction. A fault at
   commit must leave both the business row and the webhook row, or neither.
 - SAV-11572 (`6af1ca2`): schedule triggers share `ScheduleManager`, and `StuckScheduleReaper`
