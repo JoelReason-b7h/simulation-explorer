@@ -130,7 +130,9 @@ MUTATIONS = (
     ("amount as text", True, _amount("one pound")),
     ("unknown field", True, _unknown_field),
     ("required field missing", True, _drop_required),
-    ("enum in lower case", True, _lower_enum),
+    # Odd, not invalid: the Direct enums' @JsonCreator matches with equalsIgnoreCase on purpose
+    # (ExternalDirectAccountHolderType.fromValue), so "individual" is accepted as INDIVIDUAL.
+    ("enum in lower case", False, _lower_enum),
     ("reference of 5000 characters", True, _text("r" * 5000)),
     ("non-ASCII text", False, _text("Zoë 名前 🙂")),
     ("SQL in text", False, _text("x'; DROP TABLE customer; --")),

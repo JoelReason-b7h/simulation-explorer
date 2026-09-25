@@ -40,6 +40,10 @@ KNOWN = {
     ("no unexplained 5xx", "CancelAccountOpening"),
     ("a fault is survived without a server error", "CancelAccountOpening"),
     ("a fault is survived without a server error", "CloseAccount"),
+    # Local artefact: each cycle makes a new Direct bank, and core keeps a DIRECT account per bank
+    # while clearing holds one Investec DIRECT nostro for all of them, so the second bank's
+    # accounts have nothing to match in clearing.
+    ("core's Direct reconciliation with clearing passes", None),
 }
 
 # Known findings a rule reports under one action for many causes, told apart by their detail.
