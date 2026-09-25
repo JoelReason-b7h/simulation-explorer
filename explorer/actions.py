@@ -166,6 +166,50 @@ def nominated_account_body(held, mint):
     }
 
 
+# hot-sauce-bank decides the Confirmation of Payee answer from the creditor name and nothing else,
+# and the creditor name is this account's `accountName`: DirectBankAccountMapper puts it on
+# BankAccount.accountHolderName, ConfirmationOfPayeeExecutor sends that as `creditorName`, and
+# PaymentPrevalidationController matches these substrings against the uppercased name before
+# falling through to MATCH. Steering used to key on the account number too, and the acceptance
+# suite builds nominated accounts from a uniformly random IBAN, so that tripped on an ordinarily
+# named customer about once in a thousand (SAV-10743). The name is the only trigger left, and it
+# is deterministic.
+COP_TRIGGERS = (
+    # The name belongs to nobody at that account.
+    ("NOMATCH", "NOTMATCH"),
+    # Near enough that the bank answers with the name it holds instead.
+    ("CLOSEMATCH", "CLOSEMATCH"),
+    # The two mock errors, which reach core as CopOutcome.FAILURE rather than as an answer.
+    ("PPVE400", "FAILURE"),
+    ("PPVE500", "FAILURE"),
+)
+
+
+def cop_trigger_for(reference):
+    """A trigger chosen from the minted reference, so a run walks all four and still replays."""
+    return COP_TRIGGERS[sum(ord(c) for c in reference[-4:]) % len(COP_TRIGGERS)]
+
+
+def unverifiable_nominated_account_body(held, mint):
+    """The same account as AddNominatedAccount, named so Confirmation of Payee cannot pass it.
+
+    All four outcomes land the account in AWAITING_REVIEW rather than VERIFIED:
+    NominatedAccountVerificationService.applyCopOutcome maps CLOSEMATCH, NOTMATCH and FAILURE onto
+    the one state, and only MATCH reaches VERIFIED. That is the state
+    DirectAccountValidator.validateNominatedAccountIsUsable refuses a withdrawal from, and the
+    state integrity.payments_to_unverified_payees is written against.
+
+    A customer holds one active nominated account per currency
+    (findNominatedAccountIdentifierForCustomer takes customer and currency and returns one), so
+    this replaces the payee the customer had rather than sitting beside it, and every withdrawal
+    placed after it must be refused until an operator reviews the account.
+    """
+    body = nominated_account_body(held, mint)
+    trigger, _ = cop_trigger_for(mint("cop", 24))
+    body["nominatedAccount"]["accountName"] = "{} nominated account".format(trigger)
+    return body
+
+
 CORE_SIDE = [
     Action("CreateCustomer", "POST", "/direct/v1/customers",
            body=customer_body, entity="customer"),
@@ -175,6 +219,13 @@ CORE_SIDE = [
            needs=["customerId"], entity="customer"),
     Action("AddNominatedAccount", "PATCH", "/direct/v1/customers/{customerId}/nominated-account",
            needs=["customerId"], body=nominated_account_body, entity="customer"),
+    # The same call with a name the bank simulator refuses, so the customer ends up with a payee
+    # that never verified. Needs the platform's cop_verification_required set, which
+    # standup_cohort.require_cop does; without it the dispatcher returns before it calls anything
+    # and this is just AddNominatedAccount under another name.
+    Action("AddUnverifiableNominatedAccount", "PATCH",
+           "/direct/v1/customers/{customerId}/nominated-account",
+           needs=["customerId"], body=unverifiable_nominated_account_body, entity="customer"),
     Action("OpenAccount", "POST", "/direct/v1/customers/{customerId}/accounts",
            needs=["customerId", "productId"], body=open_account_body),
     Action("ReadAccount", "GET", "/direct/v1/customers/{customerId}/accounts/{accountId}",

@@ -269,6 +269,40 @@ def own_client(platform_uid):
     return client_id
 
 
+def require_cop(platform_uid):
+    """Turn Confirmation of Payee on for the platform.
+
+    NominatedAccountVerificationDispatcher.dispatch returns on its first line unless the platform's
+    cop_verification_required is set, so with it unset no nominated account is ever checked and
+    AddUnverifiableNominatedAccount proves nothing. The flag lives on custom_platform_config rather
+    than on the platform, and the ops creation body has no field for it, so it is set the way the
+    acceptance suite sets it, in CoreRepository.setPlatformCopVerificationRequired. The config row
+    already exists: creating the platform upserts it, which is how matchByReference lands.
+
+    It also decides the state clearing gives the account. InternalCustomerAccountRequestBuilder
+    reads requireVerification as cop_verification_required OR require_external_account_verification,
+    so this one flag is what leaves external_account UNVERIFIED until CoP answers, which is what
+    integrity.payments_to_unverified_payees reads.
+
+    Turning it on changes every customer the run makes, not only the unverifiable ones: an ordinary
+    name still answers MATCH, but the answer is asynchronous, so there is now a window between
+    creating a customer and their payee being usable.
+    """
+    uuid.UUID(platform_uid)
+    sql = ("UPDATE custom_platform_config SET cop_verification_required = true "
+           "WHERE platform_sid = (SELECT sid FROM partner_platform WHERE uid = '{}') "
+           "RETURNING cop_verification_required").format(platform_uid)
+    done = subprocess.run(["psql", CORE_DSN, "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                          capture_output=True, text=True, timeout=60)
+    required = "t" in done.stdout.split()
+    print("  {} {:44} {}".format("ok " if required else "REJ",
+                                 "require Confirmation of Payee",
+                                 "on" if required else done.stderr.strip()[:300] or "no config row"))
+    if not required:
+        raise SystemExit(1)
+    return required
+
+
 def uid_from(body):
     if isinstance(body, str):
         return body.strip('"')
@@ -358,6 +392,8 @@ def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, sh
                     "/operations/platforms", platform_body(bank_uid))
     platform_uid = uid_from(platform.body)
     print("      platformUid {}".format(platform_uid))
+
+    require_cop(platform_uid)
 
     step(ops, "grant product access with a zero fee", "POST",
          "/operations/own/access", access_body(bank_uid, platform_uid, product_uid))
