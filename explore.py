@@ -579,11 +579,11 @@ class Run:
         if not isinstance(body, dict):
             return
         target = self.subjects[self.current]
-        if action_name == "CreateCustomer" and body.get("customerId") and target.get("customerId"):
+        if action_name in actions.CREATES and body.get("customerId") and target.get("customerId"):
             target = {}
             self.subjects.append(target)
             self.current = len(self.subjects) - 1
-        if action_name == "CreateCustomer" and not target.get("productId"):
+        if action_name in actions.CREATES and not target.get("productId"):
             product_type, product_id = self.product_for_new_subject()
             target["productId"] = product_id
             target["productType"] = product_type
@@ -593,7 +593,8 @@ class Run:
                       "batchPaymentReference"):
             if body.get(field):
                 target[field] = body[field]
-        if action_name in ("CreateCustomer", "OpenAccount") and target.get("customerId"):
+        if ((action_name in actions.CREATES or action_name == "OpenAccount")
+                and target.get("customerId")):
             fleet.share_subject(target["customerId"], body.get("accountId"),
                                 target.get("productId"))
         if body.get("accountId"):
@@ -636,6 +637,74 @@ class Run:
                 self.PLATFORM_FEE_HIGH if raising else self.PLATFORM_FEE_LOW, start,
                 proposal.status, accepted.status),
             "approval": accepted.body}, proposal.elapsed_ms + accepted.elapsed_ms)
+
+    # A rise may start today; a cut must start at least fifteen days out plus the product's notice
+    # (ProductRateDateValidator), and forty-five clears the two-day notice product with room. Each
+    # rise climbs from the last so it always changes the rate, and each cut starts a day later
+    # than the one before so the future rates stack rather than land on one date.
+    BANK_RATE_RISE_FROM = Decimal("0.0410")
+    BANK_RATE_RISE_STEP = Decimal("0.0010")
+    BANK_RATE_RISES_BEFORE_WRAPPING = 40
+    BANK_RATE_CUT = Decimal("0.0300")
+    BANK_RATE_CUT_LEAD_DAYS = 45
+    RATE_APPROVALS = ("/operations/approvals?approvalType=PRODUCT_RATE_UPDATE"
+                      "&paginatedProperty=CREATED_AT&orderAscDesc=DESC&take=50")
+
+    def change_bank_rate(self):
+        """Propose a new gross rate on the bank product under this subject, and approve it."""
+        held = self.held
+        product = held.get("productId") if held.get("productType") != "TERM" else None
+        found = world.bank_product_for(product or self.product_id)
+        if not found:
+            return Call("POST", "ChangeBankRate", 412,
+                        {"message": "could not read the bank product from core"}, 0)
+        product_uid, name, product_type, bank_uid = found
+        turns = getattr(self, "bank_rate_turns", {})
+        self.bank_rate_turns = turns
+        turn = turns.get(product_uid, 0)
+        raising = turn % 2 == 0
+        if raising:
+            rises = (turn // 2) % self.BANK_RATE_RISES_BEFORE_WRAPPING
+            rate = self.BANK_RATE_RISE_FROM + self.BANK_RATE_RISE_STEP * rises
+            start = date.today()
+        else:
+            rate = self.BANK_RATE_CUT
+            start = date.today() + timedelta(days=self.BANK_RATE_CUT_LEAD_DAYS + turn // 2)
+        proposal = self.ops.call(
+            "PUT", "/operations/proposals/banks/{}/products/{}/rates".format(bank_uid, product_uid),
+            json_body={"grossRate": str(rate), "startDate": start.isoformat(),
+                       "announcedAt": date.today().isoformat()})
+        if not proposal.ok:
+            return proposal
+        # The proposal answers with no body, so the approval is found by the product's name, as
+        # the acceptance suite does. Core refuses a second proposal on a bank product while one
+        # is waiting, so at most one row can match.
+        listed = self.ops.call("GET", self.RATE_APPROVALS)
+        rows = (listed.body.get("content") or []) if listed.ok and isinstance(listed.body, dict) \
+            else []
+        approval = next((row.get("approvalUid") for row in rows
+                         if row.get("approvalType") == "PRODUCT_RATE_UPDATE"
+                         and row.get("entityName") == name
+                         and row.get("approvalStatus") in (None, "PENDING")), None)
+        if not approval:
+            return Call("POST", "ChangeBankRate", 412, {
+                "message": "proposed {} on {} but found no approval to accept".format(rate, name)},
+                proposal.elapsed_ms + listed.elapsed_ms)
+        accepted = self.ops.call("POST", "/operations/approvals/{}/accept".format(approval),
+                                 json_body={})
+        if accepted.ok:
+            turns[product_uid] = turn + 1
+            self.note_in_flight("rate", "a {} bank rate change to {} from {}".format(
+                product_type, rate, start))
+        else:
+            # A proposal left waiting blocks every later one on this bank product.
+            self.ops.call("POST", "/operations/approvals/{}/reject".format(approval), json_body={})
+        return Call("POST", "ChangeBankRate", accepted.status, {
+            "message": "{} {} to {} from {}: proposal {}, approval {}".format(
+                "raised" if raising else "cut", name, rate, start, proposal.status,
+                accepted.status),
+            "approval": accepted.body},
+            proposal.elapsed_ms + listed.elapsed_ms + accepted.elapsed_ms)
 
     def weird_call(self):
         """Send a real request with one thing wrong or strange in it, and judge the answer.
@@ -1552,6 +1621,9 @@ class Run:
             "ProcessDueNotice": type(self).process_due_notice,
             "CloseNoticeAfterDue": type(self).close_notice_after_due,
             "SetKycStatus": type(self).set_kyc_status,
+            "CreateKycFailedCustomer": type(self).create_kyc_failed_customer,
+            "UpdateCustomer": type(self).update_customer,
+
             "FreezeCustomer": type(self).freeze_customer,
             "UnfreezeCustomer": type(self).unfreeze_customer,
             "SlowTheBank": type(self).slow_the_bank,
@@ -1574,6 +1646,7 @@ class Run:
             "RunDataFeed": type(self).run_data_feed,
             "WeirdCall": type(self).weird_call,
             "ChangePlatformFee": type(self).change_platform_fee,
+            "ChangeBankRate": type(self).change_bank_rate,
         }
 
     # How long a received message stays hidden from other consumers while duplication is on.
@@ -1811,6 +1884,47 @@ class Run:
         # The simulator answers with no body, so the trial would record no change at all. Read the
         # customer back, which is the state the run actually wants to see.
         return self.client.call("GET", "/direct/v1/customers/{}".format(held["customerId"]))
+
+    def create_kyc_failed_customer(self):
+        """Create a customer whose surname makes the compliance simulator fail its first KYC check.
+
+        Refused while too much of the pool is already stopped, for the same reason SetKycStatus
+        falls back to ACTIVATED: a pool of stopped customers can open and fund nothing.
+        """
+        if self.too_many_stopped():
+            return Call("POST", "create-kyc-failed-customer", 412,
+                        {"message": "too many live customers already sit outside ACTIVATED"}, 0)
+        method, path, body = actions.BY_NAME["CreateKycFailedCustomer"].build(
+            self.held, self.mint)
+        call = self.client.call(method, path, json_body=body)
+        if getattr(call, "ok", False) and isinstance(call.body, dict):
+            # The check result comes back through compliance's queue, so the stop lands on a later
+            # trial than the create.
+            self.note_in_flight("compliance", "a KYC failure for {}".format(
+                body["person"]["lastName"]), call.body.get("customerId"))
+        return call
+
+    def update_customer(self):
+        """Change this customer's contact details, address and income through the Direct API."""
+        held = self.held
+        path = "/direct/v1/customers/{}".format(held["customerId"])
+        read = self.client.call("GET", path)
+        persons = read.body.get("persons") if read.ok and isinstance(read.body, dict) else None
+        last_name = persons[0].get("lastName") if persons else None
+        if not last_name:
+            return Call("PUT", "update-customer", 412,
+                        {"message": "could not read the surname the update has to keep"}, 0)
+        subject = self.subjects[self.current]
+        turn = subject.get("updateTurn", 0)
+        subject["updateTurn"] = turn + 1
+        call = self.client.call(
+            "PUT", path, json_body=actions.update_customer_body(self.mint, last_name, turn))
+        if getattr(call, "ok", False):
+            # The update raises a fresh compliance check, whose answer comes back through
+            # compliance's queue on a later trial.
+            self.note_in_flight("compliance", "a KYC recheck after a details update",
+                                held["customerId"])
+        return call
 
     def freeze_customer(self):
         """Freeze this customer as an officer would, then read what the Direct API now says.
