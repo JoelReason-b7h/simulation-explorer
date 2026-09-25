@@ -36,6 +36,7 @@ PROCESS_DUE_NOTICE = "/operations/processor/direct/notice"
 PROCESS_CLOSURES = "/operations/processor/direct/account-closure"
 SIMULATE_PLATFORM_CREDIT = "/simulator/direct/payment/platform/transactions"
 SET_KYC_STATUS = "/simulator/direct/customer/{}/kyc/check"
+OVERRIDE_CUSTOMER = "/compliance/intervention/override/customer"
 
 
 def ops_token(settings):
@@ -155,6 +156,20 @@ def set_kyc_status(sim_client, customer_uid, status):
     """
     return sim_client.call("POST", SET_KYC_STATUS.format(customer_uid),
                            json_body={"customerStatus": status})
+
+
+def override_customer_status(compliance_client, customer_uid, action, notes):
+    """An officer's override through compliance-api, which is how ops freezes and unfreezes.
+
+    CustomerStatusOverrideService routes FREEZE on an ACTIVATED customer, and APPROVE on a FROZEN
+    one, to core's lifecycle action synchronously, so the status has moved by the time this
+    answers. The officer must be OPERATIONS, and a risk result or entity sub type is refused.
+    """
+    return compliance_client.call("PUT", OVERRIDE_CUSTOMER, json_body={
+        "customerId": customer_uid,
+        "overrideOfficerAction": action,
+        "notes": notes,
+    })
 
 
 def enquire_payment_status(ops_client):

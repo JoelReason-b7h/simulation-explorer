@@ -7,9 +7,10 @@ mounts or reads, never product code:
 
 - adds the harness's public key to the JWKS WireMock serves for Cognito, so the services accept a
   token `explorer.local_auth` signs, beside the dev pool's keys they already accept;
-- sends ops-api's and simulator-api's Cognito GetUser call to the harness, whose answer comes from
-  the token itself. Only those two read a user token, and the AWS SDK takes the endpoint from
-  `AWS_ENDPOINT_URL_COGNITO_IDENTITY_PROVIDER` without touching their other AWS clients.
+- sends ops-api's, simulator-api's and compliance-api's Cognito GetUser call to the harness, whose
+  answer comes from the token itself. Only those three read a user token, and the AWS SDK takes
+  the endpoint from `AWS_ENDPOINT_URL_COGNITO_IDENTITY_PROVIDER` without touching their other AWS
+  clients.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from pathlib import Path
 from explorer import local_auth
 
 JWKS = "docker/wiremock/__files/cognito-jwks.json"
-USER_TOKEN_SERVICES = ("docker/ops.env", "docker/simulator-api.env")
+USER_TOKEN_SERVICES = ("docker/ops.env", "docker/simulator-api.env", "docker/compliance-api.env")
 ENDPOINT = "AWS_ENDPOINT_URL_COGNITO_IDENTITY_PROVIDER=http://host.docker.internal:{}".format(
     local_auth.PORT)
 
