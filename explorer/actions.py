@@ -275,6 +275,9 @@ CORE_SIDE = [
     # platform is the tenant boundary, so every one of these calls must be refused.
     # The bank's Direct data feed and its RECON, asked for in the middle of the traffic rather than
     # after it, so the feed's cut of the day races deposits, withdrawals and the accrual run.
+    # A valid request with one thing wrong or strange in it (explorer/weird.py). It must never
+    # answer 5xx, an invalid one must be refused, and a refused one must change nothing.
+    Action("WeirdCall", "POST", "/direct/v1/customers", needs=["customerId"], entity="customer"),
     Action("RunDataFeed", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     Action("ProbeOtherPlatform", "GET", "/direct/v1/customers/{customerId}",
            needs=["customerId"], entity="customer"),

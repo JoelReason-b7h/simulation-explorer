@@ -166,6 +166,70 @@ CHECKS = (
         "account {0} has {3} open outbound instructions for {1} and holds {2} (newest {4})",
     ),
     (
+        # CustomerActionPolicy holds a payout for a FROZEN customer (WITHDRAWAL_PAYOUT_EXECUTION),
+        # so a withdrawal booked while the customer read FROZEN, and FROZEN two seconds before,
+        # went out through a path the policy does not guard.
+        "no withdrawal books while the customer is frozen",
+        "account_transaction",
+        """
+        SELECT at.sid, pc.uid, at.customer_amount, at.created_at
+        FROM account_transaction at
+        JOIN customer_product_account cpa ON cpa.sid = at.customer_product_account_sid
+        JOIN customer_account ca ON ca.sid = cpa.customer_account_sid
+        JOIN platform_customer pc ON pc.sid = ca.platform_customer_sid
+        WHERE at.transaction_type = 'SAVINGS_WITHDRAWAL'
+          AND (SELECT h.to_state FROM platform_customer_status_history h
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at
+            ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) = 'FROZEN'
+          AND (SELECT h.to_state FROM platform_customer_status_history h
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at - interval '2 seconds'
+            ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) = 'FROZEN'
+        ORDER BY at.sid DESC LIMIT {limit}
+        """,
+        "transaction {0} paid {2} out of customer {1}'s account at {3} while the customer was FROZEN",
+    ),
+    (
+        # A deposit is held for a FROZEN customer and refused for PENDING, DEACTIVATED, CANCELLED
+        # and CLOSED (RECEIVE_RAIL_DEPOSIT), so none of them should book one.
+        "no deposit books for a customer who may not receive one",
+        "account_transaction",
+        """
+        SELECT at.sid, pc.uid, at.customer_amount, at.created_at, (SELECT h.to_state FROM platform_customer_status_history h
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at
+            ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) AS status
+        FROM account_transaction at
+        JOIN customer_product_account cpa ON cpa.sid = at.customer_product_account_sid
+        JOIN customer_account ca ON ca.sid = cpa.customer_account_sid
+        JOIN platform_customer pc ON pc.sid = ca.platform_customer_sid
+        WHERE at.transaction_type = 'SAVINGS_DEPOSIT'
+          AND (SELECT h.to_state FROM platform_customer_status_history h
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at
+            ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1)
+              IN ('FROZEN', 'PENDING', 'DEACTIVATED', 'CANCELLED', 'CLOSED')
+          AND (SELECT h.to_state FROM platform_customer_status_history h
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at - interval '2 seconds'
+            ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1)
+              IN ('FROZEN', 'PENDING', 'DEACTIVATED', 'CANCELLED', 'CLOSED')
+        ORDER BY at.sid DESC LIMIT {limit}
+        """,
+        "transaction {0} paid {2} into customer {1}'s account at {3} while the customer was {4}",
+    ),
+    (
+        # core's own reconciliation of the Direct accounts against clearing. It writes to
+        # internal_reconciliation, not db_integrity_check, so the service-check reader missed it.
+        "core's Direct reconciliation with clearing passes",
+        "internal_reconciliation",
+        """
+        SELECT check_type, sid, bondsmith_account_balance, bank_account_balance,
+               left(check_details::text, 600)
+        FROM internal_reconciliation
+        WHERE NOT check_passed AND check_type LIKE '%DIRECT%'
+          AND created_at > now() - interval '30 minutes'
+        ORDER BY sid DESC LIMIT {limit}
+        """,
+        "{0} failed in row {1}: {4}",
+    ),
+    (
         "the order status equals its newest state row",
         "customer_product_order",
         """
@@ -366,6 +430,30 @@ def cancelled_withdrawals_that_pay_out(limit=LIMIT):
     return findings[:limit], []
 
 
+def payments_to_unverified_payees(limit=LIMIT):
+    """A payment sent or paid to a nominated account that has not passed Confirmation of Payee.
+
+    DirectAccountValidator.validateNominatedAccountIsUsable refuses a withdrawal to an account
+    that is not VERIFIED, and clearing keeps its own copy of the state on external_account.
+    """
+    rows, error = _psql_on(CLEARING_DSN, (
+        "SELECT ppd.uid, ppd.value_amount, ea.uid, ea.account_state, ppd.payment_status "
+        "FROM partner_payment_due ppd "
+        "JOIN external_account ea ON ea.sid = ppd.external_counterpart_account_sid "
+        "WHERE ppd.payment_status IN ('SENT', 'PRODUCED') AND ea.account_state <> 'VERIFIED' "
+        "ORDER BY ppd.sid DESC LIMIT {}").format(limit))
+    if error:
+        return [], ["payments to unverified payees: {}".format(error)]
+    return [{
+        "rule": "no payment goes to a nominated account that failed Confirmation of Payee",
+        "table": "partner_payment_due",
+        "subject": row[0],
+        "detail": "payment due {} of {} is {} to external account {}, which is {}".format(
+            row[0], row[1], row[4], row[2], row[3]),
+        "row": row,
+    } for row in rows], []
+
+
 def dead_letters(limit=LIMIT):
     """Messages that failed on every delivery and went to the dead letter queue.
 
@@ -425,6 +513,9 @@ def sweep(limit=LIMIT):
     errors.extend(unread)
     paid_out, unread = cancelled_withdrawals_that_pay_out(limit)
     findings.extend(paid_out)
+    errors.extend(unread)
+    unverified, unread = payments_to_unverified_payees(limit)
+    findings.extend(unverified)
     errors.extend(unread)
     dead, unread = dead_letters(limit)
     findings.extend(dead)

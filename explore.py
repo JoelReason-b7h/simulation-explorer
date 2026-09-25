@@ -17,7 +17,7 @@ from decimal import Decimal
 import sys
 
 from explorer import (actions, config, driver, faults, fleet, integrity, ledger, oracles,
-                      preflight, projector, race, triallog, world)
+                      preflight, projector, race, triallog, weird, world)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -599,6 +599,49 @@ class Run:
             if body["accountId"] not in [a["id"] for a in seen]:
                 seen.append({"id": body["accountId"],
                              "reference": body.get("accountReference")})
+
+    def weird_call(self):
+        """Send a real request with one thing wrong or strange in it, and judge the answer.
+
+        The generic check already reads the customer before and after, so a refused request that
+        still moved something shows up as a change; this method adds the two rules the mutation
+        itself decides: no 5xx for any of them, and a refusal for an invalid one.
+        """
+        held = self.held
+        bases = [n for n in weird.BASES if actions.BY_NAME[n].can_build(held)]
+        if not bases:
+            return Call("POST", "WeirdCall", 412, {"message": "nothing to build a request from"}, 0)
+        base = actions.BY_NAME[bases[self.steps % len(bases)]]
+        method, path, body = base.build(held, self.mint)
+        changed, mutation = weird.mutate(body, self.steps // len(bases))
+        if changed is None:
+            return Call("POST", "WeirdCall", 412, {"message": "no mutation fits " + base.name}, 0)
+        name, invalid = mutation
+        call = self.client.call(method, path, json_body=changed)
+        rule = None
+        # 598 is the harness's own code for a transport fault, not an answer from the service.
+        if 500 <= call.status < 598:
+            rule = "a strange request is refused, not answered with a server error"
+        elif invalid and call.ok:
+            rule = "an invalid request is refused"
+        if rule:
+            violation = oracles.Violation(
+                rule, held.get("customerId"), "{} on {} answered {}".format(
+                    name, base.name, call.status),
+                expected="a 4xx" if invalid else "no 5xx",
+                actual="{} {}".format(call.status, str(call.body)[:300]))
+            row = violation.as_row()
+            row["n"] = len(self.log) + 1
+            row["action"] = "WeirdCall {}".format(base.name)
+            row["body"] = call.body if isinstance(call.body, (dict, list)) else str(call.body)
+            row["request"] = {"method": method, "path": path, "mutation": name,
+                              "body": str(changed)[:1500]}
+            row["inFlight"] = self.in_flight_now()
+            row["attribution"] = "WeirdCall alone" if not row["inFlight"] else "in flight"
+            self.record_violation(row, violation)
+        return Call(method, "WeirdCall", call.status, {
+            "message": "{} on {}: {}".format(name, base.name, str(call.body)[:200])},
+            call.elapsed_ms)
 
     def run_data_feed(self):
         """Ask core for the bank's data feed and then its RECON, as their schedules would.
@@ -1490,6 +1533,7 @@ class Run:
             "StopDuplicating": type(self).stop_duplicating,
             "ProbeOtherPlatform": type(self).probe_other_platform,
             "RunDataFeed": type(self).run_data_feed,
+            "WeirdCall": type(self).weird_call,
         }
 
     # How long a received message stays hidden from other consumers while duplication is on.
@@ -2684,6 +2728,29 @@ class Run:
             return False
         return live >= 2
 
+    SCENARIO_PERIOD = 3
+    SCENARIOS = (
+        ("overlapping withdrawals", ["FundAccount", "FundAccount", "PlaceWithdrawal",
+                                     "PlaceWithdrawal", "PlaceWithdrawal", "SettleWorld",
+                                     "ReadAccount", "PlaceWithdrawal", "SettleWorld"]),
+        ("a long life", ["FundAccount", "AdvanceBusinessDay", "AdvanceBusinessDay",
+                         "PlaceWithdrawal", "AdvanceBusinessDay", "FundAccount", "SettleWorld",
+                         "AdvanceBusinessDay", "AdvanceBusinessDay", "RunDataFeed",
+                         "PlaceWithdrawal", "SettleWorld", "CloseAccount", "ProcessClosures",
+                         "SettleWorld", "RunDataFeed"]),
+        ("notice churn", ["FundAccount", "PlaceWithdrawal", "CancelWithdrawal", "PlaceWithdrawal",
+                          "NoticeFallsDue", "ProcessDueNotice", "SettleWorld", "CloseAccount",
+                          "ProcessClosures"]),
+        ("compliance whiplash", ["FundAccount", "SetKycStatus", "PlaceWithdrawal", "SetKycStatus",
+                                 "FundAccount", "SetKycStatus", "PlaceWithdrawal", "SettleWorld",
+                                 "CloseAccount"]),
+        ("strange requests", ["WeirdCall", "WeirdCall", "WeirdCall", "WeirdCall", "ReadCustomer",
+                              "WeirdCall", "WeirdCall"]),
+        ("maturity and close", ["FundAccount", "SetMaturityDestination", "AdvanceBusinessDay",
+                                "AdvanceBusinessDay", "ClearMaturityDestination",
+                                "SetMaturityDestination", "AdvanceBusinessDay", "SettleWorld"]),
+    )
+
     def plan_route(self, keys):
         """Aim at the nearest state that still has untried buildable work.
 
@@ -2694,6 +2761,14 @@ class Run:
         here = keys.get("ReadAccount") or keys.get("ReadCustomer")
         if here is None:
             return [], None
+        # Every third plan is a written scenario rather than the shortest learned route, because
+        # the learned routes are all short: least-tried picking never strings twelve actions on one
+        # account together, and the defects live at the end of long histories.
+        self.plans = getattr(self, "plans", 0) + 1
+        if self.plans % self.SCENARIO_PERIOD == 0:
+            name, steps = self.SCENARIOS[(self.plans // self.SCENARIO_PERIOD) % len(self.SCENARIOS)]
+            self.route_note = "scenario: " + name
+            return list(steps), None
         best, target = None, None
         for visits, key, untried in self.explorer.frontier():
             if key == here or self.blacklisted(key):
