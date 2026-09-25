@@ -474,8 +474,8 @@ WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", 
 # are real edges. Excluding them left the learned graph with 3 moving edges across 15 states.
 CREATES = {"CreateCustomer", "CreateKycFailedCustomer"}
 
-# Built but not taken. Joel does not want the bank product rate changed, because it moves every
-# platform on the bank; the harness changes each platform's own fee instead (ChangePlatformFee).
-DISABLED = {"ChangeBankRate"}
+# Actions that are built but not taken. Empty: ChangeBankRate is on again, conductor only through
+# fleet.STACK_FAULTS, because it moves every platform on the bank.
+DISABLED = set()
 
 BY_NAME = {action.name: action for action in CORE_SIDE}
