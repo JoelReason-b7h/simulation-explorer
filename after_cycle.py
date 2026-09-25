@@ -233,8 +233,9 @@ def main():
     file_failures = [k for k in ("feed", "mi") if summary.get(k, {}).get("exit")]
     quiet = not summary["sanity"] and not new_rules and not file_failures
     summary["quiet"] = quiet
-    if not quiet:
-        # Something in this cycle needs looking at, so keep the rows behind it.
+    # Only a potential product issue is worth the rows behind it: a violation of a rule not yet
+    # known, or a file check that failed. A harness sanity problem alone takes no dump.
+    if new_rules or file_failures:
         import cycle
         kept = cycle.dump_databases(name)
         summary["databases"] = str(kept) if kept else None

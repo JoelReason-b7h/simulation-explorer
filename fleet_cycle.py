@@ -86,7 +86,6 @@ def main():
     # they were traced, and a stack that carries on also ages its banks across cycles.
     if os.environ.get("SKIP_RESTART") != "1" and (
             patched or os.environ.get("SIM_FORCE_WIPE") == "1"):
-        cycle.dump_databases("{}-before-wipe".format(name))
         cycle.restart_stack()
         wiped = True
     else:
