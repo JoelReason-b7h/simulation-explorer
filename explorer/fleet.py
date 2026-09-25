@@ -45,6 +45,9 @@ STACK_FAULTS = {
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
     # Bank-wide, so one run asks for it: the feed of one bank is one sequence of files.
     "RunDataFeed",
+    # Bank-wide too: every platform on the bank holds the product, and a second proposal on the
+    # same bank product is refused while the first is still waiting for approval.
+    "ChangeBankRate",
 }
 
 

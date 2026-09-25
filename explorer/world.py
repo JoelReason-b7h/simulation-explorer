@@ -215,6 +215,31 @@ def bring_notice_due(account_uid):
     return len([line for line in done.stdout.splitlines() if line.strip().isdigit()])
 
 
+def bank_product_for(platform_product_uid):
+    """The bank product behind a platform product, as (uid, name, productType, bankUid), or None.
+
+    The Direct API names only the platform product, and a rate is set on the bank product under
+    it, so the run asks core. The name is what the rate change's approval row carries.
+    """
+    try:
+        uuid.UUID(str(platform_product_uid))
+    except ValueError:
+        return None
+    sql = ("SELECT bp.uid, bp.name, bp.product_type, pb.uid FROM platform_product plp "
+           "JOIN bank_product bp ON bp.sid = plp.product_sid "
+           "JOIN partner_bank pb ON pb.sid = bp.bank_sid "
+           "WHERE plp.uid = '{}'").format(platform_product_uid)
+    try:
+        done = subprocess.run(["psql", CORE_DSN, "-tA", "-F", "\t", "-v", "ON_ERROR_STOP=1",
+                               "-c", sql], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    rows = [line.split("\t") for line in done.stdout.splitlines() if line.strip()]
+    if done.returncode != 0 or len(rows) != 1 or len(rows[0]) != 4:
+        return None
+    return tuple(rows[0])
+
+
 def settle_payments(ops_client):
     """The global sweep. One cohort's call moves every cohort's money, which is why §10's P1 exists."""
     return [

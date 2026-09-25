@@ -341,6 +341,10 @@ CORE_SIDE = [
     # only this platform's customers' reduced gross rate, so every run in a fleet may take it.
     Action("ChangePlatformFee", "POST", "/direct/v1/batches", needs=["accountId"],
            entity="account"),
+    # A new gross rate on the bank product under this subject's product, proposed and approved
+    # through ops. Unlike the platform fee it moves every platform's customers on that product.
+    Action("ChangeBankRate", "POST", "/direct/v1/batches", needs=["accountId"],
+           entity="account"),
     Action("RunDataFeed", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     Action("ProbeOtherPlatform", "GET", "/direct/v1/customers/{customerId}",
            needs=["customerId"], entity="customer"),
@@ -396,6 +400,7 @@ EXPENSIVE_FAULTS = {
 }
 
 WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", "ProcessDueNotice",
+         "ChangeBankRate",
          "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
          "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
          "RestartClearing", "RestartCore", "RestartBank",

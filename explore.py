@@ -637,6 +637,74 @@ class Run:
                 proposal.status, accepted.status),
             "approval": accepted.body}, proposal.elapsed_ms + accepted.elapsed_ms)
 
+    # A rise may start today; a cut must start at least fifteen days out plus the product's notice
+    # (ProductRateDateValidator), and forty-five clears the two-day notice product with room. Each
+    # rise climbs from the last so it always changes the rate, and each cut starts a day later
+    # than the one before so the future rates stack rather than land on one date.
+    BANK_RATE_RISE_FROM = Decimal("0.0410")
+    BANK_RATE_RISE_STEP = Decimal("0.0010")
+    BANK_RATE_RISES_BEFORE_WRAPPING = 40
+    BANK_RATE_CUT = Decimal("0.0300")
+    BANK_RATE_CUT_LEAD_DAYS = 45
+    RATE_APPROVALS = ("/operations/approvals?approvalType=PRODUCT_RATE_UPDATE"
+                      "&paginatedProperty=CREATED_AT&orderAscDesc=DESC&take=50")
+
+    def change_bank_rate(self):
+        """Propose a new gross rate on the bank product under this subject, and approve it."""
+        held = self.held
+        product = held.get("productId") if held.get("productType") != "TERM" else None
+        found = world.bank_product_for(product or self.product_id)
+        if not found:
+            return Call("POST", "ChangeBankRate", 412,
+                        {"message": "could not read the bank product from core"}, 0)
+        product_uid, name, product_type, bank_uid = found
+        turns = getattr(self, "bank_rate_turns", {})
+        self.bank_rate_turns = turns
+        turn = turns.get(product_uid, 0)
+        raising = turn % 2 == 0
+        if raising:
+            rises = (turn // 2) % self.BANK_RATE_RISES_BEFORE_WRAPPING
+            rate = self.BANK_RATE_RISE_FROM + self.BANK_RATE_RISE_STEP * rises
+            start = date.today()
+        else:
+            rate = self.BANK_RATE_CUT
+            start = date.today() + timedelta(days=self.BANK_RATE_CUT_LEAD_DAYS + turn // 2)
+        proposal = self.ops.call(
+            "PUT", "/operations/proposals/banks/{}/products/{}/rates".format(bank_uid, product_uid),
+            json_body={"grossRate": str(rate), "startDate": start.isoformat(),
+                       "announcedAt": date.today().isoformat()})
+        if not proposal.ok:
+            return proposal
+        # The proposal answers with no body, so the approval is found by the product's name, as
+        # the acceptance suite does. Core refuses a second proposal on a bank product while one
+        # is waiting, so at most one row can match.
+        listed = self.ops.call("GET", self.RATE_APPROVALS)
+        rows = (listed.body.get("content") or []) if listed.ok and isinstance(listed.body, dict) \
+            else []
+        approval = next((row.get("approvalUid") for row in rows
+                         if row.get("approvalType") == "PRODUCT_RATE_UPDATE"
+                         and row.get("entityName") == name
+                         and row.get("approvalStatus") in (None, "PENDING")), None)
+        if not approval:
+            return Call("POST", "ChangeBankRate", 412, {
+                "message": "proposed {} on {} but found no approval to accept".format(rate, name)},
+                proposal.elapsed_ms + listed.elapsed_ms)
+        accepted = self.ops.call("POST", "/operations/approvals/{}/accept".format(approval),
+                                 json_body={})
+        if accepted.ok:
+            turns[product_uid] = turn + 1
+            self.note_in_flight("rate", "a {} bank rate change to {} from {}".format(
+                product_type, rate, start))
+        else:
+            # A proposal left waiting blocks every later one on this bank product.
+            self.ops.call("POST", "/operations/approvals/{}/reject".format(approval), json_body={})
+        return Call("POST", "ChangeBankRate", accepted.status, {
+            "message": "{} {} to {} from {}: proposal {}, approval {}".format(
+                "raised" if raising else "cut", name, rate, start, proposal.status,
+                accepted.status),
+            "approval": accepted.body},
+            proposal.elapsed_ms + listed.elapsed_ms + accepted.elapsed_ms)
+
     def weird_call(self):
         """Send a real request with one thing wrong or strange in it, and judge the answer.
 
@@ -1574,6 +1642,7 @@ class Run:
             "RunDataFeed": type(self).run_data_feed,
             "WeirdCall": type(self).weird_call,
             "ChangePlatformFee": type(self).change_platform_fee,
+            "ChangeBankRate": type(self).change_bank_rate,
         }
 
     # How long a received message stays hidden from other consumers while duplication is on.
