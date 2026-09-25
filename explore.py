@@ -31,11 +31,12 @@ SECONDS = float(os.environ.get("SIM_SECONDS", "0"))
 
 class Run:
     def __init__(self, client, ops=None, hsb=None, platform_uid=None, virtual_iban=None,
-                 sim=None):
+                 sim=None, compliance=None):
         self.client = client
         self.ops = ops
         self.hsb = hsb
         self.sim = sim
+        self.compliance = compliance
         self.platform_uid = platform_uid
         self.virtual_iban = virtual_iban
         self.run_id = driver.run_id()
@@ -1622,6 +1623,9 @@ class Run:
             "SetKycStatus": type(self).set_kyc_status,
             "CreateKycFailedCustomer": type(self).create_kyc_failed_customer,
             "UpdateCustomer": type(self).update_customer,
+
+            "FreezeCustomer": type(self).freeze_customer,
+            "UnfreezeCustomer": type(self).unfreeze_customer,
             "SlowTheBank": type(self).slow_the_bank,
             "BreakTheBank": type(self).break_the_bank,
             "SlowClearing": type(self).slow_clearing,
@@ -1921,6 +1925,40 @@ class Run:
             self.note_in_flight("compliance", "a KYC recheck after a details update",
                                 held["customerId"])
         return call
+
+    def freeze_customer(self):
+        """Freeze this customer as an officer would, then read what the Direct API now says.
+
+        Core refuses a freeze on anything but ACTIVATED, and that refusal is kept as an
+        observation. The stopped share still holds, so a freeze never strands the cohort.
+        """
+        held = self.held
+        if not self.compliance or not held.get("customerId"):
+            return Call("PUT", "freeze-customer", 412,
+                        {"message": "no compliance client, or no customer to act on"}, 0)
+        if held.get("customerStatus") == "ACTIVATED" and self.too_many_stopped():
+            return Call("PUT", "freeze-customer", 412,
+                        {"message": "too many customers are already outside ACTIVATED"}, 0)
+        return self.override_customer(held["customerId"], "FREEZE", "simulation explorer freeze")
+
+    def unfreeze_customer(self):
+        """Lift this customer's freeze, which also settles the instructions it held."""
+        held = self.held
+        if not self.compliance or not held.get("customerId"):
+            return Call("PUT", "unfreeze-customer", 412,
+                        {"message": "no compliance client, or no customer to act on"}, 0)
+        return self.override_customer(held["customerId"], "APPROVE",
+                                      "simulation explorer unfreeze")
+
+    def override_customer(self, customer_id, action, notes):
+        call = world.override_customer_status(self.compliance, customer_id, action, notes)
+        if not getattr(call, "ok", False):
+            return call
+        # Unfreezing releases the held instructions, and the money they move lands on later trials.
+        if action == "APPROVE":
+            self.note_in_flight("compliance", "an unfreeze releasing held instructions", customer_id)
+        # The override answers with no body. Read the customer back instead.
+        return self.client.call("GET", "/direct/v1/customers/{}".format(customer_id))
 
     def advance_business_day(self):
         """Puts the cohort's bank one business day forward, accruing and realising over that day.
@@ -2894,6 +2932,9 @@ class Run:
         ("compliance whiplash", ["FundAccount", "SetKycStatus", "PlaceWithdrawal", "SetKycStatus",
                                  "FundAccount", "SetKycStatus", "PlaceWithdrawal", "SettleWorld",
                                  "CloseAccount"]),
+        ("frozen with money moving", ["FundAccount", "PlaceWithdrawal", "FreezeCustomer",
+                                      "PlaceWithdrawal", "FundAccount", "SettleWorld",
+                                      "UnfreezeCustomer", "SettleWorld", "ReadInstructions"]),
         ("strange requests", ["WeirdCall", "WeirdCall", "WeirdCall", "WeirdCall", "ReadCustomer",
                               "WeirdCall", "WeirdCall"]),
         ("maturity and close", ["FundAccount", "SetMaturityDestination", "AdvanceBusinessDay",
@@ -3420,6 +3461,9 @@ def main():
     sim = (BearerClient(settings["simulator_base_url"], world.ops_token(settings),
                         renew=lambda: world.ops_token(settings))
            if settings.get("simulator_base_url") else None)
+    # compliance-api takes the same ops token, and freezing needs an OPERATIONS officer.
+    compliance = BearerClient(settings.get("compliance_base_url", "http://localhost:10005"),
+                              world.ops_token(settings), renew=lambda: world.ops_token(settings))
 
     platform_uid = os.environ.get("PLATFORM_UID")
     virtual_iban = os.environ.get("PLATFORM_VIRTUAL_IBAN")
@@ -3444,7 +3488,7 @@ def main():
     if not fleet.is_member():
         faults.install_cleanup()
 
-    run = Run(client, ops, hsb, platform_uid, virtual_iban, sim)
+    run = Run(client, ops, hsb, platform_uid, virtual_iban, sim, compliance)
     # Route the run's own bank credits through toxiproxy, so a network fault can be injected on
     # that one path. Without toxiproxy the run keeps the direct client and the fault actions say
     # so rather than pretending to inject anything.
