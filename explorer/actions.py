@@ -278,6 +278,13 @@ CORE_SIDE = [
     # a placeholder, because set_kyc_status posts to the simulator rather than the Direct API.
     Action("SetKycStatus", "POST", "/direct/v1/customers",
            needs=["customerId"], entity="customer"),
+    # An officer freezing and unfreezing the customer through compliance-api. Placeholder paths,
+    # because both go to compliance-api's override rather than the Direct API. Unfreezing is an
+    # APPROVE on a FROZEN customer, and on any other status the same call is an ordinary override.
+    Action("FreezeCustomer", "PUT", "/direct/v1/customers",
+           needs=["customerId"], entity="customer"),
+    Action("UnfreezeCustomer", "PUT", "/direct/v1/customers",
+           needs=["customerId"], entity="customer"),
     # Faults in the machinery rather than in the domain. Every path here is a placeholder,
     # because these drive toxiproxy and docker rather than the Direct API.
     #
