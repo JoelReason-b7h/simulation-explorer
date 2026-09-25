@@ -20,7 +20,8 @@ def main():
     settings = config.load("local")
     if settings.get("local_auth"):
         local_auth.ensure_serving()
-    ops = BearerClient(settings["ops_base_url"], world.ops_token(settings), timeout=600)
+    ops = BearerClient(settings["ops_base_url"], world.ops_token(settings), timeout=600,
+                       renew=lambda: world.ops_token(settings))
     result = world.ignore_repeated_exceptions(ops)
     ops.close()
     if result is None:

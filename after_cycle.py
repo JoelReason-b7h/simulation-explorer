@@ -27,13 +27,32 @@ LENGTH = HERE / "fleet.seconds"
 MIN_SECONDS = 900
 MAX_SECONDS = 14400
 
-# Rules whose findings are already in FINDINGS.md or are measurements, not defects. A violation
-# of any other rule makes the cycle interesting.
-KNOWN_RULES = {
-    "a terminal status is not left",
-    "a closed account holds no money",
-    "a read answers promptly",
+# Findings already in FINDINGS.md, or measurements rather than defects, as (rule, action). An
+# action of None covers the rule on every action. Any other violation makes the cycle interesting,
+# so a 5xx on an action not listed here still brings the cycle back to fifteen minutes.
+KNOWN = {
+    ("a terminal status is not left", None),
+    ("a closed account holds no money", None),
+    ("a read answers promptly", None),
+    ("clearing and the bank agree on how a payment ended", None),
+    ("a closure the bank refused still finishes", None),
+    ("the service's own integrity check passes", "TransitionChainSweep"),
+    ("no unexplained 5xx", "CancelAccountOpening"),
+    ("a fault is survived without a server error", "CancelAccountOpening"),
+    ("a fault is survived without a server error", "CloseAccount"),
 }
+
+# Known findings a rule reports under one action for many causes, told apart by their detail.
+KNOWN_DETAIL = {
+    ("no message goes to the dead letter queue", '"detail-type":"PaymentSettled"'),
+}
+
+
+def is_known(violation):
+    rule, action = violation.get("rule"), (violation.get("action") or "").replace("RACE ", "")
+    if any(rule == known and text in str(violation.get("detail")) for known, text in KNOWN_DETAIL):
+        return True
+    return (rule, None) in KNOWN or any((rule, part) in KNOWN for part in action.split(" + "))
 
 # Fewest trials a minute a run should manage. A conductor spends time inside fault windows and
 # restarts, so it is allowed fewer.
@@ -50,6 +69,58 @@ def run_check(script, bank_uid, out, *extra):
     return {"exit": done.returncode,
             "result": last[-1] if last else (done.stderr.strip().splitlines() or ["?"])[-1],
             "files": files[-1] if files else None}
+
+
+SERVICES = ("core", "core-ro", "clearing", "adapter", "public-api", "ops-api", "simulator-api",
+            "hot-sauce-bank", "compliance")
+ERROR_LINES = 150
+
+
+def started_at(name):
+    """When the loop started this cycle, from its line in fleet.progress."""
+    if not PROGRESS.exists():
+        return None
+    for raw in reversed(PROGRESS.read_text().splitlines()):
+        try:
+            entry = json.loads(raw)
+        except ValueError:
+            continue
+        if entry.get("name") == name and entry.get("started"):
+            return entry["started"]
+    return None
+
+
+def keep_service_errors(name):
+    """Copy each service's ERROR lines and their stack traces for this cycle into one file.
+
+    A wipe recreates the containers and their logs go with them, so a finding from the cycle
+    before a wipe had its page JSON and no stack trace. The file is packed with the cycle's logs.
+    """
+    since = started_at(name)
+    out = HERE / "{}.service-errors.log".format(name)
+    kept = 0
+    with open(out, "w") as handle:
+        for service in SERVICES:
+            try:
+                done = subprocess.run(
+                    ["docker", "logs", "--since", since.replace(" ", "T") if since else "2h",
+                     "docker-{}-1".format(service)],
+                    capture_output=True, text=True, timeout=120)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            taking = 0
+            for line in (done.stdout + done.stderr).splitlines():
+                if " ERROR " in line or "ERROR\x1b" in line or "[1;31mERROR" in line:
+                    handle.write("[{}] {}\n".format(service, line))
+                    taking = ERROR_LINES
+                    kept += 1
+                elif line.startswith("Caused by") or taking and (line[:1] in (" ", "\t")
+                                 or "Exception" in line.split(" ", 1)[0]):
+                    handle.write("[{}] {}\n".format(service, line))
+                    taking -= 1
+                else:
+                    taking = 0
+    return kept
 
 
 def sanity(name, seconds, runs):
@@ -104,7 +175,8 @@ def main():
         violations = data.get("violations") or []
         counts = data.get("summary") or {}
         rules = sorted({v.get("rule") for v in violations if v.get("rule")})
-        new_rules |= set(rules) - KNOWN_RULES
+        new_rules |= {"{} ({})".format(v.get("rule"), v.get("action")) for v in violations
+                      if v.get("rule") and not is_known(v)}
         summary["runs"][page.stem] = {
             "trials": counts.get("trials"),
             "races": counts.get("races"),
@@ -114,6 +186,7 @@ def main():
             "rules": rules,
         }
     summary["sanity"] = sanity(name, seconds, summary["runs"])
+    summary["serviceErrors"] = keep_service_errors(name)
     if not cohorts:
         summary["sanity"].append("no cohorts file, so the standup did not finish")
     else:
@@ -135,7 +208,8 @@ def main():
     LENGTH.write_text(str(summary["next"]))
 
     packed = [p for pattern in ("{}-p*.log", "{}-p*.trials.jsonl", "{}.events.jsonl",
-                                "{}.subjects.jsonl")
+                                "{}.subjects.jsonl",
+                                "{}.service-errors.log")
               for p in HERE.glob(pattern.format(name))]
     if packed:
         with tarfile.open(HERE / "archive" / "{}.tgz".format(name), "w:gz") as tar:

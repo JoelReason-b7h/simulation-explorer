@@ -251,7 +251,7 @@ class Run:
         id_field = self.ID_FIELD.get(entity, "customerId")
         before_id = (before or {}).get(id_field) if isinstance(before, dict) else None
         after_id = (after or {}).get(id_field) if isinstance(after, dict) else None
-        under_fault = self.live_fault()
+        under_fault = self.live_fault() or fleet.peer_fault()
         own_wire = getattr(call, "own_wire", False) and call.status == oracles.TRANSPORT_FAULT
         found = [] if own_wire else [oracles.no_server_error(action_name, call, subject, under_fault)]
         if not under_fault:

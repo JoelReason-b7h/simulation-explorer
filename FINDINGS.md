@@ -16,6 +16,8 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 2. **PaymentSettled on a CLOSING account fails with "Could not find instruction for payment due".**
    `DirectCustomerInstructionService.java:202`. The message retries until the dead-letter queue.
    Near SAV-11636, and a separate defect. Evidence: cycle 48, `060b83a9` (`chain48.json`).
+   Again in fleet 5: PaymentSettled for account `71cc626a`, CLOSING, went to the DLQ after 13
+   deliveries (`fleet5-p0.json`, stack in `archive/fleet5.tgz`).
 3. **An empty preloaded account pool fails with a generic error and retries to the DLQ.**
    `InternalAccountCreationService.java:64`. Evidence: cycle 48 (`chain48.json`).
 4. **A closure TransferExpectation for an account clearing never created leaves money on a CLOSED
@@ -51,6 +53,9 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    push target, so this needs a bank with none, or a push that keeps failing. What the feed
    selects depends on whether a file was delivered, which is the fragile part.
    The harness now marks sealed files sent before each feed call, in the place of the push.
+   Once INTEREST is let back in, the skipped rows ship late: fleet 4 sent a row value-dated
+   2026-10-09 in a file after the one for 2026-10-10, so a bank reading the files in order held
+   a balance history with a gap until then.
 9. **Two feed runs in one second write files with the same name, and the later one replaces the
    earlier in the archive.** The name carries the extract time to the second
    (`DirectFileMetadata.getFileName`), and the archive key is the name. Fleet 3's bank had 262
@@ -59,6 +64,27 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    reads transactions as open until adapter seals the earlier file. Reach: needs two runs within
    seconds, such as an ops run beside the scheduler. The harness now waits over a second between
    runs. Evidence: `investec_file` for bank `8089b2eb` until the next wipe.
+
+10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
+    account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
+    error handling on the path from `DirectCustomerAccountService.cancelDirectCustomerAccount`
+    (`:144`), so a cut or a timeout becomes a bare 500 with no logref rather than an answer the
+    platform can retry on. fleet 4 p0 trial 168 had the cut from core to clearing in force; two
+    more (fleet 3 p3, fleet 4 p1) had no fault recorded. Evidence: `fleet4-p0.json`.
+    CloseAccount does the same under the same cut (fleet 5 p0, `fleet5-p0.json`).
+11. **Clearing's own integrity check finds a PUBLISHED statement line with no partner payment.**
+    `ClearingIntegrityCheckService.java:128` (`PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT`) failed
+    on line `56f8686a` in fleet 3 and again in fleet 4. The cause is not shown yet; the lead is a
+    line that drains before its payment due is raised, which `fund_account` avoids by raising the
+    dues first. Evidence: `fleet3-p0.json`, `fleet4-p0.json`.
+12. **A closure whose payment the bank refused or returned stays CLOSING after three sweeps.**
+    fleet 3 p0 trial 247 and fleet 4 p0 trial 119. Each came next to a payment that clearing
+    holds as RJCT while the bank paid it, so this is most likely finding 1 seen from the account's
+    side. Not proven without the rows, which the wipe removed.
+
+Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
+platforms' sweeps were in flight (8 in fleets 3 and 4). The wipe removed their stack traces; from
+fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`.
 
 ## Checked and holding
 

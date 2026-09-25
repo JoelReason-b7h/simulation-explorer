@@ -259,8 +259,11 @@ def ignore_repeated_exceptions(ops_client):
         lines.sort(key=lambda l: (l.get("createdAt") or "", l["accountStatementLineUid"]))
         first = lines[0]["accountStatementLineUid"]
         for line in lines[1:]:
-            done = ops_client.call("PATCH", STATEMENT_LINE.format(line["accountStatementLineUid"]),
-                                   json_body={"status": "IGNORED", "duplicateOf": first})
+            path = STATEMENT_LINE.format(line["accountStatementLineUid"])
+            body = {"status": "IGNORED", "duplicateOf": first}
+            done = ops_client.call("PATCH", path, json_body=body)
+            if not done.ok:
+                done = ops_client.call("PATCH", path, json_body=body)
             if done.ok:
                 ignored += 1
             else:

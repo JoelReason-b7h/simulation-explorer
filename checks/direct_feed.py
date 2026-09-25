@@ -172,6 +172,8 @@ def check_history(files, out):
     # What each file introduced, by business date, for the RECON totals.
     delivered = {e: defaultdict(set) for e in DELTA}
     last_balance = {}
+    latest_shipped = {}
+    chains = defaultdict(list)
     balance_by_date = defaultdict(dict)
     daily_transactions = defaultdict(int)
     sign_by_type = defaultdict(set)
@@ -218,27 +220,40 @@ def check_history(files, out):
                 balance_by_date[day(f.business_date)][r["AccountId"]] = money(
                     r.get("AccountBalance"))
         if f.entity == "TRANSACTION":
-            ordered = sorted(f.rows, key=lambda r: (day(r.get("ValueDate")),
-                                                    r.get("BookingDateTime", "")))
-            for r in ordered:
+            for r in f.rows:
                 account = r.get("AccountId")
                 if account not in seen["ACCOUNT"]:
                     out.add("a transaction's account was sent first", f.name,
                             "transaction {} names account {}".format(r.get("TransactionId"),
                                                                      account), r)
-                amount, updated = money(r.get("Amount")), money(r.get("UpdatedBalance"))
                 daily_transactions[day(r.get("ValueDate"))] += 1
-                if account in last_balance:
-                    step = updated - last_balance[account]
-                    if abs(step) != abs(amount):
-                        out.add("UpdatedBalance is the previous UpdatedBalance plus the amount",
-                                f.name, "account {}: {} -> {} for amount {} ({})".format(
-                                    account, last_balance[account], updated, amount,
-                                    r.get("TransactionType")), r)
-                    elif amount != 0:
-                        sign_by_type[r.get("TransactionType")].add(
-                            "same" if step == amount else "opposite")
-                last_balance[account] = updated
+                # A file is for one business date, so a row value-dated before an earlier
+                # file's date arrived late: the account's history as sent had a gap until now.
+                if day(r.get("ValueDate")) < latest_shipped.get(account, ""):
+                    out.add("a transaction arrives no later than the file for its value date",
+                            f.name, "account {}: {} value-dated {} after {} was shipped".format(
+                                account, r.get("TransactionId"), day(r.get("ValueDate")),
+                                latest_shipped[account]), r)
+                latest_shipped[account] = max(latest_shipped.get(account, ""),
+                                              day(r.get("ValueDate")))
+                chains[account].append((day(r.get("ValueDate")), r.get("BookingDateTime", ""),
+                                        r, f.name))
+    # The balance chain is read in value-date order across every file, because a row that arrives
+    # late still took its place in the account's history when it was booked.
+    for account, rows in chains.items():
+        for _, _, r, name in sorted(rows, key=lambda e: (e[0], e[1])):
+            amount, updated = money(r.get("Amount")), money(r.get("UpdatedBalance"))
+            if account in last_balance:
+                step = updated - last_balance[account]
+                if abs(step) != abs(amount):
+                    out.add("UpdatedBalance is the previous UpdatedBalance plus the amount",
+                            name, "account {}: {} -> {} for amount {} ({})".format(
+                                account, last_balance[account], updated, amount,
+                                r.get("TransactionType")), r)
+                elif amount != 0:
+                    sign_by_type[r.get("TransactionType")].add(
+                        "same" if step == amount else "opposite")
+            last_balance[account] = updated
     for kind, signs in sign_by_type.items():
         if len(signs) > 1:
             out.add("each TransactionType moves the balance one way", "all TRANSACTION files",
@@ -410,6 +425,15 @@ def generate(bank_uid, times):
             # A file is named by its extract time to the second, so two runs inside one second
             # write the same name and the later replaces the earlier (see the name check).
             time.sleep(1.1)
+        # A run reads a transaction as unsent until adapter seals the file that carries it, so
+        # the next run waits for the seal or it sends the same transactions again (finding 9).
+        for _ in range(30):
+            unsealed = core_rows("SELECT count(*) FROM investec_file f JOIN partner_bank b ON "
+                                 "b.sid = f.bank_sid WHERE b.uid = '{}' AND f.file_name IS NOT "
+                                 "NULL AND f.control_total_sha256 IS NULL".format(bank_uid))
+            if not unsealed or unsealed[0][0] == "0":
+                break
+            time.sleep(1)
         after = files_in_core(bank_uid)
         still = still + 1 if after == before else 0
         before = after

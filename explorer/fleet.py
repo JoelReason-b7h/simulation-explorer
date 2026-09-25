@@ -136,3 +136,15 @@ def foreign_subject(pick):
         if entry.get("run") != NAME:
             theirs.append(entry)
     return pick(theirs) if theirs else None
+
+
+def peer_fault():
+    """What another run broke that could still be broken now, or None.
+
+    A member injects no faults, but the conductor's cut or restart reaches every platform, so a
+    member's 500 inside that window is a fault survived badly, not an unexplained 5xx.
+    """
+    for entry in reversed(others_in_flight()):
+        if entry["kind"] in ("fault", "restart"):
+            return entry["what"]
+    return None
