@@ -108,7 +108,10 @@ def outstanding_transactions(ops, platform_uid):
         return frozenset()
     # Customer ids too: fleet 200's CANCELLED CUSTOMER_STATE_CHANGED sat AWAITING_RESPONSE for an
     # hour after the ACTIVATED one was delivered, so the last state received was one step behind.
-    keys = {"SAVINGS_TRANSACTION": "transactionId", "CUSTOMER_STATE_CHANGED": "customerId"}
+    # And accounts: at the long-lived bank's volume core's delivery pool saturates and refuses
+    # about 7% of events ("Webhook delivery pool saturated"), leaving each for the resend job.
+    keys = {"SAVINGS_TRANSACTION": "transactionId", "CUSTOMER_STATE_CHANGED": "customerId",
+            "ACCOUNT_CLOSED": "savingsAccountId"}
     ids = set()
     for event in call.body:
         key = keys.get(event.get("eventType"))
@@ -491,7 +494,8 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
     closed_delivered = {(e["body"].get("payload") or {}).get("savingsAccountId"): e
                         for e in by_type.get("ACCOUNT_CLOSED", [])}
     for account_id, account in accounts.items():
-        if account.get("status") == "CLOSED" and account_id not in closed_delivered:
+        if account.get("status") == "CLOSED" and account_id not in closed_delivered \
+                and account_id not in outstanding:
             found("each closed account is announced", "account {}".format(account_id),
                   "account {} reads CLOSED and no ACCOUNT_CLOSED names it".format(account_id),
                   "ACCOUNT_CLOSED for {}".format(account_id), "none")
