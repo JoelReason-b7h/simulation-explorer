@@ -106,12 +106,16 @@ def outstanding_transactions(ops, platform_uid):
         "platformUid": platform_uid, "eventState": "AWAITING_RESPONSE", "take": 500})
     if not call.ok or not isinstance(call.body, list):
         return frozenset()
+    # Customer ids too: fleet 200's CANCELLED CUSTOMER_STATE_CHANGED sat AWAITING_RESPONSE for an
+    # hour after the ACTIVATED one was delivered, so the last state received was one step behind.
+    keys = {"SAVINGS_TRANSACTION": "transactionId", "CUSTOMER_STATE_CHANGED": "customerId"}
     ids = set()
     for event in call.body:
-        if event.get("eventType") != "SAVINGS_TRANSACTION":
+        key = keys.get(event.get("eventType"))
+        if key is None:
             continue
         try:
-            ids.add(json.loads(event.get("eventPayload") or "{}")["payload"]["transactionId"])
+            ids.add(json.loads(event.get("eventPayload") or "{}")["payload"][key])
         except (ValueError, KeyError, TypeError):
             continue
     return frozenset(ids)
@@ -507,7 +511,8 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
             last_state[payload.get("customerId")] = (order, payload.get("customerStatus"), event)
     for customer_id, (_, status, event) in last_state.items():
         customer = customers.get(customer_id)
-        if customer is not None and customer.get("customerStatus") != status:
+        if customer is not None and customer.get("customerStatus") != status \
+                and customer_id not in outstanding:
             found("the last customer state delivered matches the customer read",
                   "customer {}".format(customer_id),
                   "the last CUSTOMER_STATE_CHANGED for {} says {}; {}".format(
