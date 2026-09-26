@@ -212,6 +212,16 @@ def table_growth():
     return {"now": now, "sinceLastCycle": grew or None}
 
 
+# The first cycle of the current harness. Journeys and the long-lived population spend about a
+# quarter of each run outside trials, so rates from before fleet 195 are not comparable.
+RATE_EPOCH = int(os.environ.get("SIM_RATE_EPOCH", "195"))
+
+
+def cycle_number(name):
+    digits = "".join(ch for ch in str(name or "") if ch.isdigit())
+    return int(digits) if digits else 0
+
+
 def healthy_median_rate():
     """Median trials a minute per run over the last six cycles that raised no sanity note.
 
@@ -224,7 +234,12 @@ def healthy_median_rate():
             cycle = json.loads(line)
         except ValueError:
             continue
-        if cycle.get("runs") and not cycle.get("sanity"):
+        if not cycle.get("runs") or cycle_number(cycle.get("name")) < RATE_EPOCH:
+            continue
+        # The rate note itself must not make a cycle unhealthy, or a lower rate the harness means
+        # to have could never become the baseline.
+        others = [note for note in cycle.get("sanity") or [] if "trials a minute" not in note]
+        if not others:
             minutes = max(cycle.get("seconds", 900) / 60.0, 1.0)
             per_run = sorted((r.get("trials") or 0) / minutes for r in cycle["runs"].values())
             rates.append(per_run[len(per_run) // 2])
