@@ -896,13 +896,19 @@ def fee_mid_period(run):
     j.next_day()
     j.next_day()
     stats = j.oracle([account["accountId"]], "two days after the fee change")
-    totals = interest_oracle.realised_totals(run.platform_uid, limit=500) or {}
-    realised = totals.get(account["accountId"], (None, ZERO))[1]
+    # Core is read on both sides of the API, because the clock keeper realises a day every few
+    # seconds: fleet 206 read 0.12 in core and then 0.15 from the API, and both held 0.57 later.
+    def core_realised():
+        totals = interest_oracle.realised_totals(run.platform_uid, limit=500) or {}
+        return totals.get(account["accountId"], (None, ZERO))[1]
+    before = core_realised()
     api = sum((_money(r.get("amount")) for r in j.transactions(account["accountId"]) or []
                if r.get("type") == "INTEREST"), ZERO)
-    j.expect(api == realised, "the INTEREST rows the API lists are the interest core realised",
-             "the Direct API lists {} of INTEREST and core realised {}".format(api, realised),
-             realised, api)
+    realised = core_realised()
+    j.expect(before <= api <= realised,
+             "the INTEREST rows the API lists are the interest core realised",
+             "the Direct API lists {} of INTEREST and core realised {} before that read and {} "
+             "after it".format(api, before, realised), realised, api)
     j.step("realised interest", "{} via the API, {} in core; {} accruals judged".format(
         api, realised, stats.get("accrualsJudged")))
     return j.done()
