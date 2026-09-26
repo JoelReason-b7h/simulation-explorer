@@ -45,6 +45,7 @@ def _first(body, names):
 
 
 AMOUNT = ("amount",)
+LAST_FIELD = [None]
 TEXT = ("customerReference", "accountReference", "instructionReference", "firstName",
         "accountName")
 ENUM = ("instructionRequestType", "accountHolderType", "title", "currency")
@@ -66,6 +67,8 @@ def _text(value):
         if path is None:
             return None
         _set(body, path, value)
+        # Name the field in the finding: "reference of 5000 characters" was really accountName.
+        LAST_FIELD[0] = ".".join(str(part) for part in path) if isinstance(path, (list, tuple)) else str(path)
         return body
     return apply
 
@@ -133,7 +136,7 @@ MUTATIONS = (
     # Odd, not invalid: the Direct enums' @JsonCreator matches with equalsIgnoreCase on purpose
     # (ExternalDirectAccountHolderType.fromValue), so "individual" is accepted as INDIVIDUAL.
     ("enum in lower case", False, _lower_enum),
-    ("reference of 5000 characters", True, _text("r" * 5000)),
+    ("text of 5000 characters", True, _text("r" * 5000)),
     ("non-ASCII text", False, _text("Zoë 名前 🙂")),
     ("SQL in text", False, _text("x'; DROP TABLE customer; --")),
     ("empty text", True, _text("")),
@@ -147,7 +150,10 @@ def mutate(body, index):
     """The body with the index-th applicable mutation, and that mutation, or (None, None)."""
     for offset in range(len(MUTATIONS)):
         name, invalid, apply = MUTATIONS[(index + offset) % len(MUTATIONS)]
+        LAST_FIELD[0] = None
         changed = apply(copy.deepcopy(body)) if body is not None else None
         if changed is not None:
+            if LAST_FIELD[0]:
+                name = "{} in {}".format(name, LAST_FIELD[0])
             return changed, (name, invalid)
     return None, None

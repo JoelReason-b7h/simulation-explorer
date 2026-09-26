@@ -145,9 +145,11 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     with nothing to stop a later flow result replacing it. The customer was 0.2 s old; a manual
     review during a KYC recheck is the realistic route. Not yet investigated.
 
-17. **AddNominatedAccount accepts a 5000-character reference.** Fleet 175: the WeirdCall mutation
-    "reference of 5000 characters on AddNominatedAccount answered 200", twice. Not yet
-    investigated: whether the field is stored, truncated, or sent on to CoP and the bank.
+17. **The Direct nominated account update accepts an account name of any length.** SAV-11695.
+    `ExternalDirectBankAccount.accountName` has no `@Size`, so a 5000-character name answered 200
+    (fleet 175, twice), while core stores the name in `payee_account.account_name varchar(255)`
+    and no row with that name exists afterwards. The harness labelled it "reference", because
+    its text mutation replaces the first text field it finds, which here was `accountName`.
 
 Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
 platforms' sweeps were in flight (8 in fleets 3 and 4). A wipe removed their stack traces. From

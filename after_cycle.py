@@ -49,6 +49,8 @@ KNOWN = {
 # Known findings a rule reports under one action for many causes, told apart by their detail.
 KNOWN_DETAIL = {
     ("no message goes to the dead letter queue", '"detail-type":"PaymentSettled"'),
+    # SAV-11695: the nominated account name has no length limit.
+    ("an invalid request is refused", "5000 characters in nominatedAccount.accountName"),
 }
 
 
