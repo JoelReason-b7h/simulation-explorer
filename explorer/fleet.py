@@ -50,6 +50,10 @@ STACK_FAULTS = {
     "ChangeBankRate",
 }
 
+# Both act on every platform of the bank: the notice adjustment reads every incomplete notice
+# withdrawal, and a re-emit changes the next feed file of the bank.
+STACK_FAULTS |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
+
 
 def is_member():
     return bool(EVENTS) and ROLE == "member"

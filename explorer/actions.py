@@ -478,4 +478,49 @@ CREATES = {"CreateCustomer", "CreateKycFailedCustomer"}
 # fleet.STACK_FAULTS, because it moves every platform on the bank.
 DISABLED = set()
 
+# Each of these is driven: the path and body here are placeholders, and the Run builds the real
+# request, because every one of them either reads the pool first or checks its result afterwards.
+CORE_SIDE += [
+    # A TRANSFER instruction from the subject's account into the other non-TERM product the
+    # platform offers. DirectTransferRequestProcessor accepts it from an INSTANT account only, so
+    # the NOTICE subject's attempt is the refusal.
+    Action("TransferToProduct", "POST",
+           "/direct/v1/customers/{customerId}/accounts/{accountId}/instruction",
+           needs=["customerId", "accountId", "productId"]),
+    # A maturity destination that the service can accept: the NOTICE product, which needs an
+    # account of the customer's on that product and a funded TERM account.
+    Action("SetMaturityToNotice", "POST",
+           "/direct/v1/customers/{customerId}/accounts/{accountId}/maturityDestination",
+           needs=["customerId", "accountId", "productId"]),
+    Action("SubscribeWebhooks", "POST", "/direct/v1/webhooks", needs=["customerId"],
+           entity="customer"),
+    Action("ListWebhooks", "GET", "/direct/v1/webhooks", needs=["customerId"], entity="customer"),
+    Action("UnsubscribeWebhook", "DELETE", "/direct/v1/webhooks", needs=["customerId"],
+           entity="customer"),
+    # An officer's CLOSE, REJECT and CANCEL through compliance-api's override.
+    Action("OfficerCloseCustomer", "PUT", "/direct/v1/customers", needs=["customerId"],
+           entity="customer"),
+    Action("OfficerRejectCustomer", "PUT", "/direct/v1/customers", needs=["customerId"],
+           entity="customer"),
+    Action("OfficerCancelCustomer", "PUT", "/direct/v1/customers", needs=["customerId"],
+           entity="customer"),
+    # Stack-wide ops calls: the notice withdrawal adjustment a rate change owes, and a Direct feed
+    # re-emit of one entity.
+    Action("AdjustNoticeWithdrawals", "POST", "/direct/v1/batches", needs=["accountId"],
+           entity="account"),
+    Action("ReemitFeedEntity", "POST", "/direct/v1/batches", needs=["accountId"],
+           entity="account"),
+]
+
+SPENDS |= {"OfficerCloseCustomer", "OfficerRejectCustomer", "OfficerCancelCustomer"}
+
+# Each of these keeps its own record of what it expects to read next (the webhooks it holds, the
+# re-emits it waits on) or moves the subject between customers' accounts, so a race would leave
+# that record describing a call that lost.
+NEVER_RACED |= {"TransferToProduct", "SetMaturityToNotice", "SubscribeWebhooks", "ListWebhooks",
+                "UnsubscribeWebhook", "OfficerCloseCustomer", "OfficerRejectCustomer",
+                "OfficerCancelCustomer", "AdjustNoticeWithdrawals", "ReemitFeedEntity"}
+
+WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
+
 BY_NAME = {action.name: action for action in CORE_SIDE}

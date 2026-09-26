@@ -10,10 +10,11 @@ entity_internal_account, because no ops endpoint exposes it.
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import os
 import shutil
 import time
+import uuid
 from decimal import Decimal
 import sys
 
@@ -1666,7 +1667,613 @@ class Run:
             "WeirdCall": type(self).weird_call,
             "ChangePlatformFee": type(self).change_platform_fee,
             "ChangeBankRate": type(self).change_bank_rate,
+            "TransferToProduct": type(self).transfer_to_product,
+            "SetMaturityToNotice": type(self).set_maturity_to_notice,
+            "SubscribeWebhooks": type(self).subscribe_webhooks,
+            "ListWebhooks": type(self).list_webhooks,
+            "UnsubscribeWebhook": type(self).unsubscribe_webhook,
+            "OfficerCloseCustomer": type(self).officer_close_customer,
+            "OfficerRejectCustomer": type(self).officer_reject_customer,
+            "OfficerCancelCustomer": type(self).officer_cancel_customer,
+            "AdjustNoticeWithdrawals": type(self).adjust_notice_withdrawals,
+            "ReemitFeedEntity": type(self).reemit_feed_entity,
         }
+
+    def note_violation(self, action_name, rule, subject, detail, expected, actual, body=None):
+        """Record a finding made by one of the driven actions' own oracles."""
+        violation = oracles.Violation(rule, subject, detail, expected=expected, actual=actual)
+        row = violation.as_row()
+        row["n"] = len(self.log) + 1
+        row["action"] = action_name
+        row["body"] = body if isinstance(body, (dict, list)) or body is None else str(body)
+        row["inFlight"] = self.in_flight_now()
+        row["attribution"] = "{} alone".format(action_name) if not row["inFlight"] else (
+            "the run cannot attribute this to {}, because {} was also in flight".format(
+                action_name, ", ".join(sorted({e["what"] for e in row["inFlight"]}))))
+        row["leadUp"] = [
+            {"n": t["n"], "action": t["action"], "status": t["status"],
+             "message": t.get("message")}
+            for t in self.log[-8:]]
+        self.record_violation(row, violation)
+
+    def product_of_type(self, kind):
+        return next((p for t, p in sorted(self.products.values()) if t == kind), None)
+
+    def customer_accounts(self, customer_id):
+        """Every account of the customer as the Direct API lists it, or None when it will not."""
+        call = self.client.call("GET", "/direct/v1/customers/{}/accounts".format(customer_id))
+        if not call.ok:
+            return None
+        return [row for row in _rows(call.body) if isinstance(row, dict)]
+
+    def account_transactions(self, customer_id, account_id):
+        call = self.client.call(
+            "GET", "/direct/v1/customers/{}/accounts/{}/transactions?skip=0&take={}".format(
+                customer_id, account_id, self.TRANSACTION_PAGE))
+        return _rows(call.body) if call.ok else None
+
+    def money_snapshot(self, customer_id):
+        """{accountId: (status, balance, {transactionId: (type, amount)})} for every account."""
+        accounts = self.customer_accounts(customer_id)
+        if accounts is None:
+            return None
+        snapshot = {}
+        for account in accounts:
+            rows = self.account_transactions(customer_id, account.get("accountId"))
+            if rows is None:
+                return None
+            snapshot[account.get("accountId")] = (
+                account.get("status"), self.balance_of(account),
+                {r.get("transactionId"): (r.get("type"), Decimal(str(r.get("amount") or "0")))
+                 for r in rows})
+        return snapshot
+
+    TRANSFER_AMOUNT = Decimal("1.00")
+
+    def transfer_to_product(self):
+        """Move money from the subject's account into the other non-TERM product, then settle.
+
+        The transfer books both legs in core at once, so across the customer's accounts the total
+        is the same before and after, apart from interest that lands in between. The settle sweep
+        runs first so the reading is taken after clearing has moved the money as well.
+        """
+        held = self.held
+        kind = held.get("productType") or "INSTANT"
+        if kind == "TERM":
+            return Call("POST", "TransferToProduct", 412,
+                        {"message": "a TERM account is not a transfer source the run tries"}, 0)
+        destination = self.product_of_type("NOTICE" if kind == "INSTANT" else "INSTANT")
+        if not destination:
+            return Call("POST", "TransferToProduct", 412,
+                        {"message": "the platform offers no product to transfer into"}, 0)
+        account = self.read("account") or {}
+        if account.get("status") != "OPEN" or self.balance_of(account) < self.TRANSFER_AMOUNT:
+            return Call("POST", "TransferToProduct", 412, {
+                "message": "the source account reads {} holding {}, and a transfer needs an OPEN "
+                           "account holding {}".format(account.get("status"),
+                                                       account.get("balance"),
+                                                       self.TRANSFER_AMOUNT)}, 0)
+        if self.pending_instructions(remember=False):
+            # A deposit or withdrawal the sweep could complete would move the total by itself.
+            return Call("POST", "TransferToProduct", 412, {
+                "message": "the customer has an instruction in flight, so its total cannot be "
+                           "compared across the transfer"}, 0)
+        customer = held["customerId"]
+        before = self.money_snapshot(customer)
+        if before is None:
+            return Call("POST", "TransferToProduct", 412,
+                        {"message": "could not read the customer's accounts before the transfer"}, 0)
+        reference = self.mint("t", 36)
+        call = self.client.call(
+            "POST", "/direct/v1/customers/{customerId}/accounts/{accountId}/instruction"
+                    .format(**held),
+            json_body={"instructionRequestType": "TRANSFER", "productId": destination,
+                       "amount": "{:.2f}".format(self.TRANSFER_AMOUNT),
+                       "instructionReference": reference,
+                       "termsAndConditionsAcceptedAt": actions.past_instant()})
+        if not call.ok:
+            return call
+        self.settle_world()
+        after = self.money_snapshot(customer)
+        if after is None:
+            return Call("POST", "TransferToProduct", call.status, {
+                "message": "transferred {} into {}, and the accounts could not be read after".format(
+                    self.TRANSFER_AMOUNT, destination[:8]), "instruction": call.body},
+                call.elapsed_ms)
+        total_before = sum((b for _, b, _ in before.values()), Decimal("0"))
+        total_after = sum((b for _, b, _ in after.values()), Decimal("0"))
+        interest = Decimal("0")
+        for account_id, (_, _, rows) in after.items():
+            seen = before.get(account_id, (None, None, {}))[2]
+            interest += sum((amount for tid, (kind_, amount) in rows.items()
+                             if tid not in seen and kind_ == "INTEREST"), Decimal("0"))
+        if total_after.compare(total_before + interest) != 0:
+            self.note_violation(
+                "TransferToProduct", "a transfer between a customer's accounts keeps the total",
+                customer, "the customer's accounts summed {} before a transfer of {} and {} after "
+                          "settling, with {} of new interest".format(
+                              total_before, self.TRANSFER_AMOUNT, total_after, interest),
+                expected=total_before + interest, actual=total_after,
+                body={"before": {k: str(v[1]) for k, v in before.items()},
+                      "after": {k: str(v[1]) for k, v in after.items()},
+                      "instruction": call.body})
+        negative = {k: str(v[1]) for k, v in after.items() if v[1] < 0}
+        if negative:
+            self.note_violation(
+                "TransferToProduct", "no account holds a negative balance", customer,
+                "after a transfer of {} the customer holds a negative balance".format(
+                    self.TRANSFER_AMOUNT), expected="every balance >= 0", actual=negative)
+        return Call("POST", "TransferToProduct", call.status, {
+            "message": "transferred {} from {} to {}: total {} before, {} after".format(
+                self.TRANSFER_AMOUNT, kind, destination[:8], total_before, total_after),
+            "instruction": call.body}, call.elapsed_ms)
+
+    TERM_OPENING_AMOUNT = Decimal("50.00")
+    TERM_FUNDING_SWEEPS = 6
+    TERM_FUNDING_PAUSE_SECONDS = 3
+
+    def fund_with(self, amount):
+        """FundAccount's sequence for an amount of the run's choosing, on the held account."""
+        held = self.held
+        batch = self.client.call("POST", "/direct/v1/batches", json_body={
+            "batchReference": self.mint("batch", 36),
+            "paymentReference": self.mint("p", 16),
+            "totalPaymentRequired": "{:.2f}".format(amount),
+            "allocations": [{
+                "customerId": held["customerId"],
+                "accountReference": held["accountReference"],
+                "instructionReference": self.mint("i", 36),
+                "instructionType": "DEPOSIT",
+                "productId": held["productId"],
+                "amount": "{:.2f}".format(amount),
+            }],
+        })
+        if not batch.ok:
+            return batch
+        steps = [
+            world.raise_platform_dues(self.ops, self.platform_uid),
+            self.credit_and_count("{:.2f}".format(amount), batch.body["paymentReference"]),
+            self.poll_if_new_money(),
+            world.drain_transactions(self.ops),
+            world.settle_payments(self.ops),
+            world.drain_transactions(self.ops),
+        ]
+        self.sweeps += 1
+        return _first_failure(steps) or batch
+
+    def set_maturity_to_notice(self):
+        """Point a funded TERM account's maturity at the customer's NOTICE account.
+
+        DirectMaturityDestinationService needs the account funded (a maturity date), the date at
+        least a day away, no pending instruction, and an account of the customer's on the
+        destination product that is not CANCELLED, CLOSING or CLOSED. The run opens that NOTICE
+        account when the customer has none, and funds the TERM account to its opening amount when
+        it is still REQUESTED.
+        """
+        held = self.held
+        if (held.get("productType") or "INSTANT") != "TERM":
+            return Call("POST", "SetMaturityToNotice", 412,
+                        {"message": "only a TERM account has a maturity destination"}, 0)
+        notice = self.product_of_type("NOTICE")
+        if not notice:
+            return Call("POST", "SetMaturityToNotice", 412,
+                        {"message": "the platform offers no NOTICE product"}, 0)
+        if not held.get("accountReference"):
+            return Call("POST", "SetMaturityToNotice", 412,
+                        {"message": "the subject holds no account reference to fund"}, 0)
+        if self.pending_instructions(account_id=held["accountId"], remember=False):
+            return Call("POST", "SetMaturityToNotice", 412,
+                        {"message": "the TERM account has an instruction in flight"}, 0)
+        account = self.read("account") or {}
+        if account.get("status") == "REQUESTED":
+            owed = self.TERM_OPENING_AMOUNT - self.balance_of(account)
+            if owed > 0:
+                self.fund_with(owed)
+                self._pending_cache = {}
+                account = self.read("account") or {}
+                # The deposit lands on the account a sweep or two after the credit is read.
+                for _ in range(self.TERM_FUNDING_SWEEPS):
+                    if account.get("status") != "REQUESTED":
+                        break
+                    time.sleep(self.TERM_FUNDING_PAUSE_SECONDS)
+                    self.settle_world()
+                    account = self.read("account") or {}
+        if account.get("status") != "OPEN" or not account.get("maturityDate"):
+            return Call("POST", "SetMaturityToNotice", 412, {
+                "message": "the TERM account reads {} with maturity date {}, so it is not "
+                           "funded".format(account.get("status"), account.get("maturityDate"))}, 0)
+        today = datetime.now(world.LONDON).date()
+        if date.fromisoformat(str(account["maturityDate"])[:10]) <= today:
+            return Call("POST", "SetMaturityToNotice", 412, {
+                "message": "the account matures on {}, less than a day away".format(
+                    account["maturityDate"])}, 0)
+        customer = held["customerId"]
+        accounts = self.customer_accounts(customer)
+        if accounts is None:
+            return Call("POST", "SetMaturityToNotice", 412,
+                        {"message": "could not list the customer's accounts"}, 0)
+        target = next((a for a in accounts
+                       if (a.get("product") or {}).get("productId") == notice
+                       and a.get("status") not in ("CANCELLED", "CLOSING", "CLOSED")), None)
+        if target is None:
+            # Not absorbed: the subject stays on its TERM product, and the NOTICE account is only
+            # the destination.
+            opened = self.client.call(
+                "POST", "/direct/v1/customers/{}/accounts".format(customer),
+                json_body={"productId": notice, "accountReference": self.mint("acct", 18),
+                           "termsAndConditionsAcceptedAt": actions.past_instant()})
+            if not opened.ok or not isinstance(opened.body, dict):
+                return opened
+            target = opened.body
+        call = self.client.call(
+            "POST", "/direct/v1/customers/{customerId}/accounts/{accountId}/maturityDestination"
+                    .format(**held), json_body={"productId": notice})
+        if not call.ok:
+            return call
+        read = self.read("account") or {}
+        if read.get("maturityDestination") != target.get("accountId"):
+            self.note_violation(
+                "SetMaturityToNotice", "an accepted maturity destination reads back", customer,
+                "the maturity destination was accepted and the account read shows {}".format(
+                    read.get("maturityDestination")),
+                expected=target.get("accountId"), actual=read.get("maturityDestination"),
+                body=call.body)
+        return Call("POST", "SetMaturityToNotice", call.status, {
+            "message": "TERM account maturing {} now matures into NOTICE account {}".format(
+                account.get("maturityDate"), (read.get("maturityDestination") or "?")[:8])},
+            call.elapsed_ms)
+
+    # Two event types that the run's own traffic rarely raises, so a subscription that nothing can
+    # deliver to costs the services little. At most this many of the run's own are held at once.
+    WEBHOOK_EVENTS = ("KYC_INFO_REQUIRED", "CUSTOMER_DOCUMENT_CREATED")
+    WEBHOOKS_HELD_AT_MOST = 2
+
+    def webhook_prefix(self):
+        return "https://sim-webhook.invalid/{}/".format(self.run_id)
+
+    def own_webhooks(self, body):
+        prefix = self.webhook_prefix()
+        return {(w.get("webhookName"), w.get("url")) for w in (body if isinstance(body, list) else [])
+                if isinstance(w, dict) and str(w.get("url") or "").startswith(prefix)}
+
+    def check_webhooks_read(self, action_name, after):
+        """GET must list exactly the run's own subscriptions the run believes it holds."""
+        held = getattr(self, "webhooks_held", set())
+        listed = self.client.call("GET", "/direct/v1/webhooks")
+        if not listed.ok:
+            return listed
+        found = self.own_webhooks(listed.body)
+        if found != held:
+            self.note_violation(
+                action_name, "the webhook list reflects the last subscribe and unsubscribe",
+                self.platform_uid, "after {} the list holds {} of the run's own and the run "
+                                   "expects {}".format(after, len(found), len(held)),
+                expected=sorted(held), actual=sorted(found), body=listed.body)
+        return listed
+
+    def subscribe_webhooks(self):
+        held = self.webhooks_held = getattr(self, "webhooks_held", set())
+        if len(held) >= self.WEBHOOKS_HELD_AT_MOST:
+            return Call("POST", "SubscribeWebhooks", 412, {
+                "message": "the run already holds {} subscriptions of its own".format(len(held))}, 0)
+        turn = getattr(self, "webhook_turns", 0)
+        self.webhook_turns = turn + 1
+        name = self.WEBHOOK_EVENTS[turn % len(self.WEBHOOK_EVENTS)]
+        url = self.webhook_prefix() + self.mint("wh", 24)
+        call = self.client.call("POST", "/direct/v1/webhooks", json_body={
+            "webhooks": [{"webhookName": name, "webhookVersion": "VERSION_1", "url": url}]})
+        if not call.ok:
+            return call
+        held.add((name, url))
+        if (name, url) not in self.own_webhooks(call.body):
+            self.note_violation(
+                "SubscribeWebhooks", "a subscribe answers with the subscription it made",
+                self.platform_uid, "the subscribe answer does not list {} {}".format(name, url),
+                expected=[name, url], actual=sorted(self.own_webhooks(call.body)), body=call.body)
+        self.check_webhooks_read("SubscribeWebhooks", "subscribing {}".format(name))
+        return Call("POST", "SubscribeWebhooks", call.status, {
+            "message": "subscribed {}; the run holds {}".format(name, len(held))}, call.elapsed_ms)
+
+    def list_webhooks(self):
+        listed = self.check_webhooks_read("ListWebhooks", "a plain read")
+        if not listed.ok:
+            return listed
+        return Call("GET", "ListWebhooks", listed.status, {
+            "message": "{} subscriptions listed, {} of them the run's own".format(
+                len(listed.body) if isinstance(listed.body, list) else "?",
+                len(self.own_webhooks(listed.body)))}, listed.elapsed_ms)
+
+    def unsubscribe_webhook(self):
+        """Take off one of the run's own subscriptions, never one it did not make."""
+        held = self.webhooks_held = getattr(self, "webhooks_held", set())
+        if not held:
+            return Call("DELETE", "UnsubscribeWebhook", 412,
+                        {"message": "the run holds no subscription of its own"}, 0)
+        name, url = sorted(held)[0]
+        call = self.client.call("DELETE", "/direct/v1/webhooks", json_body={
+            "webhooks": [{"webhookName": name, "webhookVersion": "VERSION_1", "url": url}]})
+        if not call.ok:
+            return call
+        held.discard((name, url))
+        self.check_webhooks_read("UnsubscribeWebhook", "unsubscribing {}".format(name))
+        return Call("DELETE", "UnsubscribeWebhook", call.status, {
+            "message": "unsubscribed {}; the run holds {}".format(name, len(held))},
+            call.elapsed_ms)
+
+    OFFICER_WAIT_SECONDS = 30
+    OFFICER_MIN_AGE_SECONDS = 60
+    # The statuses from which compliance-api refuses each action outright, and CLOSED, which
+    # every action leaves alone.
+    OFFICER_REFUSES = {"CLOSE": {"FROZEN", "CANCELLED", "CLOSED"},
+                       "REJECT": {"CLOSED"},
+                       "CANCEL": {"FROZEN", "CLOSED"}}
+    OFFICER_LANDS = {"CLOSE": "CLOSED", "REJECT": "DEACTIVATED", "CANCEL": "CANCELLED"}
+
+    def officer_close_customer(self):
+        return self.officer_override("OfficerCloseCustomer", "CLOSE")
+
+    def officer_reject_customer(self):
+        return self.officer_override("OfficerRejectCustomer", "REJECT")
+
+    def officer_cancel_customer(self):
+        return self.officer_override("OfficerCancelCustomer", "CANCEL")
+
+    def officer_override(self, action_name, action):
+        """An officer's CLOSE, REJECT or CANCEL through compliance-api, and the status it reaches.
+
+        CLOSE goes to core synchronously; REJECT and CANCEL on a customer that is not FROZEN go
+        to compliance, which tells core through its queue, so the Direct read is polled. The
+        customer leaves the pool afterwards: it is closed or stopped for good.
+        """
+        held = self.held
+        if not self.compliance or not held.get("customerId"):
+            return Call("PUT", action_name, 412,
+                        {"message": "no compliance client, or no customer to act on"}, 0)
+        customer = held["customerId"]
+        read = self.client.call("GET", "/direct/v1/customers/{}".format(customer))
+        status = read.body.get("customerStatus") if read.ok and isinstance(read.body, dict) \
+            else None
+        if status is None or status in self.OFFICER_REFUSES[action]:
+            return Call("PUT", action_name, 412, {
+                "message": "the customer reads {}, which {} is not tried from".format(
+                    status, action)}, 0)
+        created = str(read.body.get("createdAt") or "")
+        try:
+            age = time.time() - datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            age = None
+        if age is not None and age < self.OFFICER_MIN_AGE_SECONDS:
+            # The onboarding KYC flow finishes after the create answers, and its result writes
+            # over an override that landed first.
+            return Call("PUT", action_name, 412, {
+                "message": "the customer is {:.0f}s old and its onboarding check may still be "
+                           "running".format(age)}, 0)
+        window = self.ASYNC_WINDOW_TRIALS["compliance"]
+        if any(e["kind"] == "compliance" and e["subject"] == customer
+               and 0 <= self.steps - e["trial"] <= window for e in self.in_flight):
+            # A KYC result still on its way lands after the override and writes over it.
+            return Call("PUT", action_name, 412,
+                        {"message": "a compliance result for this customer is still in flight"}, 0)
+        if action == "CLOSE":
+            if self.pending_instructions(remember=False):
+                # Closing drains each account, and cash already moving would reach finding 15.
+                return Call("PUT", action_name, 412,
+                            {"message": "the customer has an instruction in flight"}, 0)
+            holding = sum((self.balance_of(a) for a in self.customer_accounts(customer) or []),
+                          Decimal("0"))
+            if holding:
+                # Core refuses it: "Unable to close customer while accounts hold a non-zero
+                # balance".
+                return Call("PUT", action_name, 412, {
+                    "message": "the customer's accounts hold {}".format(holding)}, 0)
+        call = world.override_customer_status(
+            self.compliance, customer, action, "simulation explorer {}".format(action.lower()))
+        if not getattr(call, "ok", False):
+            return call
+        self.note_in_flight("compliance", "an officer {} of {}".format(action, status), customer)
+        expected = self.OFFICER_LANDS[action]
+        deadline = time.monotonic() + self.OFFICER_WAIT_SECONDS
+        while True:
+            read = self.client.call("GET", "/direct/v1/customers/{}".format(customer))
+            landed = read.body.get("customerStatus") if read.ok and isinstance(read.body, dict) \
+                else None
+            if landed == expected or time.monotonic() >= deadline:
+                break
+            time.sleep(2)
+        if landed != expected:
+            self.note_violation(
+                action_name, "an accepted officer override reaches the Direct customer", customer,
+                "compliance accepted {} on a {} customer and the Direct read shows {} after "
+                "{}s".format(action, status, landed, self.OFFICER_WAIT_SECONDS),
+                expected=expected, actual=landed, body=read.body)
+        if action == "CLOSE":
+            accounts = self.customer_accounts(customer) or []
+            open_left = {a.get("accountId"): a.get("status") for a in accounts
+                         if a.get("status") not in ("CLOSING", "CLOSED", "CANCELLED")}
+            if open_left:
+                self.note_violation(
+                    action_name, "a closed customer holds no live account", customer,
+                    "an officer closed the customer and {} of its accounts are still live".format(
+                        len(open_left)),
+                    expected="every account CLOSING, CLOSED or CANCELLED", actual=open_left)
+        self.subjects[self.current]["closed"] = True
+        return Call("PUT", action_name, call.status,
+                    read.body if isinstance(read.body, dict) else {"message": str(read.body)},
+                    call.elapsed_ms + read.elapsed_ms)
+
+    ADJUST_PATH = "/operations/processor/order/notice/adjust"
+    STACK_CALL_EVERY_TRIALS = 25
+    NOTICE_SUBJECTS_CHECKED = 4
+
+    def spaced(self, attribute):
+        """True when this stack-wide call last ran long enough ago, and marks it as running now."""
+        last = getattr(self, attribute, None)
+        if last is not None and self.steps - last < self.STACK_CALL_EVERY_TRIALS:
+            return False
+        setattr(self, attribute, self.steps)
+        return True
+
+    def adjust_notice_withdrawals(self):
+        """Run the notice withdrawal adjustment, then read every NOTICE subject's pending ones.
+
+        Forced straight after an accepted ChangeBankRate by shape_gap, and otherwise spaced out,
+        because it reads every incomplete notice withdrawal on the stack.
+        """
+        after_rate = bool(self.log) and self.log[-1]["action"] == "ChangeBankRate" \
+            and self.log[-1]["ok"]
+        if not after_rate and not self.spaced("adjusted_at"):
+            return Call("POST", "AdjustNoticeWithdrawals", 412, {
+                "message": "the adjustment ran fewer than {} trials ago".format(
+                    self.STACK_CALL_EVERY_TRIALS)}, 0)
+        self.adjusted_at = self.steps
+        call = self.ops.call("POST", self.ADJUST_PATH)
+        if not call.ok:
+            return call
+        self.note_in_flight("notice", "a notice withdrawal adjustment")
+        # The service submits each account's adjustment to an executor and answers at once.
+        time.sleep(3)
+        checked, over = 0, []
+        saved = self.current
+        try:
+            for i, subject in enumerate(self.subjects):
+                if checked >= self.NOTICE_SUBJECTS_CHECKED:
+                    break
+                if subject.get("closed") or not subject.get("customerId"):
+                    continue
+                if (subject.get("productType") or "INSTANT") != "NOTICE":
+                    continue
+                checked += 1
+                lines = self.client.call(
+                    "GET", "/direct/v1/customers/{}/instructions".format(subject["customerId"]))
+                waiting = [l for l in (_rows(lines.body) if lines.ok else [])
+                           if l.get("status") == "PENDING"
+                           and (l.get("type") or l.get("instructionType")) == "WITHDRAWAL"]
+                for line in waiting:
+                    account = self.client.call("GET", "/direct/v1/customers/{}/accounts/{}".format(
+                        subject["customerId"], line.get("accountId")))
+                    if not account.ok or not isinstance(account.body, dict):
+                        continue
+                    balance = self.balance_of(account.body)
+                    amount = Decimal(str(line.get("amount") or "0"))
+                    if amount > balance:
+                        over.append({"instruction": line.get("instructionId"),
+                                     "account": line.get("accountId"),
+                                     "amount": str(amount), "balance": str(balance)})
+        finally:
+            self.current = saved
+        for entry in over:
+            self.note_violation(
+                "AdjustNoticeWithdrawals",
+                "no pending notice withdrawal asks for more than its account holds",
+                entry["account"], "a pending notice withdrawal of {} on an account holding {} "
+                                  "after the adjustment".format(entry["amount"], entry["balance"]),
+                expected="<= {}".format(entry["balance"]), actual=entry["amount"], body=entry)
+        return Call("POST", "AdjustNoticeWithdrawals", call.status, {
+            "message": "adjusted{}; {} NOTICE customers read, {} withdrawals over balance".format(
+                " after a rate change" if after_rate else "", checked, len(over))},
+            call.elapsed_ms)
+
+    REEMIT_PATH = "/operations/processor/direct/feed/reemit/bank/{}/{}/{}/{}"
+    REEMIT_FILE_TYPES = ("CUSTOMER", "ACCOUNT", "PRODUCT")
+    REEMIT_MODES = ("INSERT", "UPDATE")
+    REEMIT_ENTRY = {
+        "CUSTOMER": ("investec_file_customer_entry", "customer_sid", "platform_customer"),
+        "ACCOUNT": ("investec_file_account_entry", "account_sid", "customer_product_account"),
+        "PRODUCT": ("investec_file_product_entry", "product_sid", "bank_product"),
+    }
+
+    @staticmethod
+    def is_uuid(value):
+        try:
+            uuid.UUID(str(value))
+            return True
+        except ValueError:
+            return False
+
+    def newest_feed_file(self, file_type):
+        rows, error = integrity._psql(
+            "SELECT coalesce(max(f.sid), 0) FROM investec_file f JOIN partner_bank b "
+            "ON b.sid = f.bank_sid WHERE b.uid = '{}' AND f.file_type = '{}'".format(
+                self.bank_uid, file_type))
+        return int(rows[0][0]) if rows and not error else None
+
+    def judge_reemits(self):
+        """For each re-emit still waiting, look at the sealed files the feed has cut since."""
+        waiting = []
+        for entry in getattr(self, "reemits", []):
+            table, column, owner = self.REEMIT_ENTRY[entry["fileType"]]
+            rows, error = integrity._psql(
+                "SELECT count(DISTINCT f.sid), count(e.file_sid) FROM investec_file f "
+                "JOIN partner_bank b ON b.sid = f.bank_sid "
+                "LEFT JOIN {table} e ON e.file_sid = f.sid AND e.{column} = "
+                "(SELECT sid FROM {owner} WHERE uid = '{entity}') "
+                "WHERE b.uid = '{bank}' AND f.file_type = '{kind}' AND f.sid > {after} "
+                "AND f.control_total_sha256 IS NOT NULL".format(
+                    table=table, column=column, owner=owner, entity=entry["entity"],
+                    bank=self.bank_uid, kind=entry["fileType"], after=entry["after"]))
+            if error or not rows:
+                waiting.append(entry)
+                continue
+            files, entries = int(rows[0][0]), int(rows[0][1])
+            if files == 0:
+                waiting.append(entry)
+            elif entries == 0:
+                self.note_violation(
+                    "ReemitFeedEntity", "a re-emitted entity is in the next feed file",
+                    entry["entity"], "{} {} was re-emitted with {} and the {} sealed {} files cut "
+                                     "since hold no row for it".format(
+                                         entry["fileType"], entry["entity"], entry["mode"], files,
+                                         entry["fileType"]),
+                    expected="a row in the next {} file".format(entry["fileType"]),
+                    actual="no row in {} files".format(files), body=entry)
+            else:
+                print("  -- re-emitted {} {} is in the {} file cut since".format(
+                    entry["fileType"], entry["entity"][:8], entry["fileType"]))
+        self.reemits = waiting[-20:]
+
+    def reemit_feed_entity(self):
+        """Ask the next Direct feed run to re-emit one of this run's customers, accounts or products.
+
+        Judged when a later ReemitFeedEntity finds that RunDataFeed has sealed a file of that type
+        since: the entity must be in one of them.
+        """
+        if not self.bank_uid:
+            return Call("POST", "ReemitFeedEntity", 412, {"message": "BANK_UID is not set"}, 0)
+        self.judge_reemits()
+        if not self.spaced("reemitted_at"):
+            return Call("POST", "ReemitFeedEntity", 412, {
+                "message": "a re-emit was asked for fewer than {} trials ago".format(
+                    self.STACK_CALL_EVERY_TRIALS)}, 0)
+        turn = getattr(self, "reemit_turns", 0)
+        self.reemit_turns = turn + 1
+        file_type = self.REEMIT_FILE_TYPES[turn % len(self.REEMIT_FILE_TYPES)]
+        mode = self.REEMIT_MODES[(turn // len(self.REEMIT_FILE_TYPES)) % len(self.REEMIT_MODES)]
+        held = self.held
+        if file_type == "CUSTOMER":
+            entity = held.get("customerId")
+        elif file_type == "ACCOUNT":
+            entity = held.get("accountId")
+        else:
+            found = world.bank_product_for(held.get("productId") or self.product_id)
+            entity = found[0] if found else None
+        if not self.is_uuid(entity):
+            return Call("POST", "ReemitFeedEntity", 412,
+                        {"message": "no {} uid to re-emit".format(file_type)}, 0)
+        after = self.newest_feed_file(file_type)
+        call = self.ops.call("POST", self.REEMIT_PATH.format(self.bank_uid, file_type, entity,
+                                                             mode))
+        if not call.ok:
+            return call
+        outcome = call.body.get("outcome") if isinstance(call.body, dict) else None
+        if outcome == "REEMIT_QUEUED" and after is not None:
+            self.reemits = getattr(self, "reemits", []) + [
+                {"fileType": file_type, "entity": entity, "mode": mode, "after": after,
+                 "trial": self.steps}]
+        self.note_in_flight("feed", "a feed re-emit of {} {}".format(file_type, entity[:8]))
+        return Call("POST", "ReemitFeedEntity", call.status, {
+            "message": "{} {} {}: {}".format(mode, file_type, entity[:8], call.body),
+            "rowsAffected": (call.body or {}).get("rowsAffected")
+            if isinstance(call.body, dict) else None, "outcome": outcome}, call.elapsed_ms)
 
     # How long a received message stays hidden from other consumers while duplication is on.
     # Zero means it comes back the instant it is received, so the consumer sees it again.
@@ -2868,6 +3475,11 @@ class Run:
                 and self.steps - self.notice_forced_at >= self.TRIALS_BETWEEN_CLOSURE_ATTEMPTS
                 and self.someone_can("CloseNoticeAfterDue")):
             return "CloseNoticeAfterDue"
+        # The notice adjustment is what a bank rate change owes the notice withdrawals already
+        # waiting, so it follows a rate change that was accepted.
+        if (not fleet.is_member() and self.log and self.log[-1]["action"] == "ChangeBankRate"
+                and self.log[-1]["ok"] and self.someone_can("AdjustNoticeWithdrawals")):
+            return "AdjustNoticeWithdrawals"
         return None
 
     def ruled_out_here(self, name):

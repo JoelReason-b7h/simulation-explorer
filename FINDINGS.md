@@ -136,6 +136,15 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     close behind while core rolls back. Evidence: the rows and the DLQ on the running stack;
     `fleet12-p0.json`.
 
+16. **An officer's REJECT or CANCEL can be written over by a KYC flow still in progress.** Seen
+    once, with harness timing. On customer `26b5835e` compliance logged "Updating customer ... to
+    Status [DEACTIVATED]" at 10:12:30.127, then the onboarding flow logged "... with Status
+    [ACTIVATED], RiskResult [LOW_RISK]" at 10:12:30.240 and published ACTIVATED to core; both
+    services stayed ACTIVATED although the override answered 200. CANCEL on `b52445d7` did the
+    same. `FlowInterventionController.updateCustomerStatus` hands the override to an async flow
+    with nothing to stop a later flow result replacing it. The customer was 0.2 s old; a manual
+    review during a KYC recheck is the realistic route. Not yet investigated.
+
 Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
 platforms' sweeps were in flight (8 in fleets 3 and 4). A wipe removed their stack traces. From
 fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`, and every wipe now
