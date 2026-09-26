@@ -175,6 +175,18 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     interest is non-zero. So a 0.00 INTEREST row carrying a fee shows in the Direct API and never
     reaches the platform. Fleet 183, account `39c32852`, twice. Low.
 
+20. **PlaceWithdrawal accepts an empty instructionReference.** `ExternalDirectInstructionRequest`
+    has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
+
+21. **A SAVINGS_TRANSACTION webhook event is created with timestamps eleven minutes older than
+    its transaction and is never sent.** Row `2258759c`, transaction `b4cc581b` (0.01 INTEREST,
+    created 14:00:15 UTC): the event's created_at and updated_at are 13:49:05 while its payload's
+    firstSeen is 14:00:15.876, it stays AWAITING_RESPONSE, and the platform never received it; the
+    INTEREST_REALISED event for the same transaction was delivered. Under investigation.
+
+Under investigation too: fleet 185 recorded a SAVINGS_WITHDRAWAL (transaction 584, -0.01) booked
+while customer `b64f1aff` was FROZEN; it may be the intended hold, where only the payout is held.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
