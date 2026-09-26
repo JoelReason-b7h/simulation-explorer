@@ -59,15 +59,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    Once INTEREST is let back in, the skipped rows ship late: fleet 4 sent a row value-dated
    2026-10-09 in a file after the one for 2026-10-10, so a bank reading the files in order held
    a balance history with a gap until then.
-9. **Two feed runs in one second write files with the same name, and the later one replaces the
-   earlier in the archive.** The name carries the extract time to the second
-   (`DirectFileMetadata.getFileName`), and the archive key is the name. Fleet 3's bank had 262
-   names shared by two sealed files, for example `ACCOUNT_20260925T174423Z.csv` with 76 rows and
-   with 0. The same runs sent 77 transactions in two sealed TRANSACTION files each, because a run
-   reads transactions as open until adapter seals the earlier file. Reach: needs two runs within
-   seconds, such as an ops run beside the scheduler. The harness now waits over a second between
-   runs. Evidence: `investec_file` for bank `8089b2eb` until the next wipe.
-
 10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
     account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
     error handling on the path from `DirectCustomerAccountService.cancelDirectCustomerAccount`
@@ -90,17 +81,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     either one query counts rows the other leaves out, or the gap is IGNORED duplicates from
     finding 7. Not traced yet; the local banks share one DIRECT master account in clearing, so the
     next check needs a bank with no cycle running on it.
-
-14. **A TERM account opens for a requested amount far above the product's deposit maximum.**
-    `DirectAccountValidator.validateAccountOpeningOrder` (`DirectAccountValidator.java:46-65`) checks
-    only that a TERM amount is present; `AccountOpeningRequest.orderAmount` carries no bound, and
-    nothing at opening compares it with `depositRequirementMax` or `maximumAvailable`. Fleet 11
-    opened one for 99999999999999.99 against a maximum of 1000000 and got 201. Both limits are
-    enforced when money arrives, against the deposit itself: `MaxDepositValidator` and
-    `MaxAvailableValidator` run in `DIRECT_RAIL_POST_POLICY`, and a deposit is matched to its account
-    by the account's own internal account, not by `requested_amount`. So no money is at risk; the stored `requested_amount` is shown to the
-    platform while the account is REQUESTED, and a REQUESTED account blocks a second opening on the
-    product. Low severity. Evidence: `fleet11-p1.json`.
 
 15. **Closing a Direct account with cash on its internal account dead-letters the drain's
     settlement, so core never books it.** `DirectAccountClosureOperations.requestAccountClosure`
@@ -138,6 +118,10 @@ dumps the four databases to `archive/pre-wipe-<time>-db/` first.
 
 ## Checked and holding
 
+- Two feed runs in the same second write files with the same name, and the later one replaces the
+  earlier in the archive. Joel: not important in practice, because runs seconds apart do not happen.
+- A TERM account opens for an amount above the product's deposit maximum. Joel: the stored requested
+  amount is not used anywhere in practice, and the deposit limits hold when money arrives.
 - A closure payment the bank refuses (REJECT_FAIL) leaves its money on the CLOSED account. This
   is the intended outcome: money that cannot be paid out stays on the account.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
