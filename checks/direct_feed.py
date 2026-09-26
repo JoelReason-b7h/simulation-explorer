@@ -402,6 +402,15 @@ def check_against_core(files, bank_uid, out):
             out.add("every sealed file is archived", name, "sealed in core, not in S3")
 
 
+def feed_position(bank_uid):
+    """The newest TRANSACTION file's business date and the bank's business date, as text."""
+    rows = core_rows("SELECT (SELECT max(f.business_effective_date) FROM investec_file f "
+                     "WHERE f.bank_sid = b.sid AND f.file_type = 'TRANSACTION'), bbd.business_date "
+                     "FROM partner_bank b JOIN bank_business_date bbd ON bbd.bank_sid = b.sid "
+                     "WHERE b.uid = '{}'".format(bank_uid))
+    return tuple(rows[0][:2]) if rows else None
+
+
 def generate(bank_uid, times):
     from explorer import config, local_auth, world
     from explorer.client import BearerClient
@@ -417,7 +426,8 @@ def generate(bank_uid, times):
     # feed to reach its target date, never ran. Ask until three rounds in a row write nothing.
     statuses = {}
     still = 0
-    before = files_in_core(bank_uid)
+    before = feed_position(bank_uid)
+    caught = 0
     for _ in range(times):
         world.mark_feed_files_sent(bank_uid)
         for event in ("DIRECT_DATA_FEED", "DIRECT_DATA_RECON"):
@@ -437,7 +447,14 @@ def generate(bank_uid, times):
             if not unsealed or unsealed[0][0] == "0":
                 break
             time.sleep(1)
-        after = files_in_core(bank_uid)
+        # Stop on the feed's date, not on its file count. Once the feed reaches the bank's open
+        # date every run still writes a set of files for that date, so counting files never saw
+        # three quiet rounds and all 400 rounds ran, about seventeen minutes between cycles.
+        # One more round after the feed catches up, so RECON can seal the day before it.
+        after = feed_position(bank_uid)
+        caught = caught + 1 if after and after[0] and after[0] == after[1] else 0
+        if caught >= 2:
+            break
         still = still + 1 if after == before else 0
         before = after
         if still >= 3:
