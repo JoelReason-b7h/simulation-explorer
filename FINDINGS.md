@@ -158,10 +158,12 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     and no row with that name exists afterwards. The harness labelled it "reference", because
     its text mutation replaces the first text field it finds, which here was `accountName`.
 
-Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
-platforms' sweeps were in flight (8 in fleets 3 and 4). A wipe removed their stack traces. From
-fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`, and every wipe now
-dumps the four databases to `archive/pre-wipe-<time>-db/` first.
+The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
+recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
+30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
+sends each payment to the bank. Here the bank simulator was slow because the harness had filled it
+with 7.9 million virtual accounts, so this is mostly a harness condition; the part that is the
+product's is the same as finding 10, a timeout surfaced as a bare 500.
 
 ## Checked and holding
 
