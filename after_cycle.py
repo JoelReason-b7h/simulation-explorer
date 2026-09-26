@@ -32,6 +32,9 @@ MAX_SECONDS = 14400
 # action of None covers the rule on every action. Any other violation makes the cycle interesting,
 # so a 5xx on an action not listed here still brings the cycle back to fifteen minutes.
 KNOWN = {
+    # Findings 25 and 26.
+    ("no payout goes to a payee that failed Confirmation of Payee", "JourneyPayeeChange"),
+    ("a funded TERM account takes no top-up", "JourneyTermBeforeMaturity"),
     ("a terminal status is not left", None),
     ("a closed account holds no money", None),
     ("a read answers promptly", None),

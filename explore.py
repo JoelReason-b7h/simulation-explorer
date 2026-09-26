@@ -1793,10 +1793,22 @@ class Run:
     # journey takes a minute or two, so forcing one every trial would leave no exploration.
     JOURNEY_SPACING = int(os.environ.get("SIM_JOURNEY_SPACING", "20"))
     JOURNEY_FIRST = int(os.environ.get("SIM_JOURNEY_FIRST", "10"))
+    # The trial spacing alone let journeys take 87% of fleet 193's member time (28 journeys in 147
+    # trials), because steps outrun trials and least-tried picking also chooses a journey. A share
+    # of the run's wall time caps them whatever picks them.
+    JOURNEY_SHARE = float(os.environ.get("SIM_JOURNEY_SHARE", "0.3"))
+
+    def journey_over_share(self):
+        began = getattr(self, "journey_clock", None)
+        if began is None:
+            self.journey_clock = began = time.monotonic()
+        spent = getattr(self, "journey_seconds", 0.0)
+        return spent > self.JOURNEY_SHARE * (time.monotonic() - began)
 
     def journey_due(self):
         """The next journey in turn once JOURNEY_SPACING trials have passed since the last one."""
-        if not journeys.ALL or self.steps < self.JOURNEY_FIRST or self.live_fault():
+        if (not journeys.ALL or self.steps < self.JOURNEY_FIRST or self.live_fault()
+                or self.journey_over_share()):
             return None
         last = getattr(self, "journey_at", None)
         if last is not None and self.steps - last < self.JOURNEY_SPACING:
@@ -1811,12 +1823,20 @@ class Run:
         if last is not None and self.steps - last < self.JOURNEY_SPACING:
             return Call("POST", name, 412, {
                 "message": "a journey ran {} trials ago".format(self.steps - last)}, 0)
+        if self.journey_over_share():
+            return Call("POST", name, 412, {
+                "message": "journeys have used more than {:.0%} of the run".format(
+                    self.JOURNEY_SHARE)}, 0)
         self.journey_at = self.steps
         names = list(journeys.ALL)
         if names[getattr(self, "journey_turn", 0) % len(names)] == name:
             self.journey_turn = getattr(self, "journey_turn", 0) + 1
         print("  -- journey {} starts".format(name))
-        call = journeys.ALL[name](self)
+        began = time.monotonic()
+        try:
+            call = journeys.ALL[name](self)
+        finally:
+            self.journey_seconds = getattr(self, "journey_seconds", 0.0) + time.monotonic() - began
         print("  -- journey {} ends: {}".format(name, (call.body or {}).get("message")))
         return call
 
