@@ -123,7 +123,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     Existing e2e features close only after processing has settled, so the cash is always reserved
     or already at the bank, and none of them reaches the drain with cash. The new scenario is
     `account-closure/close_notice_account_drains_unallocated_cash.feature` in worktree
-    `exchange.worktrees/closure-drain-e2e`.
+    `exchange.worktrees/closure-drain-e2e`, PR #12452. CI run 36228963409 reproduces the dead letter: core rejects the drain due's PaymentSettled four times with "Unable to find direct accounts for payment dues".
     Fleet 12: dues `ceba65b4`, `2eb0328f`, `2c3af7ab`, `9bdb66b6` (1.00, 0.50, 0.50, 0.01), all on
     accounts CLOSING with `NO_LONGER_NEEDED`, PRODUCED in clearing, absent from every core table.
     Also from reading the code, not yet seen: the drain is a synchronous call inside core's
