@@ -1892,23 +1892,29 @@ class Run:
         totals = interest_oracle.realised_totals(self.platform_uid, self.INTEREST_API_ACCOUNTS)
         checked, disagreed = 0, 0
         for account_id, (customer_id, realised) in (totals or {}).items():
-            listed = None
-            for _ in range(2):
+            # The clock keeper realises a day every few seconds, so core is read on both sides of
+            # the API read and the API may equal anything in between. Fleet 199 read 2.40 from the
+            # API against 2.39 in core one realisation earlier; both held 3.47 when read together.
+            listed, before, after = None, realised, realised
+            for _ in range(3):
+                before = (interest_oracle.realised_totals(self.platform_uid, 500) or {}).get(
+                    account_id, (None, before))[1]
                 rows = self.account_transactions(customer_id, account_id)
                 if rows is None:
+                    listed = None
                     break
                 listed = sum((Decimal(str(r.get("amount") or "0")) for r in rows
                               if r.get("type") == "INTEREST"), Decimal("0"))
-                again = (interest_oracle.realised_totals(self.platform_uid, 500) or {}).get(
-                    account_id, (None, realised))[1]
-                if listed == again:
+                after = (interest_oracle.realised_totals(self.platform_uid, 500) or {}).get(
+                    account_id, (None, after))[1]
+                if before <= listed <= after:
                     break
-                realised = again
                 time.sleep(self.CONFIRM_PAUSE_SECONDS)
             if listed is None:
                 continue
             checked += 1
-            if listed != realised:
+            realised = after
+            if not before <= listed <= after:
                 disagreed += 1
                 self.note_violation(
                     "InterestOracle", "the INTEREST rows the API lists are the interest core realised",
