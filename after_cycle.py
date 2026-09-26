@@ -151,6 +151,26 @@ def exception_copies():
     return {"lines": lines, "entries": entries, "mostCopied": top}
 
 
+def healthy_median_rate():
+    """Median trials a minute per run over the last six cycles that raised no sanity note.
+
+    The fixed floor of three a minute let four cycles run at a fifth of their earlier rate
+    without a note, because each still cleared it.
+    """
+    rates = []
+    for line in PROGRESS.read_text().splitlines()[-400:]:
+        try:
+            cycle = json.loads(line)
+        except ValueError:
+            continue
+        if cycle.get("runs") and not cycle.get("sanity"):
+            minutes = max(cycle.get("seconds", 900) / 60.0, 1.0)
+            per_run = sorted((r.get("trials") or 0) / minutes for r in cycle["runs"].values())
+            rates.append(per_run[len(per_run) // 2])
+    rates = rates[-6:]
+    return sorted(rates)[len(rates) // 2] if rates else None
+
+
 def sanity(name, seconds, runs):
     """What says the harness itself misbehaved in this cycle, as plain sentences."""
     problems = []
@@ -168,6 +188,10 @@ def sanity(name, seconds, runs):
         if unauthorised:
             problems.append("{} got {} answers of 401".format(run, unauthorised))
         trials = (runs.get(run) or {}).get("trials") or 0
+        usual = healthy_median_rate()
+        if usual and role == "member" and trials / minutes < usual / 2:
+            problems.append("{} made {:.1f} trials a minute, under half the usual {:.1f}".format(
+                run, trials / minutes, usual))
         if trials / minutes < MIN_RATE[role]:
             problems.append("{} made {} trials in {:.0f} minutes, under {} a minute".format(
                 run, trials, minutes, MIN_RATE[role]))

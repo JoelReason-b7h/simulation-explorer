@@ -39,6 +39,18 @@ class Call:
         return "<{} {} {}>".format(self.method, self.path, self.status)
 
 
+# Every call slower than this, in the order made, until the trial that made them takes them. A
+# trial that took 60 seconds recorded only its total, so which of its six calls stalled was lost.
+SLOW_MS = 5000
+SLOW_CALLS = []
+
+
+def take_slow_calls():
+    taken = list(SLOW_CALLS)
+    del SLOW_CALLS[:]
+    return taken
+
+
 class _Client:
     def __init__(self, base_url, timeout):
         self.base_url = base_url.rstrip("/")
@@ -68,6 +80,7 @@ class _Client:
                           {"message": "{}: {}".format(type(fault).__name__, fault)},
                           elapsed, json_body)
             self.calls.append(record)
+            SLOW_CALLS.append([method, path, record.status, round(elapsed)]) if elapsed >= SLOW_MS else None
             return record
         elapsed = (time.time() - started) * 1000
         try:
@@ -76,6 +89,8 @@ class _Client:
             body = response.text or None
 
         record = Call(method, path, response.status_code, body, elapsed, json_body)
+        if elapsed >= SLOW_MS:
+            SLOW_CALLS.append([method, path, response.status_code, round(elapsed)])
         self.calls.append(record)
         return record
 

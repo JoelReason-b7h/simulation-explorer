@@ -18,7 +18,7 @@ import uuid
 from decimal import Decimal
 import sys
 
-from explorer import (actions, config, driver, faults, fleet, integrity, ledger, oracles,
+from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
                       preflight, projector, race, triallog, webhooks, weird, world)
 from explorer.client import BearerClient, Call, DirectClient
 
@@ -3349,7 +3349,10 @@ class Run:
             "message": _message(call),
             "why": self.why,
             "why_detail": getattr(self, "why_detail", ""),
+            "ms": round((time.monotonic() - getattr(self, "_trial_started", time.monotonic())) * 1000),
+            "slowCalls": client.take_slow_calls(),
         })
+        self._trial_started = time.monotonic()
         self.publish()
         return True
 
