@@ -476,6 +476,9 @@ CREATES = {"CreateCustomer", "CreateKycFailedCustomer"}
 
 # Actions that are built but not taken. Empty: ChangeBankRate is on again, conductor only through
 # fleet.STACK_FAULTS, because it moves every platform on the bank.
-DISABLED = set()
+# Actions whose only question is already answered in FINDINGS. A refused or returned closure
+# payout leaves the money on the CLOSED account by design, and a refused NOTICE payout is
+# finding 12, so running them again only re-finds what is recorded.
+DISABLED = {"RejectClosurePayment", "ReturnClosurePayment"}
 
 BY_NAME = {action.name: action for action in CORE_SIDE}

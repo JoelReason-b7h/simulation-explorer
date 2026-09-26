@@ -1010,7 +1010,8 @@ class Run:
 
     # Each injection runs once per run, in this order, and the driver may choose either again
     # afterwards out of the fault budget.
-    CLOSURE_INJECTIONS = ("RejectClosurePayment", "ReturnClosurePayment")
+    CLOSURE_INJECTIONS = tuple(name for name in ("RejectClosurePayment", "ReturnClosurePayment")
+                               if name not in actions.DISABLED)
 
     # Which action made each observation, so a finding names the action a reader can look up.
     INJECTION_BY_CASE = {"rejected": "RejectClosurePayment", "returned": "ReturnClosurePayment"}
