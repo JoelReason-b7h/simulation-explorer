@@ -246,6 +246,24 @@ SHARED_TEST_CLIENT = "5ldvheuf83ic4pftapi5p5ntp8"
 CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
 
 
+POOL_FLOOR = int(os.environ.get("SIM_PRELOADED_FLOOR", "5000"))
+
+
+def preloaded_available():
+    """Clearing's AVAILABLE preloaded accounts, or None when clearing cannot be read."""
+    import subprocess
+    dsn = os.environ.get("SIM_CLEARING_DSN",
+                         "postgresql://clearing:password@localhost:5440/clearing")
+    try:
+        done = subprocess.run(["psql", dsn, "-tA", "-c",
+                               "SELECT count(*) FROM preloaded_internal_account "
+                               "WHERE status = 'AVAILABLE'"],
+                              capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip() else None
+
+
 def own_client(platform_uid):
     """Give the new platform a client of its own, so several platforms can run at once.
 
@@ -442,8 +460,15 @@ def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, sh
     # AccountRequested once none is AVAILABLE. Ten ran out 70 minutes into a long run. The bank
     # draws each batch's numbers at random without making them distinct, so one large batch hits
     # its own duplicate IBAN and fails whole; small batches rarely do, and a failed one is redrawn.
+    # Mint only what keeps clearing's pool above the floor. Minting 100000 on every cycle's first
+    # platform left the bank simulator holding 7.9 million virtual accounts while clearing held
+    # 2.3 million AVAILABLE and had assigned 1209 all day; the simulator then ran near its memory
+    # limit and every credit took 40 to 48 seconds.
     wanted = int(os.environ.get("SIM_VIRTUAL_ACCOUNTS", "100000")) if first else int(
         os.environ.get("SIM_VIRTUAL_ACCOUNTS_PER_PLATFORM", "0"))
+    available = preloaded_available()
+    if available is not None:
+        wanted = min(wanted, max(0, POOL_FLOOR - available))
     hsb = BearerClient(settings["hsb_base_url"], timeout=300.0)
     opened, redrawn = 0, 0
     while opened < wanted:

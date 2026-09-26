@@ -122,6 +122,20 @@ def health(name):
     return done.stdout.strip()
 
 
+MEMORY_BOUND = ("docker-hot-sauce-bank-1",)
+MEMORY_RESTART_SHARE = 0.85
+
+
+def memory_share(name):
+    """The container's memory use as a share of its limit, or None when docker cannot say."""
+    done = subprocess.run(["docker", "stats", "--no-stream", "--format", "{{.MemPerc}}", name],
+                          capture_output=True, text=True, timeout=60)
+    try:
+        return float(done.stdout.strip().rstrip("%")) / 100
+    except ValueError:
+        return None
+
+
 def heal_stack():
     """Start every stack container that has stopped, and wait until each is healthy again.
 
@@ -131,6 +145,14 @@ def heal_stack():
     Returns the names it started, or None when a container would not come back.
     """
     stopped = [name for name, state in stack_containers().items() if state != "running"]
+    # The bank simulator slows to 40 seconds a credit when it runs near its memory limit, and it
+    # holds nothing a restart loses, so restart it between cycles once it passes the mark.
+    for name in MEMORY_BOUND:
+        used = memory_share(name)
+        if name not in stopped and used is not None and used >= MEMORY_RESTART_SHARE:
+            print("  {} is using {:.0%} of its memory limit, so it is restarted".format(name, used))
+            subprocess.run(["docker", "restart", name], capture_output=True, text=True, timeout=180)
+            stopped.append(name)
     for name in stopped:
         print("  {} had stopped, so it is being started again".format(name))
         subprocess.run(["docker", "start", name], capture_output=True, text=True, timeout=120)
