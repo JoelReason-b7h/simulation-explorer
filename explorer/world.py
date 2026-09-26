@@ -317,6 +317,36 @@ def clear_nameless_groups(ops_client, minutes=2):
     return cleared
 
 
+APPROVE_GROUP = "/operations/own/payment/management/payment/groups/{}/APPROVE"
+DUPLICATE_HOLDS_LOG = Path(__file__).resolve().parent.parent / "approved-duplicate-holds.jsonl"
+
+
+def approve_duplicate_holds(ops_client, minutes=5):
+    """Approve payment groups clearing's PotentialDuplicateGate has held for review.
+
+    The gate holds a payment that repeats a recent one to the same payee, and an operator reviews
+    it. The long-lived population withdraws the same small amount to the same payee again and
+    again, so 506 groups sat held and their withdrawals stayed PENDING for good. Each hold here is
+    a genuine repeat, so the harness approves it as the reviewing operator would, and logs it.
+    """
+    rows = _clearing_rows(
+        "SELECT uid, amount FROM payment_group WHERE status = 'PENDING_APPROVAL' "
+        "AND message = 'PotentialDuplicateGate' "
+        "AND created_at < now() - interval '{} minutes' ORDER BY sid LIMIT 200".format(int(minutes)))
+    approved = []
+    for group, amount in rows:
+        call = ops_client.call("PUT", APPROVE_GROUP.format(group))
+        approved.append({"group": group, "amount": amount, "status": getattr(call, "status", None),
+                         "at": datetime.now().isoformat(timespec="seconds")})
+    if approved:
+        with open(DUPLICATE_HOLDS_LOG, "a") as handle:
+            for row in approved:
+                handle.write(json.dumps(row) + "\n")
+        print("  approved {} duplicate-gate hold(s), statuses {}".format(
+            len(approved), sorted({r["status"] for r in approved}, key=str)))
+    return approved
+
+
 def _clearing_rows(sql):
     try:
         done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-v", "ON_ERROR_STOP=1",
@@ -331,6 +361,7 @@ def _clearing_rows(sql):
 def settle_payments(ops_client):
     """The global sweep. One cohort's call moves every cohort's money, which is why §10's P1 exists."""
     clear_nameless_groups(ops_client)
+    approve_duplicate_holds(ops_client)
     return [
         # NominatedAccountPublishingScheduler drains this outbox every 30s in a deployed stack and
         # is off locally, so without the call a replaced nominated account on a CoP platform never
