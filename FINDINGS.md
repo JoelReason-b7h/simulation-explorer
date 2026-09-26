@@ -204,7 +204,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     Locally the drain never ran (scheduling is off and the harness did not call
     `/operations/processor/nominated-account/publish/drain`), which made the window unbounded; the
     harness now calls it on every settle. Databases kept in `archive/finding24-send-loop-db` and
-    `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments. No ops endpoint can clear it: `REJECT_FAIL` answers 400 "Payment group must be pending approval" for an APPROVED group, and `PaymentFileRepository.SELECT_FILES_TO_SEND` ignores the group status, so a rejected group's unsent file would still be picked first. Only a database change moves the file.
+    `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments. No ops endpoint can clear it: `REJECT_FAIL` answers 400 "Payment group must be pending approval" for an APPROVED group, and `PaymentFileRepository.SELECT_FILES_TO_SEND` ignores the group status, so a rejected group's unsent file would still be picked first. Only a database change moves the file. The harness now fails such a group on every settle: it marks the payments sent and RJCT, moves the group to PENDING_APPROVAL, and sends the operator's REJECT_FAIL (log in `cleared-groups.jsonl`). It failed all 47 at 21:05 London on 2026-09-26, and sending resumed at once.
 
 25. **SAV-11111. A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
     `resolveCounterpart` takes the current nominated account with no verification check, unlike
@@ -251,6 +251,15 @@ with 7.9 million virtual accounts, so this is mostly a harness condition; the pa
 product's is the same as finding 10, a timeout surfaced as a bare 500.
 
 ## Checked and holding
+
+- Under investigation, not yet a finding: INSTANT accounts left CLOSING with a live interest
+  schedule keep accruing and realising and never reach the closure sweep, which needs both
+  next-value dates NULL (`DirectCustomerAccountRepository.fetchClosingAccountsReadyForFinalisation`).
+  `closeOffSchedulesForClosingDirectAccounts` only nulls a schedule whose `realised_last_value_date`
+  equals the run's new business date. Five CLOSING accounts on bank `3bf7a390` sit one day behind
+  the OPEN ones (realised 2028-11-18 against 2028-11-19), so every close-off misses them. The
+  harness advances this bank from two places at once, so a second interest run for the same bank
+  may cause the one-day gap; production runs one run per bank. Account `891d326f` is one.
 
 - A withdrawal booked while its customer is FROZEN is intended when the payout was released
   before the freeze: fleet 185's 0.01 was paid by the bank 1.7 s before the freeze and booked when

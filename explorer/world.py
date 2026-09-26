@@ -279,45 +279,58 @@ CLEARED_GROUPS_LOG = Path(__file__).resolve().parent.parent / "cleared-groups.js
 
 
 def clear_nameless_groups(ops_client, minutes=2):
-    """Fail every APPROVED payment group holding a payment with no creditor name.
+    """Fail every APPROVED payment group holding an unsent payment with no creditor name.
 
     One such payment makes clearing's file sender throw on every run and send nothing behind it
-    (SAV-11699), which halted every outbound payment on the stack for hours. An operator would fail
-    the group; the harness does the same, and logs each one so the evidence survives.
+    (SAV-11699). No ops endpoint can fail an APPROVED group, and the file sender picks a file by
+    its unsent payments whatever the group status, so the harness leaves what a bank rejection
+    leaves: the payments marked sent and RJCT, the group PENDING_APPROVAL. The operator's
+    REJECT_FAIL then tells core the withdrawal failed. Each one is logged so the evidence survives.
     """
-    sql = ("SELECT DISTINCT pg.uid, pi.end_to_end_id, pi.created_at FROM payment_initiation pi "
-           "JOIN payment_group pg ON pg.sid = pi.payment_group_sid "
-           "WHERE pg.status = 'APPROVED' AND pi.creditor_name IS NULL AND pi.sent_at IS NULL "
-           "AND pi.is_return IS NOT TRUE "
-           "AND pi.created_at < now() - interval '{} minutes'").format(int(minutes))
-    try:
-        done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-c", sql],
-                              capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return []
-    if done.returncode != 0:
-        return []
+    find = ("SELECT pg.uid, pg.sid, string_agg(pi.end_to_end_id, ',') FROM payment_group pg "
+            "JOIN payment_initiation pi ON pi.payment_group_sid = pg.sid "
+            "WHERE pg.status = 'APPROVED' AND pi.is_return IS NOT TRUE GROUP BY pg.uid, pg.sid "
+            "HAVING bool_or(pi.creditor_name IS NULL) AND bool_and(pi.sent_at IS NULL) "
+            "AND min(pi.created_at) < now() - interval '{} minutes'").format(int(minutes))
+    rows = _clearing_rows(find)
     cleared = []
-    for line in done.stdout.splitlines():
-        parts = line.split("\t")
-        if len(parts) != 3:
-            continue
-        group, end_to_end, created = parts
+    for group, group_sid, end_to_end in rows:
+        marked = _clearing_rows(
+            "WITH p AS (UPDATE payment_initiation SET sent_at = now(), status = 'RJCT' "
+            "WHERE payment_group_sid = {0} AND sent_at IS NULL RETURNING sid), "
+            "g AS (UPDATE payment_group SET status = 'PENDING_APPROVAL' "
+            "WHERE sid = {0} AND status = 'APPROVED' RETURNING sid) "
+            "SELECT (SELECT count(*) FROM p), (SELECT count(*) FROM g)".format(int(group_sid)))
         call = ops_client.call("PUT", REJECT_GROUP.format(group))
-        cleared.append({"group": group, "endToEndId": end_to_end, "createdAt": created,
+        cleared.append({"group": group, "endToEndIds": end_to_end.split(","),
+                        "marked": marked[0] if marked else None,
                         "status": getattr(call, "status", None),
+                        "message": (call.body or {}).get("message")
+                        if isinstance(getattr(call, "body", None), dict) else None,
                         "at": datetime.now().isoformat(timespec="seconds")})
     if cleared:
         with open(CLEARED_GROUPS_LOG, "a") as handle:
             for row in cleared:
                 handle.write(json.dumps(row) + "\n")
-        print("  cleared {} nameless payment group(s): {}".format(
+        print("  failed {} nameless payment group(s): {}".format(
             len(cleared), [(r["group"][:8], r["status"]) for r in cleared]))
     return cleared
 
 
+def _clearing_rows(sql):
+    try:
+        done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-v", "ON_ERROR_STOP=1",
+                               "-c", sql], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if done.returncode != 0:
+        return []
+    return [line.split("\t") for line in done.stdout.splitlines() if line.strip()]
+
+
 def settle_payments(ops_client):
     """The global sweep. One cohort's call moves every cohort's money, which is why §10's P1 exists."""
+    clear_nameless_groups(ops_client)
     return [
         # NominatedAccountPublishingScheduler drains this outbox every 30s in a deployed stack and
         # is off locally, so without the call a replaced nominated account on a CoP platform never
