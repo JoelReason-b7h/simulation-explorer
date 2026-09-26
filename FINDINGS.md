@@ -112,6 +112,10 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     `DirectCustomerAccountHandler` sends it to `DirectTransactionWithdrawalHandler.
     onExternalWithdrawal`, whose lookup (`PaymentDueDirectCustomerAccountService:193`) throws, and
     PaymentSettled retries to the DLQ. Every other Direct debit writes the link first.
+    In all four fleet 12 cases the cash was a partial withdrawal in flight: its internal leg had
+    moved the amount onto the internal account, and closure came less than a second later. The
+    drain paid that same amount to the customer under its own due, while the withdrawal stayed
+    PENDING with its own payout still to come. Core booked no WITHDRAWAL on any of the four.
     Fleet 12: dues `ceba65b4`, `2eb0328f`, `2c3af7ab`, `9bdb66b6` (1.00, 0.50, 0.50, 0.01), all on
     accounts CLOSING with `NO_LONGER_NEEDED`, PRODUCED in clearing, absent from every core table.
     Also from reading the code, not yet seen: the drain is a synchronous call inside core's
