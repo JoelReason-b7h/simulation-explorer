@@ -164,6 +164,13 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     shared DIRECT account. Under investigation: whether aggregation selects dues another run is
     aggregating, and what the failed run leaves behind.
 
+19. **A realisation whose interest rounds to 0.00 books an INTEREST transaction that no webhook
+    announces.** `RealisedInterestTransactionService` (`:64-83`) books the row when the interest,
+    the bank fee or the platform fee is non-zero, under the comment "Do not insert a zero valued
+    transaction", but returns a transaction for the SAVINGS_TRANSACTION webhook only when the
+    interest is non-zero. So a 0.00 INTEREST row carrying a fee shows in the Direct API and never
+    reaches the platform. Fleet 183, account `39c32852`, twice. Low.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing

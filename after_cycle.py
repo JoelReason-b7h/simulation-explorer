@@ -51,6 +51,8 @@ KNOWN_DETAIL = {
     ("no message goes to the dead letter queue", '"detail-type":"PaymentSettled"'),
     # SAV-11695: the nominated account name has no length limit.
     ("an invalid request is refused", "5000 characters in nominatedAccount.accountName"),
+    # Finding 19: a 0.00 INTEREST row carrying a fee is booked but never webhooked.
+    ("every transaction the API shows is delivered", "CREDIT INTEREST 0.00"),
 }
 
 
