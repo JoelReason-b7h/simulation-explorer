@@ -521,7 +521,8 @@ WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 # to end, so the subject the driver stands on only has to exist; the placeholder path is never
 # called. Never raced: a journey is a sequence, and racing one would interleave two of them.
 JOURNEYS = ("JourneyMultiProduct", "JourneyTermBeforeMaturity", "JourneyPayeeChange",
-            "JourneyFrozenLifecycle", "JourneyFeeMidPeriod", "JourneyDateFlipUnderLoad")
+            "JourneyFrozenLifecycle", "JourneyFeeMidPeriod", "JourneyDateFlipUnderLoad",
+            "JourneyPlatformFeeWithdrawal", "JourneyPayeeReview", "JourneyReadModels")
 CORE_SIDE += [Action(name, "POST", "/direct/v1/customers", needs=["customerId"], entity="customer")
               for name in JOURNEYS]
 NEVER_RACED |= set(JOURNEYS)

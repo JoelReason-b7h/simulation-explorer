@@ -252,6 +252,13 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
 
 ## Checked and holding
 
+- Candidate from code reading, not yet driven: the Direct transaction list's amount filter
+  compares the signed `customer_amount` (`DirectCustomerTransactionService`), while `MoneyString`
+  refuses a negative bound, so no `valueAmountFrom`/`valueAmountTo` pair can select withdrawals by
+  size. JourneyReadModels now exercises the filters.
+- Candidate from code reading: ops `POST /operations/own/account/{id}/term/maturity/break`
+  (`DepositBreakingService`) runs the Trust break flow and shows no Direct guard.
+
 - Under investigation, not yet a finding: INSTANT accounts left CLOSING with a live interest
   schedule keep accruing and realising and never reach the closure sweep, which needs both
   next-value dates NULL (`DirectCustomerAccountRepository.fetchClosingAccountsReadyForFinalisation`).

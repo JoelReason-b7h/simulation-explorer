@@ -965,3 +965,8 @@ ALL = {
     "JourneyFeeMidPeriod": fee_mid_period,
     "JourneyDateFlipUnderLoad": date_flip_under_load,
 }
+
+# Journeys over the fee withdrawal, the payee review and the read models live beside these.
+from explorer import journeys_ops  # noqa: E402
+
+ALL.update(journeys_ops.ALL)
