@@ -195,7 +195,9 @@ CHECKS = (
     ),
     (
         # A deposit is held for a FROZEN customer and refused for PENDING, DEACTIVATED, CANCELLED
-        # and CLOSED (RECEIVE_RAIL_DEPOSIT), so none of them should book one.
+        # and CLOSED (RECEIVE_RAIL_DEPOSIT), so none of them should book one. A batch deposit
+        # settles under SETTLE_INSTRUCTION_GROUP instead, which holds only FROZEN: fleet 191 settled
+        # batch u6fw4up68 into two customers deactivated after the batch was accepted.
         "no deposit books for a customer who may not receive one",
         "account_transaction",
         """
@@ -215,6 +217,12 @@ CHECKS = (
             WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at - interval '2 seconds'
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1)
               IN ('FROZEN', 'PENDING', 'DEACTIVATED', 'CANCELLED', 'CLOSED')
+          AND NOT (
+            (SELECT h.to_state FROM platform_customer_status_history h
+              WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at
+              ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) <> 'FROZEN'
+            AND EXISTS (SELECT 1 FROM direct_batch_instruction dbi
+              WHERE dbi.payment_reference = at.payment_reference AND dbi.platform_sid = pc.platform_sid))
         ORDER BY at.sid DESC LIMIT {limit}
         """,
         "transaction {0} paid {2} into customer {1}'s account at {3} while the customer was {4}",
