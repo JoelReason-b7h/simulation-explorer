@@ -158,6 +158,12 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     and no row with that name exists afterwards. The harness labelled it "reference", because
     its text mutation replaces the first text field it finds, which here was `accountName`.
 
+18. **Clearing fails to aggregate a payment due with "Cannot change value of aggregate_uid once
+    set".** Fleet 183, 14:12:18: `clearing-pd-aggregator - Unable to aggregate payment dues
+    [cfb96b8b-...]`, raised by a database trigger. Four platforms settle concurrently against one
+    shared DIRECT account. Under investigation: whether aggregation selects dues another run is
+    aggregating, and what the failed run leaves behind.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
