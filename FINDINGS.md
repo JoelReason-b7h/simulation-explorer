@@ -145,6 +145,10 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     with nothing to stop a later flow result replacing it. The customer was 0.2 s old; a manual
     review during a KYC recheck is the realistic route. Not yet investigated.
 
+17. **AddNominatedAccount accepts a 5000-character reference.** Fleet 175: the WeirdCall mutation
+    "reference of 5000 characters on AddNominatedAccount answered 200", twice. Not yet
+    investigated: whether the field is stored, truncated, or sent on to CoP and the bank.
+
 Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
 platforms' sweeps were in flight (8 in fleets 3 and 4). A wipe removed their stack traces. From
 fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`, and every wipe now
