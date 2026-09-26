@@ -1951,10 +1951,20 @@ class Run:
         return [row for row in _rows(call.body) if isinstance(row, dict)]
 
     def account_transactions(self, customer_id, account_id):
-        call = self.client.call(
-            "GET", "/direct/v1/customers/{}/accounts/{}/transactions?skip=0&take={}".format(
-                customer_id, account_id, self.TRANSACTION_PAGE))
-        return _rows(call.body) if call.ok else None
+        # Every page: the long-lived bank's accounts passed 1000 rows (a daily INTEREST row each),
+        # and fleet 209 compared the first page's interest with all of core's.
+        rows, skip = [], 0
+        while True:
+            call = self.client.call(
+                "GET", "/direct/v1/customers/{}/accounts/{}/transactions?skip={}&take={}".format(
+                    customer_id, account_id, skip, self.TRANSACTION_PAGE))
+            if not call.ok:
+                return None
+            page = _rows(call.body)
+            rows.extend(page)
+            if len(page) < self.TRANSACTION_PAGE:
+                return rows
+            skip += len(page)
 
     def money_snapshot(self, customer_id):
         """{accountId: (status, balance, {transactionId: (type, amount)})} for every account."""

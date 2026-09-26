@@ -549,10 +549,20 @@ def read_models(run):
 
 
 def _list(j, path):
+    """The rows and totalSize at `path`; a full read (skip=0&take=1000) follows every page, since
+    the long-lived bank's busiest customers hold more than 1000 rows."""
     call = j.client.call("GET", path)
     if not call.ok or not isinstance(call.body, dict):
         return None, None
-    return _rows(call.body), call.body.get("totalSize")
+    rows, total = _rows(call.body), call.body.get("totalSize")
+    if "skip=0&take=1000" not in path:
+        return rows, total
+    while isinstance(total, int) and len(rows) < total:
+        more = j.client.call("GET", path.replace("skip=0&", "skip={}&".format(len(rows)), 1))
+        if not more.ok or not isinstance(more.body, dict) or not _rows(more.body):
+            return None, None
+        rows.extend(_rows(more.body))
+    return rows, total
 
 
 def _per_account(j, customer, account_ids):

@@ -236,10 +236,7 @@ class Journey:
         return call.body if call.ok and isinstance(call.body, dict) else {}
 
     def transactions(self, account_id, customer=None):
-        call = self.client.call(
-            "GET", "/direct/v1/customers/{}/accounts/{}/transactions?skip=0&take=1000".format(
-                customer or self.customer, account_id))
-        return _rows(call.body) if call.ok else None
+        return self.run.account_transactions(customer or self.customer, account_id)
 
     def booked(self, account_id, kind="SAVINGS_DEPOSIT"):
         """The sum of the account's transactions of one type in core, read-only. The Direct API's
