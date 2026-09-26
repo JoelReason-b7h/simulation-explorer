@@ -219,7 +219,7 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
              coalesce(platform_fee_amount, 0), coalesce(fee_amount, 0), uid, created_at
       FROM account_transaction
       WHERE customer_product_account_sid IN ({sids}) AND transaction_type = 'INTEREST'
-        AND created_at < '{before}'
+        AND created_at < timestamptz '{before}' + interval '5 seconds'
       """.format(sids=sids, before=settled_before), timeout=600)
     # A transaction booked after an accrual read the balance belongs to a later day: the adjust
     # pass moves any such row still carrying the old date on to the new business date
@@ -267,10 +267,17 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
                  "BONDSMITH_FEE": _d(fee) or ZERO}
         realised_by_uid[uid] = entry
         realised_by_account[cpa].append(entry)
+    # A realisation and its INTEREST transaction are written milliseconds apart, so the cut-off
+    # can fall between them (fleet 210: 3 ms). Looking up a realisation's transaction may read 5 s
+    # past the cut-off; counting transactions against realisations stays at the cut-off.
     booked_by_account = defaultdict(lambda: defaultdict(list))
+    booked_forward = defaultdict(lambda: defaultdict(list))
+    cutoff = _when(settled_before)
     for cpa, value_date, customer, platform, fee, uid, created in booked:
-        booked_by_account[cpa][_day(value_date)].append(
-            (_d(customer), _d(platform), _d(fee), uid))
+        row = (_d(customer), _d(platform), _d(fee), uid)
+        booked_forward[cpa][_day(value_date)].append(row)
+        if cutoff is None or _when(created) < cutoff:
+            booked_by_account[cpa][_day(value_date)].append(row)
 
     findings = defaultdict(list)
     stats = {"accounts": len(info), "accrualsJudged": 0, "realisationsJudged": 0,
@@ -397,7 +404,7 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
         uid = info[cpa]["uid"]
         for entry in entries:
             pots = (entry["CUSTOMER"], entry["PLATFORM_FEE"], entry["BONDSMITH_FEE"])
-            rows = booked_by_account[cpa].get(entry["value_date"], [])
+            rows = booked_forward[cpa].get(entry["value_date"], [])
             if all(p == 0 for p in pots):
                 continue
             match = [r for r in rows if r[0] is not None and r[0].compare(pots[0]) == 0
