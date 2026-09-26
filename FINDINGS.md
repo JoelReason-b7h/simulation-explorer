@@ -23,7 +23,8 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    fetchAccountsForPaymentDues` (`:193`), 8 deliveries each for dues `e1782ca9` and `a145407e`. The
    method throws when any due in the message has no Direct account with an instruction, while its
    neighbour around `:181` logs the missing dues and settles the rest, so one unresolvable due
-   dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`.
+   dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`. Fleet 12
+   traced where such dues come from: finding 15.
 3. **An empty preloaded account pool fails with a generic error and retries to the DLQ.**
    `InternalAccountCreationService.java:64`. Evidence: cycle 48 (`chain48.json`).
 4. **A closure TransferExpectation for an account clearing never created leaves money on a CLOSED
@@ -98,6 +99,23 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     by the account's own internal account, not by `requested_amount`. So no money is at risk; the stored `requested_amount` is shown to the
     platform while the account is REQUESTED, and a REQUESTED account blocks a second opening on the
     product. Low severity. Evidence: `fleet11-p1.json`.
+
+15. **Closing a Direct account with cash on its internal account dead-letters the drain's
+    settlement, so core never books it.** `DirectAccountClosureOperations.requestAccountClosure`
+    calls clearing's `closeAndDrainInternalAccount` (`DirectAccountClosureOperations.java:126`,
+    call at `:142`) for INSTANT and NOTICE. When the account holds withdrawable cash,
+    `InternalAccountCreationService.closeAndDrainInternalAccount` (`:74-96`) creates the payout
+    under `new PaymentDueUid()` inside clearing, so core never runs `createPaymentDueForAccount` and
+    has no `payment_due_direct_customer_instruction` row. On settlement,
+    `DirectCustomerAccountHandler` sends it to `DirectTransactionWithdrawalHandler.
+    onExternalWithdrawal`, whose lookup (`PaymentDueDirectCustomerAccountService:193`) throws, and
+    PaymentSettled retries to the DLQ. Every other Direct debit writes the link first.
+    Fleet 12: dues `ceba65b4`, `2eb0328f`, `2c3af7ab`, `9bdb66b6` (1.00, 0.50, 0.50, 0.01), all on
+    accounts CLOSING with `NO_LONGER_NEEDED`, PRODUCED in clearing, absent from every core table.
+    Also from reading the code, not yet seen: the drain is a synchronous call inside core's
+    transaction, so a later failure in `requestAccountClosure` leaves clearing's due and soft
+    close behind while core rolls back. Evidence: the rows and the DLQ on the running stack;
+    `fleet12-p0.json`.
 
 Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
 platforms' sweeps were in flight (8 in fleets 3 and 4). The wipe removed their stack traces; from
