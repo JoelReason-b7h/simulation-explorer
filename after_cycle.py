@@ -53,6 +53,8 @@ KNOWN_DETAIL = {
     ("an invalid request is refused", "5000 characters in nominatedAccount.accountName"),
     # The requested amount on opening is not bounded, and nothing reads it (checked and holding).
     ("an invalid request is refused", "amount too large on OpenAccount"),
+    # SAV-11697: an empty instructionReference is accepted.
+    ("an invalid request is refused", "empty text in instructionReference on PlaceWithdrawal"),
     # Finding 19: a 0.00 INTEREST row carrying a fee is booked but never webhooked.
     ("every transaction the API shows is delivered", "CREDIT INTEREST 0.00"),
 }

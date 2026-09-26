@@ -178,6 +178,15 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 20. **SAV-11697. PlaceWithdrawal accepts an empty instructionReference.** `ExternalDirectInstructionRequest`
     has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
 
+22. **A redelivered TransferExpectation fails on the payment due's unique key and retries to the
+    dead-letter queue.** `PartnerPaymentDueRepository.insertInternalPaymentDue` (`:129-212`) has no
+    `ON CONFLICT (uid) DO NOTHING`, unlike `insertExternalPaymentDue` (`:125`, SAV-9995), so the
+    second delivery of the same expectation throws `duplicate key value violates unique
+    constraint "partner_payment_due_uid_key"`, `PaymentExpectationConsumer` fails the message, and
+    it retries until the DLQ. The first delivery already booked the transfer, so no money moves
+    twice; each redelivery in production ends in the DLQ and its alarm. Fleet 187, seven failures,
+    from the harness's duplicate delivery. Low.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
