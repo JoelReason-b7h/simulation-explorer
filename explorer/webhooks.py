@@ -95,6 +95,35 @@ def outstanding(ops, platform_uid):
     return len(call.body)
 
 
+RESEND_AFTER_SECONDS = 30
+
+
+def resend_stuck(ops, platform_uid, now=None):
+    """Resend the platform's events left AWAITING_RESPONSE, as core's resend job would.
+
+    PlatformWebhookResendingService resends such events every minute once 30 s old, but it is a
+    shedlock scheduler and schedulers are off locally, so a delivery that timed out once was
+    never sent again and the accounting reported it missing. Returns how many were resent.
+    """
+    from datetime import datetime, timezone
+    call = ops.call("GET", "/webhook/events", params={
+        "platformUid": platform_uid, "eventState": "AWAITING_RESPONSE", "take": 50})
+    if not call.ok or not isinstance(call.body, list):
+        return 0
+    now = now or datetime.now(timezone.utc)
+    resent = 0
+    for event in call.body:
+        try:
+            created = datetime.fromisoformat(event["createdAt"].replace("Z", "+00:00"))
+        except (KeyError, ValueError, AttributeError):
+            continue
+        if (now - created).total_seconds() < RESEND_AFTER_SECONDS or not event.get("eventUid"):
+            continue
+        if ops.call("PUT", "/webhook/{}/resend/false".format(event["eventUid"])).ok:
+            resent += 1
+    return resent
+
+
 # --- receiver -------------------------------------------------------------------------------
 
 
@@ -175,9 +204,16 @@ def _handler(capture):
     return Handler
 
 
+class _Server(ThreadingHTTPServer):
+    # The default backlog of 5 dropped deliveries when four platforms sent at once: core timed
+    # out after 10 s on two SAVINGS_TRANSACTION events the handler never saw.
+    request_queue_size = 128
+    daemon_threads = True
+
+
 def serve(path, port=PORT):
     """Start the receiver on a daemon thread, writing to `path`, and return the server."""
-    server = ThreadingHTTPServer(("0.0.0.0", port), _handler(_Capture(path)))
+    server = _Server(("0.0.0.0", port), _handler(_Capture(path)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
