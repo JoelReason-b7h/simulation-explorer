@@ -232,17 +232,16 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     it out. The hold withholds only the payout, so a held withdrawal has already moved money that
     the cancel does not put back or book.
 
-28. **A NOTICE closure can strand the last day's accrued interest for good.** When the closure's
-    full-balance notice withdrawal is processed, `DirectNoticeWithdrawalOperations.drainIfClosing`
-    (`:109-125`) calls `realiseInterestAndDisableProcessing`, which realises what has accrued and
-    sets both next-value dates on `interest_processing_schedule` to NULL. The per-bank accrual sweep
-    (`InterestProcessing.accrue`, `:38-44`) lists its accounts in one transaction and accrues each in
-    a later one, with no re-check of the schedule and no customer lock, so an accrual listed before
-    the disable is written after it. That row is never realised, because every sweep query needs a
-    non-null next-value date, and closure pays out only the product balance. Account `5f3b4e67`:
-    notice 341 processed at 19:16:57.618 UTC, accrual 321569 (value date 2028-02-04, 0.00020616)
-    written at 19:16:57.674, schedule 1127 both dates NULL. Small per account (one day's interest),
-    but it happens whenever the notice processor and the accrual run overlap.
+28. **A NOTICE closure can leave one accrual row for a day after the account stopped earning.**
+    When the closure's full-balance notice withdrawal is processed,
+    `DirectNoticeWithdrawalOperations.drainIfClosing` (`:109-125`) realises what has accrued and
+    sets both next-value dates on `interest_processing_schedule` to NULL, which is the point the
+    account stops earning. The per-bank accrual sweep (`InterestProcessing.accrue`, `:38-44`) lists
+    its accounts in one transaction and accrues each in a later one with no re-check of the
+    schedule, so an account listed before the disable still gets an accrual written after it. The
+    customer loses nothing: that row is for a day the account was not earning, and it is never
+    realised. Account `5f3b4e67`: notice 341 processed at 19:16:57.618 UTC, accrual 321569 (value
+    date 2028-02-04, 0.00020616) written at 19:16:57.674, schedule 1127 both dates NULL. Low.
 
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
