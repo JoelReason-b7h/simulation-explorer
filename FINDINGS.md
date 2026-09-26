@@ -187,6 +187,11 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     twice; each redelivery in production ends in the DLQ and its alarm. Fleet 187, seven failures,
     from the harness's duplicate delivery. Low.
 
+23. **A bank reversal clearing cannot match retries to the dead-letter queue.** Fleet 190:
+    `TransactionEventSqsConsumer` failed 8 deliveries with `IllegalStateException: Can not find
+    payment to reverse: PEC000000100047B`. Under investigation: why clearing holds no payment for
+    that reference, and where the reversed money ends up.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
