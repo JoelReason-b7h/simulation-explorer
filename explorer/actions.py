@@ -492,11 +492,6 @@ CORE_SIDE += [
     Action("SetMaturityToNotice", "POST",
            "/direct/v1/customers/{customerId}/accounts/{accountId}/maturityDestination",
            needs=["customerId", "accountId", "productId"]),
-    Action("SubscribeWebhooks", "POST", "/direct/v1/webhooks", needs=["customerId"],
-           entity="customer"),
-    Action("ListWebhooks", "GET", "/direct/v1/webhooks", needs=["customerId"], entity="customer"),
-    Action("UnsubscribeWebhook", "DELETE", "/direct/v1/webhooks", needs=["customerId"],
-           entity="customer"),
     # An officer's CLOSE, REJECT and CANCEL through compliance-api's override.
     Action("OfficerCloseCustomer", "PUT", "/direct/v1/customers", needs=["customerId"],
            entity="customer"),
@@ -514,11 +509,10 @@ CORE_SIDE += [
 
 SPENDS |= {"OfficerCloseCustomer", "OfficerRejectCustomer", "OfficerCancelCustomer"}
 
-# Each of these keeps its own record of what it expects to read next (the webhooks it holds, the
-# re-emits it waits on) or moves the subject between customers' accounts, so a race would leave
+# Each of these keeps its own record of what it expects to read next (the re-emits it waits on) or moves the subject between customers' accounts, so a race would leave
 # that record describing a call that lost.
-NEVER_RACED |= {"TransferToProduct", "SetMaturityToNotice", "SubscribeWebhooks", "ListWebhooks",
-                "UnsubscribeWebhook", "OfficerCloseCustomer", "OfficerRejectCustomer",
+NEVER_RACED |= {"TransferToProduct", "SetMaturityToNotice", "OfficerCloseCustomer",
+                "OfficerRejectCustomer",
                 "OfficerCancelCustomer", "AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 
 WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}

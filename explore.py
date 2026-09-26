@@ -1669,9 +1669,6 @@ class Run:
             "ChangeBankRate": type(self).change_bank_rate,
             "TransferToProduct": type(self).transfer_to_product,
             "SetMaturityToNotice": type(self).set_maturity_to_notice,
-            "SubscribeWebhooks": type(self).subscribe_webhooks,
-            "ListWebhooks": type(self).list_webhooks,
-            "UnsubscribeWebhook": type(self).unsubscribe_webhook,
             "OfficerCloseCustomer": type(self).officer_close_customer,
             "OfficerRejectCustomer": type(self).officer_reject_customer,
             "OfficerCancelCustomer": type(self).officer_cancel_customer,
@@ -1921,83 +1918,6 @@ class Run:
         return Call("POST", "SetMaturityToNotice", call.status, {
             "message": "TERM account maturing {} now matures into NOTICE account {}".format(
                 account.get("maturityDate"), (read.get("maturityDestination") or "?")[:8])},
-            call.elapsed_ms)
-
-    # Two event types that the run's own traffic rarely raises, so a subscription that nothing can
-    # deliver to costs the services little. At most this many of the run's own are held at once.
-    WEBHOOK_EVENTS = ("KYC_INFO_REQUIRED", "CUSTOMER_DOCUMENT_CREATED")
-    WEBHOOKS_HELD_AT_MOST = 2
-
-    def webhook_prefix(self):
-        return "https://sim-webhook.invalid/{}/".format(self.run_id)
-
-    def own_webhooks(self, body):
-        prefix = self.webhook_prefix()
-        return {(w.get("webhookName"), w.get("url")) for w in (body if isinstance(body, list) else [])
-                if isinstance(w, dict) and str(w.get("url") or "").startswith(prefix)}
-
-    def check_webhooks_read(self, action_name, after):
-        """GET must list exactly the run's own subscriptions the run believes it holds."""
-        held = getattr(self, "webhooks_held", set())
-        listed = self.client.call("GET", "/direct/v1/webhooks")
-        if not listed.ok:
-            return listed
-        found = self.own_webhooks(listed.body)
-        if found != held:
-            self.note_violation(
-                action_name, "the webhook list reflects the last subscribe and unsubscribe",
-                self.platform_uid, "after {} the list holds {} of the run's own and the run "
-                                   "expects {}".format(after, len(found), len(held)),
-                expected=sorted(held), actual=sorted(found), body=listed.body)
-        return listed
-
-    def subscribe_webhooks(self):
-        held = self.webhooks_held = getattr(self, "webhooks_held", set())
-        if len(held) >= self.WEBHOOKS_HELD_AT_MOST:
-            return Call("POST", "SubscribeWebhooks", 412, {
-                "message": "the run already holds {} subscriptions of its own".format(len(held))}, 0)
-        turn = getattr(self, "webhook_turns", 0)
-        self.webhook_turns = turn + 1
-        name = self.WEBHOOK_EVENTS[turn % len(self.WEBHOOK_EVENTS)]
-        url = self.webhook_prefix() + self.mint("wh", 24)
-        call = self.client.call("POST", "/direct/v1/webhooks", json_body={
-            "webhooks": [{"webhookName": name, "webhookVersion": "VERSION_1", "url": url}]})
-        if not call.ok:
-            return call
-        held.add((name, url))
-        if (name, url) not in self.own_webhooks(call.body):
-            self.note_violation(
-                "SubscribeWebhooks", "a subscribe answers with the subscription it made",
-                self.platform_uid, "the subscribe answer does not list {} {}".format(name, url),
-                expected=[name, url], actual=sorted(self.own_webhooks(call.body)), body=call.body)
-        self.check_webhooks_read("SubscribeWebhooks", "subscribing {}".format(name))
-        return Call("POST", "SubscribeWebhooks", call.status, {
-            "message": "subscribed {}; the run holds {}".format(name, len(held))}, call.elapsed_ms)
-
-    def list_webhooks(self):
-        listed = self.check_webhooks_read("ListWebhooks", "a plain read")
-        if not listed.ok:
-            return listed
-        return Call("GET", "ListWebhooks", listed.status, {
-            "message": "{} subscriptions listed, {} of them the run's own".format(
-                len(listed.body) if isinstance(listed.body, list) else "?",
-                len(self.own_webhooks(listed.body)))}, listed.elapsed_ms)
-
-    def unsubscribe_webhook(self):
-        """Take off one of the run's own subscriptions, never one it did not make."""
-        held = self.webhooks_held = getattr(self, "webhooks_held", set())
-        if not held:
-            return Call("DELETE", "UnsubscribeWebhook", 412,
-                        {"message": "the run holds no subscription of its own"}, 0)
-        name, url = sorted(held)[0]
-        call = self.client.call("DELETE", "/direct/v1/webhooks", json_body={
-            "webhooks": [{"webhookName": name, "webhookVersion": "VERSION_1", "url": url}]})
-        if not call.ok:
-            return call
-        held.discard((name, url))
-        self.check_webhooks_read("UnsubscribeWebhook", "unsubscribing {}".format(name))
-        return Call("DELETE", "UnsubscribeWebhook", call.status, {
-            "message": "unsubscribed {}; the run holds {}".format(name, len(held))},
             call.elapsed_ms)
 
     OFFICER_WAIT_SECONDS = 30
