@@ -20,7 +20,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import stack_patch  # noqa: E402
-from explorer import config, local_auth  # noqa: E402
+from explorer import config, local_auth, world  # noqa: E402
+from explorer.client import BearerClient  # noqa: E402
 # The checkout whose compose files and launch scripts bring the stack up. The images are built from
 # origin/main, and main's compose and env files differ from this branch's old base, so the stack is
 # launched from a worktree at main that carries the toxiproxy changes the harness needs.
@@ -94,7 +95,19 @@ def dump_databases(label):
     return target if taken else None
 
 
+def top_up_preloaded_accounts():
+    settings = config.load("local")
+    ops = BearerClient(settings["ops_base_url"], world.ops_token(settings))
+    try:
+        print("  preloaded account top-up answered {}".format(world.top_up_preloaded_accounts(ops)))
+    finally:
+        ops.close()
+
+
 def restart_stack():
+    # Every wipe dumps first. The rows behind findings 12 and the fleet 3 and 4 500s went with
+    # wipes that took no dump, and a finding is often traced a cycle or more after it appears.
+    dump_databases("pre-wipe-{}".format(time.strftime("%Y%m%dT%H%M%S")))
     print("  wiping and relaunching the stack")
     try:
         down = shell("./local-down.sh", timeout=DOWN_SECONDS)

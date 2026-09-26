@@ -268,6 +268,20 @@ STATEMENT_EXCEPTIONS = "/operations/account/statement/exceptions"
 STATEMENT_LINE = "/operations/account/statement/{}"
 
 
+PRELOAD_TOP_UP = "/account/preload/investec/auto-preload"
+PRELOAD_ACTIVATE = "/operations/account/own/account/preloaded/activate"
+
+
+def top_up_preloaded_accounts(ops_client):
+    """Ask clearing to refill the preloaded account pool, then activate what it added.
+
+    Every account opening takes one preloaded account, and the scheduler that refills the pool is
+    off locally, so a long run emptied it and each opening then failed. The top-up adds at least
+    100 accounts only when fewer than 50 are left, so calling it often is cheap.
+    """
+    return [ops_client.call("POST", path).status for path in (PRELOAD_TOP_UP, PRELOAD_ACTIVATE)]
+
+
 def ignore_repeated_exceptions(ops_client):
     """Mark each repeat of an unallocated bank entry IGNORED, as a duplicate of its first copy.
 

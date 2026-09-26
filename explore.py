@@ -390,6 +390,20 @@ class Run:
         if result and result[1]:
             print("  -- ignored {} repeated exception lines of {}".format(result[1], result[0]))
 
+    TOP_UP_SECONDS = 60
+
+    def top_up_accounts_now(self):
+        """Keep the shared preloaded account pool from running dry. One run in a fleet does it."""
+        if fleet.is_member() or not self.ops:
+            return
+        now = time.time()
+        if now - getattr(self, "_topped_up_at", 0.0) < self.TOP_UP_SECONDS:
+            return
+        self._topped_up_at = now
+        statuses = world.top_up_preloaded_accounts(self.ops)
+        if any(s >= 400 for s in statuses):
+            print("  -- preloaded account top-up answered {}".format(statuses))
+
     def take_chain_baseline(self):
         """Remember the breaks that exist before the first action, so the run reports only its own.
 
@@ -2472,6 +2486,7 @@ class Run:
         self.explorer.steps = self.steps
         self.sweep_transition_chains()
         self.ignore_repeats_now()
+        self.top_up_accounts_now()
         self.rotate_batch()
         # Journey shape drives what to construct; entity keys drive what to do to what exists.
         # Without this the pool only grows when CreateCustomer happens to be the least-tried

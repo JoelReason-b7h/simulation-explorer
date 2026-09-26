@@ -92,6 +92,7 @@ def main():
         print("  keeping the stack that is already up")
     cycle.note_cycle(wiped)
 
+    cycle.top_up_preloaded_accounts()
     print("  standing up {} platforms on one bank".format(count))
     cohorts = [stand_up()]
     shared = {k: cohorts[0][k] for k in FIELDS if k not in ("platformUid", "clientId")}

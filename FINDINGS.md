@@ -25,12 +25,8 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    neighbour around `:181` logs the missing dues and settles the rest, so one unresolvable due
    dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`. Fleet 12
    traced where such dues come from: finding 15.
-3. **An empty preloaded account pool fails with a generic error and retries to the DLQ.**
-   `InternalAccountCreationService.java:64`. Evidence: cycle 48 (`chain48.json`).
 4. **A closure TransferExpectation for an account clearing never created leaves money on a CLOSED
    account.** Account `4f41bd4e`, CLOSED with 3.00. Evidence: cycle 48 (`chain48.json`).
-5. **REJECT_FAIL on a refused closure payment leaves the money on the CLOSED account.** Seen on
-   every main build since cycle 27; again in fleet 1 (`fleet1-p0.json`).
 6. **A CLOSED customer moves back to ACTIVATED through a KYC status change.** SAV-11534 part 2.
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
 
@@ -89,6 +85,12 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     holds as RJCT while the bank paid it, so this is most likely finding 1 seen from the account's
     side. Not proven without the rows, which the wipe removed.
 
+13. **FLAGGED_PAYMENTS counts more unresolved credits than MI_RECON lists.** Three cycles in a
+    row: 800 and 666, then 542 and 362. The two reports are for the same bank and the same day, so
+    either one query counts rows the other leaves out, or the gap is IGNORED duplicates from
+    finding 7. Not traced yet; the local banks share one DIRECT master account in clearing, so the
+    next check needs a bank with no cycle running on it.
+
 14. **A TERM account opens for a requested amount far above the product's deposit maximum.**
     `DirectAccountValidator.validateAccountOpeningOrder` (`DirectAccountValidator.java:46-65`) checks
     only that a TERM amount is present; `AccountOpeningRequest.orderAmount` carries no bound, and
@@ -118,11 +120,14 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     `fleet12-p0.json`.
 
 Open, not yet explained: 500s from FundAccount, SettleWorld and CloseAccount while other
-platforms' sweeps were in flight (8 in fleets 3 and 4). The wipe removed their stack traces; from
-fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`.
+platforms' sweeps were in flight (8 in fleets 3 and 4). A wipe removed their stack traces. From
+fleet 5 each cycle keeps its services' ERROR lines in `archive/<cycle>.tgz`, and every wipe now
+dumps the four databases to `archive/pre-wipe-<time>-db/` first.
 
 ## Checked and holding
 
+- A closure payment the bank refuses (REJECT_FAIL) leaves its money on the CLOSED account. This
+  is the intended outcome: money that cannot be paid out stays on the account.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
