@@ -70,8 +70,11 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    Every run then picks W+2 and holds (`DirectDataFeedService.java:160`), so no file is written,
    so no file gets `sent_at` after the flip, so the INTEREST gate stays shut, and RECON for W+1
    waits on that interest, so W never moves. All four files stop and nothing recovers it. The
-   harness marking files sent does not help, because a held run writes nothing to mark. A draft
-   scenario for `direct_data_feed_recon_hold.feature` asserts the day still closes.
+   harness marking files sent does not help, because a held run writes nothing to mark.
+   Reproduced in CI without a missed RECON: PR #12453, run 36232970688. With RECON sealed for
+   2026-04-06, the 2026-04-07 interest unshipped and a deposit settled on 2026-04-08, core logged
+   "Holding DirectDataFeed ... business date 2026-04-08 exceeds watermark 2026-04-06 + 1 day" and
+   the latest TRANSACTION file stayed on 2026-04-06.
 
 10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
     account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
