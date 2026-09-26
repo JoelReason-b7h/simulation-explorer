@@ -13,6 +13,7 @@ the trial files and the fleet files go into archive/<run name>.tgz.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -162,6 +163,52 @@ def exception_copies():
     return {"lines": lines, "entries": entries, "mostCopied": top}
 
 
+GROWTH_DATABASES = (("core", "postgresql://core:password@localhost:5432/core"),
+                    ("clearing", CLEARING_DSN),
+                    ("hsb", "postgresql://hsb:password@localhost:5444/hsb"))
+GROWTH_TABLES = 12
+
+
+def table_growth():
+    """Each database's live rows and size now, its largest tables, and what grew since the last
+    cycle that recorded this, so a long-lived bank's cost shows before it slows the stack."""
+    now = {}
+    for label, dsn in GROWTH_DATABASES:
+        done = subprocess.run(
+            ["psql", dsn, "-tA", "-F", "|", "-c",
+             "SELECT relname, n_live_tup, pg_total_relation_size(relid) FROM pg_stat_user_tables "
+             "ORDER BY pg_total_relation_size(relid) DESC"],
+            capture_output=True, text=True, timeout=120,
+            env=dict(os.environ, PGOPTIONS="-c default_transaction_read_only=on"))
+        if done.returncode != 0:
+            now[label] = {"error": done.stderr.strip()[:200]}
+            continue
+        rows = [line.split("|") for line in done.stdout.splitlines() if line.count("|") == 2]
+        now[label] = {"rows": sum(int(r[1]) for r in rows),
+                      "megabytes": round(sum(int(r[2]) for r in rows) / 1e6, 1),
+                      "tables": {r[0]: int(r[1]) for r in rows[:GROWTH_TABLES]}}
+    before = None
+    if PROGRESS.exists():
+        for raw in reversed(PROGRESS.read_text().splitlines()[-50:]):
+            try:
+                entry = json.loads(raw)
+            except ValueError:
+                continue
+            if entry.get("tableGrowth", {}).get("now"):
+                before = entry["tableGrowth"]["now"]
+                break
+    grew = {}
+    for label, held in now.items():
+        old = (before or {}).get(label) or {}
+        if "rows" not in held or "rows" not in old:
+            continue
+        grew[label] = {"rows": held["rows"] - old["rows"],
+                       "megabytes": round(held["megabytes"] - old["megabytes"], 1),
+                       "tables": {t: n - old.get("tables", {}).get(t, 0)
+                                  for t, n in held["tables"].items()}}
+    return {"now": now, "sinceLastCycle": grew or None}
+
+
 def healthy_median_rate():
     """Median trials a minute per run over the last six cycles that raised no sanity note.
 
@@ -257,6 +304,10 @@ def main():
         }
     summary["sanity"] = sanity(name, seconds, summary["runs"])
     summary["serviceErrors"] = keep_service_errors(name)
+    try:
+        summary["tableGrowth"] = table_growth()
+    except (OSError, subprocess.SubprocessError) as fault:
+        summary["tableGrowth"] = {"error": repr(fault)[:200]}
     if not cohorts:
         summary["sanity"].append("no cohorts file, so the standup did not finish")
     else:

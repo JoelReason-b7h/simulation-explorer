@@ -275,7 +275,7 @@ def _age_seconds(stamp, now):
         return None
 
 
-def read_world(client):
+def read_world(client, not_before=None):
     """What the Direct API shows for the platform, as plain dicts. None when a listing fails.
 
     A closed customer's accounts and transactions answer 400 "Customer not found" while the
@@ -295,6 +295,11 @@ def read_world(client):
             break
     accounts, transactions, unreadable = {}, {}, []
     for customer_id in customers:
+        # A customer made before `not_before` belongs to an earlier cycle on a long-lived bank,
+        # whose deliveries went to that cycle's capture, so its accounts are not read.
+        created = _age_seconds(customers[customer_id].get("createdAt"), time.time())
+        if not_before and created is not None and time.time() - created < not_before:
+            continue
         call = client.call("GET", "/direct/v1/customers/{}/accounts".format(customer_id))
         if not call.ok:
             unreadable.append(customer_id)

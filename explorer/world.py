@@ -31,6 +31,7 @@ SETTLE_OUTGOING = "/operations/processor/payments/outgoing"
 SETTLE_TRANSFERS = "/operations/processor/payments/transfers"
 PROCESS_GROUPS = "/operations/processor/payment/groups/process"
 ENQUIRE_GROUPS = "/operations/processor/payment/groups/enquire"
+DRAIN_NOMINATED_ACCOUNTS = "/operations/processor/nominated-account/publish/drain"
 ACCRUE_AND_REALISE = "/operations/batch/processor/bank/{}/ACCRUALS_AND_REALISATIONS/sync"
 PROCESS_DUE_NOTICE = "/operations/processor/direct/notice"
 PROCESS_CLOSURES = "/operations/processor/direct/account-closure"
@@ -275,6 +276,10 @@ def bank_product_for(platform_product_uid):
 def settle_payments(ops_client):
     """The global sweep. One cohort's call moves every cohort's money, which is why §10's P1 exists."""
     return [
+        # NominatedAccountPublishingScheduler drains this outbox every 30s in a deployed stack and
+        # is off locally, so without the call a replaced nominated account on a CoP platform never
+        # reaches clearing and every later payout to it goes out with no creditor name.
+        ops_client.call("POST", DRAIN_NOMINATED_ACCOUNTS),
         ops_client.call("POST", SETTLE_OUTGOING),
         ops_client.call("POST", SETTLE_TRANSFERS),
         ops_client.call("POST", PROCESS_GROUPS),

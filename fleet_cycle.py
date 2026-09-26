@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cycle  # noqa: E402
-from explorer import config, local_auth, webhooks  # noqa: E402
+from explorer import config, local_auth, longlived, webhooks  # noqa: E402
 
 HERE = cycle.HERE
 FIELDS = ("bankUid", "platformUid", "productUid", "termProductUid", "shortTermProductUid",
@@ -73,6 +73,26 @@ def launch(index, cohort, iban, run_name, seconds, events, capture):
                             stdout=handle, stderr=subprocess.STDOUT), handle
 
 
+def long_lived_cohorts(count):
+    """(cohorts, virtual IBANs) from the saved long-lived cohort, or (None, {}) to stand up.
+
+    On by default; SIM_LONG_LIVED_BANK=0 turns it off, and SIM_SAVED_COHORT names the file. The
+    saved cohort is used only once every platform in it still answers through the API.
+    """
+    if not longlived.reuse_enabled():
+        return None, {}
+    saved = longlived._read(longlived.saved_cohort_path())
+    reason = longlived.unusable(saved, count, config.load("local")) if saved else "none saved"
+    if reason:
+        print("  the saved long-lived cohort is not used: {}".format(reason))
+        return None, {}
+    cohorts = saved["cohorts"][:count]
+    cycle.note_standup(True)
+    print("  reusing the long-lived bank {} and its {} platforms, first stood up by {}".format(
+        cohorts[0]["bankUid"], count, saved.get("createdBy")))
+    return cohorts, dict(saved.get("ibans") or {})
+
+
 def main():
     seconds = int(sys.argv[1]) if len(sys.argv) > 1 else 600
     name = sys.argv[2] if len(sys.argv) > 2 else "fleet"
@@ -103,27 +123,36 @@ def main():
     cycle.note_cycle(wiped)
 
     cycle.top_up_preloaded_accounts()
-    print("  standing up {} platforms on one bank".format(count))
-    try:
-        cohorts = [stand_up()]
-    except SystemExit:
-        cycle.note_standup(False)
-        raise
-    cycle.note_standup(True)
-    shared = {k: cohorts[0][k] for k in FIELDS if k not in ("platformUid", "clientId")}
-    for index in range(1, count):
-        cohorts.append(stand_up(reuse=shared, suffix=" {}".format(index)))
+    cohorts, ibans = long_lived_cohorts(count)
+    if cohorts is None:
+        print("  standing up {} platforms on one bank".format(count))
+        try:
+            cohorts = [stand_up()]
+        except SystemExit:
+            cycle.note_standup(False)
+            raise
+        cycle.note_standup(True)
+        shared = {k: cohorts[0][k] for k in FIELDS if k not in ("platformUid", "clientId")}
+        for index in range(1, count):
+            cohorts.append(stand_up(reuse=shared, suffix=" {}".format(index)))
 
     events = HERE / "{}.events.jsonl".format(name)
     events.write_text("")
+    if longlived.reuse_enabled():
+        # Read by every run of the cycle: the clock, the population and the webhook accounting.
+        os.environ.update({"SIM_LONG_LIVED": "1", "SIM_CYCLE_STARTED": str(time.time()),
+                           "SIM_SAVED_COHORT": str(longlived.saved_cohort_path())})
     runs = []
     for index, cohort in enumerate(cohorts):
-        iban = cycle.virtual_iban(cohort["platformUid"])
+        iban = ibans.get(cohort["platformUid"]) or cycle.virtual_iban(cohort["platformUid"])
+        ibans[cohort["platformUid"]] = iban
         run_name = "{}-p{}".format(name, index)
         print("  {} platform {} client {} virtual account {}".format(
             run_name, cohort["platformUid"], cohort["clientId"], iban))
         runs.append(launch(index, cohort, iban, run_name, seconds, events, capture))
     (HERE / "{}.cohorts.json".format(name)).write_text(json.dumps(cohorts, indent=2))
+    if longlived.reuse_enabled():
+        longlived.save_cohort(cohorts, ibans, name)
 
     deadline = time.time() + seconds + 900
     codes = []

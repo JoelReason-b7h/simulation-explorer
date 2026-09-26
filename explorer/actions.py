@@ -517,4 +517,13 @@ NEVER_RACED |= {"TransferToProduct", "SetMaturityToNotice", "OfficerCloseCustome
 
 WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 
+# Multi-step journeys (explorer/journeys.py). Each makes a customer of its own and walks it end
+# to end, so the subject the driver stands on only has to exist; the placeholder path is never
+# called. Never raced: a journey is a sequence, and racing one would interleave two of them.
+JOURNEYS = ("JourneyMultiProduct", "JourneyTermBeforeMaturity", "JourneyPayeeChange",
+            "JourneyFrozenLifecycle", "JourneyFeeMidPeriod", "JourneyDateFlipUnderLoad")
+CORE_SIDE += [Action(name, "POST", "/direct/v1/customers", needs=["customerId"], entity="customer")
+              for name in JOURNEYS]
+NEVER_RACED |= set(JOURNEYS)
+
 BY_NAME = {action.name: action for action in CORE_SIDE}

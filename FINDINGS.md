@@ -188,16 +188,37 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     from the harness's duplicate delivery. Low.
 
 24. **One payment with no creditor name stops every outbound payment.** Clearing's
-    `BatchedFileSender.sendFiles` (`:56`) sends each file in turn with no per-file catch, and
-    `PartyIdentification` (`:47`) requires the account name. Payment initiation 552
-    (PEC000000100044F, a Direct payee withdrawal) has a NULL `creditor_name`, so every run throws
-    an NPE at that file and no later file is sent: from 17:01:46 London on 2026-09-26 about 178
-    payments across every platform stayed unsent, 408 NPEs in fleet 190 alone. Six initiations
-    have a NULL name (552, 554, 563, 565, 600, 601); core's `payee_account` holds the name, so it
-    is lost between core and clearing. High. Under investigation: where the name is lost.
-    Databases kept in `archive/finding24-send-loop-db`. Found while tracing candidate 23, which
-    was the harness reversing PEC000000100047B at the bank although that payment, stranded behind
-    552, was never sent.
+    `BatchedFileSender.sendFiles` (`:56`) sends the oldest ten files in order with no per-file
+    catch, and `PartyIdentification` (`:47`) requires the account name, so one nameless file throws
+    an NPE on every run and no file behind it is sent. The only escape is two overlapping runs, where
+    the second skips the locked bad file at `acquireNonBlockingLock` (`:62`). High.
+    Cause of the missing name: `DirectWithdrawalEgressService.resolveCounterpart` (`:79-84`) sends
+    the payout expectation with only the sort code and account number of the nominated account that
+    is current when the payout is raised. If clearing does not yet hold that account,
+    `ExternalAccountService.createOrFetchExternalAccount` (`:237`) inserts it with no name, and
+    `OutgoingPaymentService.getPaymentDetails` (`:109`) copies that NULL into `creditor_name`. On a
+    CoP platform a replaced nominated account is not published to clearing until
+    `NominatedAccountPublisher` drains its outbox (every 30s in a deployed stack), so a withdrawal
+    whose payout is raised inside that window after a payee change pays a nameless account. Nine
+    initiations locally: 552, 554, 563, 565, 600, 601, 633, 642, 643, eight from JourneyPayeeChange.
+    Locally the drain never ran (scheduling is off and the harness did not call
+    `/operations/processor/nominated-account/publish/drain`), which made the window unbounded; the
+    harness now calls it on every settle. Databases kept in `archive/finding24-send-loop-db` and
+    `archive/finding24-before-reject-db`.
+
+25. **A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
+    `resolveCounterpart` takes the current nominated account with no verification check, unlike
+    `CustomerWithdrawalPayoutRaisingService` (`:152-159`). A withdrawal accepted before a payee
+    change pays the new payee even when its CoP result is AWAITING_REVIEW, and clearing inserts it
+    as VERIFIED because `CASH_ACCOUNT_NOMINATED.isTrustedExternal()` is true. Initiations 554, 565,
+    601 and 643; customer `0bb2eb94`: link AWAITING_REVIEW at 16:02:23.192, payout due raised at
+    16:02:23.537 to 10799988837491 and SENT.
+
+26. **A funded fixed-term account accepts top-ups through a pooled batch.** SAV-10844 refunds a
+    top-up only on the rail path (`DirectTransactionDepositHandler` `:151-160`); the batch path
+    (`DirectPlatformAccountHandler.handleExternalCredit` → `DirectSettlementPlan` `:44-68`) and
+    `MaxDepositValidator` never check that the TERM is already funded. TERM `8bd7b8e5` booked 50.00
+    then 5.00 (batch `81r0qrp46`); TERM `9c1138ce` booked 26 deposits of 3.00.
 
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after

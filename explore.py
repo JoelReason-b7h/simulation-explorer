@@ -20,6 +20,7 @@ import sys
 
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
                       preflight, projector, race, triallog, webhooks, weird, world)
+from explorer import interest_oracle, journeys, longlived
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -553,8 +554,18 @@ class Run:
             recorded += 1
         return recorded
 
+    def webhook_not_before(self):
+        """On a long-lived bank, the cycle's start: customers made in earlier cycles had their
+        deliveries captured in earlier cycles' files, so only this cycle's are accounted."""
+        if not longlived.ENABLED:
+            return None
+        try:
+            return float(os.environ.get("SIM_CYCLE_STARTED") or 0) or None
+        except ValueError:
+            return None
+
     def webhook_findings(self, grace):
-        world_now = webhooks.read_world(self.client)
+        world_now = webhooks.read_world(self.client, not_before=self.webhook_not_before())
         if world_now is None:
             print("  -- webhook accounting could not list the platform's customers")
             return None, None
@@ -1775,7 +1786,116 @@ class Run:
             "OfficerCancelCustomer": type(self).officer_cancel_customer,
             "AdjustNoticeWithdrawals": type(self).adjust_notice_withdrawals,
             "ReemitFeedEntity": type(self).reemit_feed_entity,
+            **{name: (lambda run, name=name: run.run_journey(name)) for name in journeys.ALL},
         }
+
+    # How many trials apart the driver forces a journey, and how many trials it waits first. A
+    # journey takes a minute or two, so forcing one every trial would leave no exploration.
+    JOURNEY_SPACING = int(os.environ.get("SIM_JOURNEY_SPACING", "20"))
+    JOURNEY_FIRST = int(os.environ.get("SIM_JOURNEY_FIRST", "10"))
+
+    def journey_due(self):
+        """The next journey in turn once JOURNEY_SPACING trials have passed since the last one."""
+        if not journeys.ALL or self.steps < self.JOURNEY_FIRST or self.live_fault():
+            return None
+        last = getattr(self, "journey_at", None)
+        if last is not None and self.steps - last < self.JOURNEY_SPACING:
+            return None
+        names = list(journeys.ALL)
+        name = names[getattr(self, "journey_turn", 0) % len(names)]
+        return name if self.someone_can(name) else None
+
+    def run_journey(self, name):
+        """Run one journey, unless another ran fewer than JOURNEY_SPACING trials ago."""
+        last = getattr(self, "journey_at", None)
+        if last is not None and self.steps - last < self.JOURNEY_SPACING:
+            return Call("POST", name, 412, {
+                "message": "a journey ran {} trials ago".format(self.steps - last)}, 0)
+        self.journey_at = self.steps
+        names = list(journeys.ALL)
+        if names[getattr(self, "journey_turn", 0) % len(names)] == name:
+            self.journey_turn = getattr(self, "journey_turn", 0) + 1
+        print("  -- journey {} starts".format(name))
+        call = journeys.ALL[name](self)
+        print("  -- journey {} ends: {}".format(name, (call.body or {}).get("message")))
+        return call
+
+    def long_life_tick(self):
+        """The long-lived bank's clock and this platform's population, when the cycle reuses one."""
+        long = getattr(self, "long", None)
+        if long is not None:
+            long.tick()
+
+    INTEREST_SWEEP_SECONDS = float(os.environ.get("SIM_INTEREST_SWEEP_SECONDS", "180"))
+    INTEREST_API_ACCOUNTS = 3
+
+    def interest_sweep(self, final=False):
+        """Recompute this platform's accruals and realisations and record what disagrees.
+
+        On a timer it judges only the accrual rows written since the last sweep; the final sweep
+        judges every row written since the run began. Every run does this for its own platform.
+        """
+        if not self.platform_uid:
+            return 0
+        now = time.time()
+        if not final and now - getattr(self, "interest_swept_at", 0.0) < self.INTEREST_SWEEP_SECONDS:
+            return 0
+        self.interest_swept_at = now
+        long = getattr(self, "long", None)
+        if not hasattr(self, "interest_since"):
+            self.interest_since = self.interest_from = long.oracle_since() if long else 0
+        since = self.interest_from if final else self.interest_since
+        try:
+            found, stats, newest = interest_oracle.check(platform_uid=self.platform_uid,
+                                                         since_sid=since)
+        except Exception as fault:  # noqa: BLE001 - a sweep that fails must not end the run
+            print("  -- the interest oracle raised {}: {}".format(type(fault).__name__, fault))
+            return 0
+        if stats.get("error"):
+            print("  -- the interest oracle could not read: {}".format(stats["error"]))
+            return 0
+        self.interest_since = max(self.interest_since, newest)
+        if long:
+            long.remember_oracle(self.interest_since)
+        for finding in found:
+            self.note_violation("InterestOracle", finding["rule"], finding["subject"],
+                                finding["detail"], finding["expected"], finding["actual"])
+        stats["apiChecked"], stats["apiDisagreed"] = self.interest_against_api()
+        stats["final"] = final
+        self.interest_stats = stats
+        print("  -- interest oracle{}: {}".format(" (final)" if final else "",
+                                                  json.dumps(stats, sort_keys=True, default=str)))
+        return len(found)
+
+    def interest_against_api(self):
+        """The Direct API's INTEREST rows against the interest core realised, for a few accounts."""
+        totals = interest_oracle.realised_totals(self.platform_uid, self.INTEREST_API_ACCOUNTS)
+        checked, disagreed = 0, 0
+        for account_id, (customer_id, realised) in (totals or {}).items():
+            listed = None
+            for _ in range(2):
+                rows = self.account_transactions(customer_id, account_id)
+                if rows is None:
+                    break
+                listed = sum((Decimal(str(r.get("amount") or "0")) for r in rows
+                              if r.get("type") == "INTEREST"), Decimal("0"))
+                again = (interest_oracle.realised_totals(self.platform_uid, 500) or {}).get(
+                    account_id, (None, realised))[1]
+                if listed == again:
+                    break
+                realised = again
+                time.sleep(self.CONFIRM_PAUSE_SECONDS)
+            if listed is None:
+                continue
+            checked += 1
+            if listed != realised:
+                disagreed += 1
+                self.note_violation(
+                    "InterestOracle", "the INTEREST rows the API lists are the interest core realised",
+                    account_id, "the Direct API lists {} of INTEREST on account {} and core's "
+                    "interest_realised holds {}".format(listed, account_id, realised),
+                    expected=realised, actual=listed)
+        return checked, disagreed
 
     def note_violation(self, action_name, rule, subject, detail, expected, actual, body=None):
         """Record a finding made by one of the driven actions' own oracles."""
@@ -3124,11 +3244,15 @@ class Run:
         self.account_webhooks()
         self.ignore_repeats_now()
         self.top_up_accounts_now()
+        self.long_life_tick()
+        self.interest_sweep()
         self.rotate_batch()
         # Journey shape drives what to construct; entity keys drive what to do to what exists.
         # Without this the pool only grows when CreateCustomer happens to be the least-tried
         # action, so the driver runs out of reachable states and churns against the ones it has.
         wanted = self.shape_gap()
+        if not wanted:
+            wanted = self.journey_due()
         # A forced action is still subject to what this state has already refused. Without this
         # the refusal rule never applied to anything shape_gap named, because `remaining` held a
         # single action and the filter that drops refused ones had nothing else to choose.
@@ -4054,6 +4178,9 @@ class Run:
                 "operatorQueues": getattr(self, "operator_queues", None),
                 "inFlight": self.in_flight_now(),
                 "webhooks": self.webhook_stats,
+                "journeys": getattr(self, "journeys", []),
+                "interestOracle": getattr(self, "interest_stats", None),
+                "longLived": self.long.snapshot() if getattr(self, "long", None) else None,
             }, handle)
         os.replace(scratch, target)
         # live.html with no ?run= reads current.json, so the plain address always follows the
@@ -4190,6 +4317,11 @@ def main():
         return 1
     run.product_id = instant
     run.products = offered
+    if longlived.ENABLED:
+        run.long = longlived.LongLife(run)
+        print("  long-lived bank: {} the clock, population of {} customers".format(
+            "keeping" if run.long.clock else "not keeping",
+            len(run.long.population.live()) if run.long.population else 0))
     print("  products {}".format(", ".join(
         "{} ({}) {}".format(name, t, p[:8]) for name, (t, p) in sorted(offered.items()))))
 
@@ -4211,6 +4343,9 @@ def main():
     # go unread until the next run.
     run.sweep_transition_chains(force=True)
     run.account_webhooks(final=True)
+    run.interest_sweep(final=True)
+    if getattr(run, "long", None) and run.long.population:
+        run.long.population.save()
 
     print()
     print("  {:22} {}".format("oracle violations", len(run.violations)))
