@@ -136,7 +136,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     close behind while core rolls back. Evidence: the rows and the DLQ on the running stack;
     `fleet12-p0.json`.
 
-16. **An officer's REJECT or CANCEL answers 200 and is then overwritten by the onboarding KYC
+16. **SAV-11534 part 3. An officer's REJECT or CANCEL answers 200 and is then overwritten by the onboarding KYC
     flow.** The override runs on a separate thread (`FlowInterventionController.java:144-162`,
     `executorService.submit`). `validateNoPendingChecks` reads only the pending flags, which an
     onboarding check in `NEW` never sets. Both writes are plain `UPDATE customer ... WHERE
@@ -168,14 +168,14 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     at-least-once there. Fleet 183, due `cfb96b8b`, from the harness's own duplicate delivery
     (FundAccountDuplicated). Low. Fix: skip aggregation when the insert was a no-op.
 
-19. **A realisation whose interest rounds to 0.00 books an INTEREST transaction that no webhook
+19. **SAV-11696. A realisation whose interest rounds to 0.00 books an INTEREST transaction that no webhook
     announces.** `RealisedInterestTransactionService` (`:64-83`) books the row when the interest,
     the bank fee or the platform fee is non-zero, under the comment "Do not insert a zero valued
     transaction", but returns a transaction for the SAVINGS_TRANSACTION webhook only when the
     interest is non-zero. So a 0.00 INTEREST row carrying a fee shows in the Direct API and never
     reaches the platform. Fleet 183, account `39c32852`, twice. Low.
 
-20. **PlaceWithdrawal accepts an empty instructionReference.** `ExternalDirectInstructionRequest`
+20. **SAV-11697. PlaceWithdrawal accepts an empty instructionReference.** `ExternalDirectInstructionRequest`
     has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
 
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
