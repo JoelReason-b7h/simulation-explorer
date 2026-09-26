@@ -220,6 +220,18 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     `MaxDepositValidator` never check that the TERM is already funded. TERM `8bd7b8e5` booked 50.00
     then 5.00 (batch `81r0qrp46`); TERM `9c1138ce` booked 26 deposits of 3.00.
 
+27. **Deactivating a frozen customer cancels a held closure withdrawal whose money clearing has
+    already moved, and core never books it.** Fleet 192, customer `aee6c983`, INSTANT account
+    `7ee36205` with 3.00: FROZEN at 17:05:58; the account closed at 17:06:11 and raised full-balance
+    withdrawal `32228427`; clearing's INTERNAL due `6b214939` went PRODUCED at 17:06:17 and credited
+    3.00 to the account's cash balance (`cash_account_balance` on internal account 985, now
+    SOFT_CLOSED); `DirectWithdrawalTransferExpectationHandler` held the withdrawal because the
+    customer was frozen; DEACTIVATE at 17:09:20 ran `FrozenInstructionCancelService`, which cancels
+    the instruction and "moves no money". Core now holds the CLOSED savings account at 3.00 with no
+    withdrawal transaction, clearing holds the 3.00 on a soft-closed cash account, and nothing pays
+    it out. The hold withholds only the payout, so a held withdrawal has already moved money that
+    the cancel does not put back or book.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
