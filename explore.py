@@ -3359,6 +3359,10 @@ class Run:
             "why_detail": getattr(self, "why_detail", ""),
             "ms": round((time.monotonic() - getattr(self, "_trial_started", time.monotonic())) * 1000),
             "slowCalls": client.take_slow_calls(),
+            # A grouped action answers with the call that failed, so its path says which of the
+            # six steps in FundAccount broke; the status alone could not place fleet 187's 500.
+            "failedPath": None if call.ok else "{} {}".format(
+                getattr(call, "method", ""), getattr(call, "path", "")),
         })
         self._trial_started = time.monotonic()
         self.publish()
