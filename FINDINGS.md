@@ -25,8 +25,22 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    neighbour around `:181` logs the missing dues and settles the rest, so one unresolvable due
    dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`. Fleet 12
    traced where such dues come from: finding 15.
-4. **A closure TransferExpectation for an account clearing never created leaves money on a CLOSED
-   account.** Account `4f41bd4e`, CLOSED with 3.00. Evidence: cycle 48 (`chain48.json`).
+4. **Core opens, funds and closes a Direct account that clearing never created, then leaves its
+   money on the CLOSED account.** Core asks clearing for the account asynchronously at opening
+   (`DirectCustomerAccountOrchestrator.java:81-82`) and never checks that clearing made it. In
+   cycle 48 the INVESTEC GBP DIRECT preloaded pool had 0 AVAILABLE rows, so clearing's
+   `AccountRequested` handler threw and dead-lettered. The account still opened and took 3.00,
+   because Direct funding moves money to the bank's virtual account and never touches the missing
+   account. `closeAndDrainInternalAccount` succeeds on an unknown account (the lock, the balance
+   read and the soft close all no-op), so CLOSING commits. The closure sweep has no balance or
+   clearing check (`DirectCustomerAccountRepository.java:119-130`), `closeAccount` writes CLOSED
+   first, and the payout `TransferExpectation` names the missing account, so clearing throws "No
+   account found" and dead-letters it after 13 deliveries. Nothing in core notices. No injected
+   fault was live at any step. It can happen in a deployed environment whenever the pool runs dry,
+   and the INVESTEC auto-preloader is off by default in prod. The code path is unchanged on
+   `origin/main`. Evidence: `chain48.json` violations 20 and 21, account `4f41bd4e`, due `ec7ec4d8`.
+   The harness now keeps the pool full, so it only reaches this on purpose.
+
 6. **A CLOSED customer moves back to ACTIVATED through a KYC status change.** SAV-11534 part 2.
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
 
@@ -46,19 +60,23 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    over entries the intraday polls already read. The last is not yet shown.
    Evidence: `findings/fleet2-mi.json`, and the rows in clearing until the next wipe.
 
-8. **With no SFTP push for a bank, the Direct feed never ships an interest-only day, and RECON
-   never seals.** `InvestecFileRepository.minOpenTransactionValueDate` lets INTEREST choose the
-   feed date only after a file for the current day has `sent_at` set. adapter sets `sent_at` only
-   when a push sink exists (`DirectFileOutboundPipeline.java:102-106`). RECON then waits for
-   those unsent INTEREST rows (`DirectDataReconService.feedNotCaughtUp`) for good. Seen on every
-   local bank: account `75b6367d` had its 0.01 of interest on 2026-10-12 left out while 10-11 and
-   10-14 shipped, and fleet 3's bank had 846 feed files and no RECON. Reach: a deployed bank has a
-   push target, so this needs a bank with none, or a push that keeps failing. What the feed
-   selects depends on whether a file was delivered, which is the fragile part.
-   The harness now marks sealed files sent before each feed call, in the place of the push.
-   Once INTEREST is let back in, the skipped rows ship late: fleet 4 sent a row value-dated
-   2026-10-09 in a file after the one for 2026-10-10, so a bank reading the files in order held
-   a balance history with a gap until then.
+8. **A day with only interest can stop a bank's Direct feed for good.** The feed date comes from
+   `minOpenTransactionValueDate` (`InvestecFileRepository.java:207-233`). INTEREST may choose the
+   date only once a file has `sent_at` after the last date flip, a gate added by SAV-10950
+   (#11942). The ship query and RECON's `feedNotCaughtUp` treat INTEREST as an ordinary row.
+   - With a sealed RECON (watermark W), from reading the code, not yet run: if day W+1 holds only
+     interest, that interest did not ship before the next flip, and a deposit dated W+2 exists
+     before the next run, then every run picks W+2 and holds (`DirectDataFeedService.java:160`).
+     All four files stop, nothing is sent, so the INTEREST gate stays shut, and RECON for W+1
+     waits on that interest. Nothing recovers it. A push sink makes no difference.
+     Realistic trigger: RECON misses its one daily slot on an interest-only day, such as a weekend.
+   - With no RECON ever sealed and no push sink (local, and dev when #11942 merged), an
+     interest-only day is skipped, and RECON never seals (fleet 3: 846 files, no RECON). With a
+     push, the skipped rows ship late and out of order (fleet 4: account `9c7304b7` balance chain
+     broken on 10-10).
+   A draft scenario for `direct_data_feed_recon_hold.feature` asserts the day still closes; it is
+   expected to fail on `main`. Not yet run.
+
 10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
     account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
     error handling on the path from `DirectCustomerAccountService.cancelDirectCustomerAccount`
@@ -66,21 +84,29 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     platform can retry on. fleet 4 p0 trial 168 had the cut from core to clearing in force; two
     more (fleet 3 p3, fleet 4 p1) had no fault recorded. Evidence: `fleet4-p0.json`.
     CloseAccount does the same under the same cut (fleet 5 p0, `fleet5-p0.json`).
-11. **Clearing's own integrity check finds a PUBLISHED statement line with no partner payment.**
-    `ClearingIntegrityCheckService.java:128` (`PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT`) failed
-    on line `56f8686a` in fleet 3 and again in fleet 4. The cause is not shown yet; the lead is a
-    line that drains before its payment due is raised, which `fund_account` avoids by raising the
-    dues first. Evidence: `fleet3-p0.json`, `fleet4-p0.json`.
-12. **A closure whose payment the bank refused or returned stays CLOSING after three sweeps.**
-    fleet 3 p0 trial 247 and fleet 4 p0 trial 119. Each came next to a payment that clearing
-    holds as RJCT while the bank paid it, so this is most likely finding 1 seen from the account's
-    side. Not proven without the rows, which the wipe removed.
+11. **Clearing's integrity check fails for about a second after every statement line is
+    published.** `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT`
+    (`ClearingIntegrityCheckReplicaRepository.java:24-30`) has no grace period, while the
+    `partner_payment` row is written by the relay consumer 0.3 s (median) to 2 s (p99) after the
+    publish commits. The harness runs the check straight after funding, so it lands in that gap:
+    5 failed runs of 82 since the last wipe, each followed by a pass, and 0 lines unlinked now.
+    `56f8686a` was one such row that fleet 4 read again from fleet 3. In prod the check alerts only
+    after 4 failures in a row, so this is noise. Low; a grace window like the dropped-deposit
+    check's would remove it. Two lasting paths exist in the code and were not seen: a publish
+    whose relay message throws after the line is marked PUBLISHED
+    (`AccountStatementLinePublisher.java:61-65` swallows it), and a relay processor that only
+    logs an unknown account.
 
-13. **FLAGGED_PAYMENTS counts more unresolved credits than MI_RECON lists.** Three cycles in a
-    row: 800 and 666, then 542 and 362. The two reports are for the same bank and the same day, so
-    either one query counts rows the other leaves out, or the gap is IGNORED duplicates from
-    finding 7. Not traced yet; the local banks share one DIRECT master account in clearing, so the
-    next check needs a bank with no cycle running on it.
+12. **A NOTICE closure whose payout is refused and failed stays CLOSING for good, still
+    showing the balance.** After the bank rejects the payout and ops choose REJECT_FAIL,
+    `InstructionFailureService.handleDirectPaymentFailure` cancels the instruction (`:166`) and
+    logs ERROR "closure cannot finalise until it is paid out manually" (`:191-196`). The closure
+    sweep needs a zero balance for NOTICE (`DirectCustomerAccountRepository.java:127`), a CLOSING
+    account takes no new instruction, and nothing raises a new payout. From reading the code, with
+    a deterministic scenario drafted; not yet run. With finding 1 upstream, the bank has paid,
+    core keeps the balance, and a manual payout pays twice. The fleet 3 and 4 cases first filed
+    here were a harness fault: the harness never brought the closure's notice withdrawal due, so
+    no payout was raised. Fixed in `finalise_the_closure`.
 
 15. **Closing a Direct account with cash on its internal account dead-letters the drain's
     settlement, so core never books it.** `DirectAccountClosureOperations.requestAccountClosure`
@@ -118,6 +144,11 @@ dumps the four databases to `archive/pre-wipe-<time>-db/` first.
 
 ## Checked and holding
 
+- FLAGGED_PAYMENTS counts more unresolved credits than MI_RECON lists. By design: the daily
+  MI_RECON leaves out unclaimed platform credits younger than one hour
+  (`ClearingReportsReplicaRepository.java:233-236`) and the monthly count does not
+  (`:519-522`), as the integration tests state. Four pairs rerun: the gap equals the young
+  credits each time. The harness check counted young credits at check time, not report time.
 - Two feed runs in the same second write files with the same name, and the later one replaces the
   earlier in the archive. Joel: not important in practice, because runs seconds apart do not happen.
 - A TERM account opens for an amount above the product's deposit maximum. Joel: the stored requested

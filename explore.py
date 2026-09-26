@@ -1202,7 +1202,7 @@ class Run:
             if close.ok:
                 self.note_in_flight("closure payment", "a closure payment the bank rejects",
                                     held["accountId"])
-                self.finalise_the_closure()
+                self.finalise_the_closure(held["accountId"])
                 # The bank must still be rejecting when clearing sends the payment, and clearing
                 # sent one 12 seconds after the closure sweep raised the withdrawal.
                 self.wait_for_payment_after(before, held.get("accountId"))
@@ -1482,7 +1482,7 @@ class Run:
             return close
         self.note_in_flight("closure payment", "a closure payment the bank returns",
                             held["accountId"])
-        self.finalise_the_closure()
+        self.finalise_the_closure(held["accountId"])
         payment = self.wait_for_payment_after(before, held["accountId"])
         if not payment:
             return self.record_closure_injection(
@@ -1499,16 +1499,21 @@ class Run:
     # account sits at CLOSING holding its money.
     DAYS_TO_DRAIN_THE_SCHEDULE = 2
 
-    def finalise_the_closure(self):
+    def finalise_the_closure(self, account_uid=None):
         """Drive a closing account as far towards CLOSED as the harness can.
 
         Closing alone leaves nothing for the bank to refuse, because the withdrawal is raised by
         the closure sweep and the sweep passes over an account whose interest schedule still has
-        dates on it.
+        dates on it. A NOTICE closure pays out through its full notice withdrawal instead, and
+        without bringing that due the account sat at CLOSING with no payment, which the closure
+        oracle reported as a stuck closure (finding 12).
         """
         self.settle_world()
         for _ in range(self.DAYS_TO_DRAIN_THE_SCHEDULE):
             self.advance_business_day()
+        if account_uid and world.bring_notice_due(account_uid):
+            world.process_due_notice(self.ops)
+            self.settle_world()
         self.process_closures()
         self.settle_world()
 

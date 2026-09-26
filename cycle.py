@@ -104,6 +104,59 @@ def top_up_preloaded_accounts():
         ops.close()
 
 
+HEALTH_SECONDS = 600
+STANDUP_FAILURES = HERE / ".standup-failures"
+
+
+def stack_containers():
+    done = subprocess.run(["docker", "ps", "-a", "--filter", "label=com.docker.compose.project=docker",
+                           "--format", "{{.Names}}\t{{.State}}"],
+                          capture_output=True, text=True, timeout=60)
+    return dict(line.split("\t", 1) for line in done.stdout.splitlines() if "\t" in line)
+
+
+def health(name):
+    done = subprocess.run(["docker", "inspect", name, "--format",
+                           "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}"],
+                          capture_output=True, text=True, timeout=30)
+    return done.stdout.strip()
+
+
+def heal_stack():
+    """Start every stack container that has stopped, and wait until each is healthy again.
+
+    LocalStack was killed for memory after eleven hours, and the loop then ran 160 cycles that
+    each failed at standup, because nothing looked at the containers. Starting the same container
+    keeps its environment, and LocalStack's ready.d scripts create its queues and buckets again.
+    Returns the names it started, or None when a container would not come back.
+    """
+    stopped = [name for name, state in stack_containers().items() if state != "running"]
+    for name in stopped:
+        print("  {} had stopped, so it is being started again".format(name))
+        subprocess.run(["docker", "start", name], capture_output=True, text=True, timeout=120)
+    deadline = time.time() + HEALTH_SECONDS
+    waiting = list(stopped)
+    while waiting and time.time() < deadline:
+        waiting = [name for name in waiting if health(name) not in ("healthy", "running")]
+        if waiting:
+            time.sleep(10)
+    if waiting:
+        print("  {} did not come back healthy".format(", ".join(waiting)))
+        return None
+    return stopped
+
+
+def note_standup(ok):
+    """Count the cycles in a row whose standup failed. Two in a row means the stack is broken."""
+    failures = 0 if ok else int(STANDUP_FAILURES.read_text() or 0) + 1 if STANDUP_FAILURES.exists() else 1
+    STANDUP_FAILURES.write_text(str(failures))
+    return failures
+
+
+def standup_keeps_failing():
+    return STANDUP_FAILURES.exists() and int(STANDUP_FAILURES.read_text() or 0) >= 2
+
+
 def restart_stack():
     # Every wipe dumps first. The rows behind findings 12 and the fleet 3 and 4 500s went with
     # wipes that took no dump, and a finding is often traced a cycle or more after it appears.

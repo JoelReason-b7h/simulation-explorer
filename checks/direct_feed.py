@@ -55,8 +55,11 @@ def fetch(bank_uid, family="direct"):
     """Copy the bank's files into feeds/<family>/<bankUid>/ and return their paths, oldest first."""
     target = CACHE / family / bank_uid
     target.mkdir(parents=True, exist_ok=True)
-    done = aws("s3", "sync", "s3://{}/archive/{}/{}/".format(BUCKET, family, bank_uid),
-               str(target), "--quiet")
+    # A move, not a copy. LocalStack keeps every S3 object in memory, and eleven hours of feed and
+    # MI files took it past its 640m limit: the kernel killed it and every SQS consumer lost its
+    # queues. The files already fetched stay in the local cache, so the checks still see them.
+    done = aws("s3", "mv", "s3://{}/archive/{}/{}/".format(BUCKET, family, bank_uid),
+               str(target), "--recursive", "--quiet")
     if done.returncode != 0:
         raise SystemExit("could not read s3://{}/archive/{}/{}/: {}".format(
             BUCKET, family, bank_uid, done.stderr.strip()[:300]))

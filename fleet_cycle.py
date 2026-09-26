@@ -84,8 +84,12 @@ def main():
     # The stack is wiped only when a patch changed what it reads at start, or when asked with
     # SIM_FORCE_WIPE=1. A wipe on a timer destroyed the rows behind fleet 10's findings before
     # they were traced, and a stack that carries on also ages its banks across cycles.
+    healed = cycle.heal_stack()
+    if healed is None or cycle.standup_keeps_failing():
+        print("  the stack is broken, so it is relaunched after a dump")
     if os.environ.get("SKIP_RESTART") != "1" and (
-            patched or os.environ.get("SIM_FORCE_WIPE") == "1"):
+            patched or os.environ.get("SIM_FORCE_WIPE") == "1" or healed is None
+            or cycle.standup_keeps_failing()):
         cycle.restart_stack()
         wiped = True
     else:
@@ -94,7 +98,12 @@ def main():
 
     cycle.top_up_preloaded_accounts()
     print("  standing up {} platforms on one bank".format(count))
-    cohorts = [stand_up()]
+    try:
+        cohorts = [stand_up()]
+    except SystemExit:
+        cycle.note_standup(False)
+        raise
+    cycle.note_standup(True)
     shared = {k: cohorts[0][k] for k in FIELDS if k not in ("platformUid", "clientId")}
     for index in range(1, count):
         cohorts.append(stand_up(reuse=shared, suffix=" {}".format(index)))
