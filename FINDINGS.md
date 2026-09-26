@@ -60,22 +60,18 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    over entries the intraday polls already read. The last is not yet shown.
    Evidence: `findings/fleet2-mi.json`, and the rows in clearing until the next wipe.
 
-8. **A day with only interest can stop a bank's Direct feed for good.** The feed date comes from
-   `minOpenTransactionValueDate` (`InvestecFileRepository.java:207-233`). INTEREST may choose the
-   date only once a file has `sent_at` after the last date flip, a gate added by SAV-10950
-   (#11942). The ship query and RECON's `feedNotCaughtUp` treat INTEREST as an ordinary row.
-   - With a sealed RECON (watermark W), from reading the code, not yet run: if day W+1 holds only
-     interest, that interest did not ship before the next flip, and a deposit dated W+2 exists
-     before the next run, then every run picks W+2 and holds (`DirectDataFeedService.java:160`).
-     All four files stop, nothing is sent, so the INTEREST gate stays shut, and RECON for W+1
-     waits on that interest. Nothing recovers it. A push sink makes no difference.
-     Realistic trigger: RECON misses its one daily slot on an interest-only day, such as a weekend.
-   - With no RECON ever sealed and no push sink (local, and dev when #11942 merged), an
-     interest-only day is skipped, and RECON never seals (fleet 3: 846 files, no RECON). With a
-     push, the skipped rows ship late and out of order (fleet 4: account `9c7304b7` balance chain
-     broken on 10-10).
-   A draft scenario for `direct_data_feed_recon_hold.feature` asserts the day still closes; it is
-   expected to fail on `main`. Not yet run.
+8. **A day with only interest can stop a bank's Direct feed for good, once a RECON has sealed.**
+   From reading the code, not yet run. The feed date comes from `minOpenTransactionValueDate`
+   (`InvestecFileRepository.java:207-233`). SAV-10950 (#11942) stops INTEREST rows choosing that
+   date until a file has `sent_at` after the last date flip, whatever date the INTEREST row is on;
+   SAV-10940 and SAV-10950 fixed the neighbouring cases, and SAV-10950's criteria assume no open
+   row is dated T. The stall: RECON misses its daily slot, so the watermark W falls a day behind;
+   day W+1 holds only interest, still unshipped; a deposit dated W+2 exists before the next run.
+   Every run then picks W+2 and holds (`DirectDataFeedService.java:160`), so no file is written,
+   so no file gets `sent_at` after the flip, so the INTEREST gate stays shut, and RECON for W+1
+   waits on that interest, so W never moves. All four files stop and nothing recovers it. The
+   harness marking files sent does not help, because a held run writes nothing to mark. A draft
+   scenario for `direct_data_feed_recon_hold.feature` asserts the day still closes.
 
 10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
     account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
