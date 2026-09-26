@@ -32,6 +32,9 @@ MAX_SECONDS = 14400
 # action of None covers the rule on every action. Any other violation makes the cycle interesting,
 # so a 5xx on an action not listed here still brings the cycle back to fifteen minutes.
 KNOWN = {
+    # Finding 29: the journey hits it whenever it funds between 00:00 and 01:00 London in BST.
+    ("a TERM matures on the first working day on or after opening plus its term",
+     "JourneyTermBeforeMaturity"),
     # Findings 25 and 26.
     ("no payout goes to a payee that failed Confirmation of Payee", "JourneyPayeeChange"),
     ("a funded TERM account takes no top-up", "JourneyTermBeforeMaturity"),

@@ -243,6 +243,17 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     realised. Account `5f3b4e67`: notice 341 processed at 19:16:57.618 UTC, accrual 321569 (value
     date 2028-02-04, 0.00020616) written at 19:16:57.674, schedule 1127 both dates NULL. Low.
 
+29. **A TERM funded between midnight and 01:00 London in summer matures a day early.**
+    `DirectTransactionDepositHandler.processOpeningPayment` (`:321`) sets the maturity date when the
+    opening payment clears, through `CustomerProductAccountMaturityService.upsertMaturityDate`
+    (`:47-49`), whose start date is `timeProvider.getLocalDate()`. `AbstractTimeProvider` (`:16-17`,
+    libs) returns that date in UTC, while the services, the customer and the bank work in
+    Europe/London. During BST, funding after London midnight and before 01:00 still reads the UTC
+    date of the day before, so `BondsmithBankCustomMaturityDateFormula` adds the term to the wrong
+    day. Two one-month TERMs funded at 00:11 and 00:13 London on 2026-09-27 (customers `5546cb07`
+    and `c1a8905a`) got maturity 2026-10-26 where the rule gives 2026-10-27: one day less of the
+    term and one day less interest than the customer was promised.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
