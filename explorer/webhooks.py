@@ -95,33 +95,26 @@ def outstanding(ops, platform_uid):
     return len(call.body)
 
 
-RESEND_AFTER_SECONDS = 30
+def outstanding_transactions(ops, platform_uid):
+    """Transaction ids whose SAVINGS_TRANSACTION event core still holds AWAITING_RESPONSE.
 
-
-def resend_stuck(ops, platform_uid, now=None):
-    """Resend the platform's events left AWAITING_RESPONSE, as core's resend job would.
-
-    PlatformWebhookResendingService resends such events every minute once 30 s old, but it is a
-    shedlock scheduler and schedulers are off locally, so a delivery that timed out once was
-    never sent again and the accounting reported it missing. Returns how many were resent.
+    Core's resend job would send these again, but it is a shedlock scheduler and off locally, and
+    ops-api's PUT /webhook/{uid}/resend only moves the row's timestamps back for that job to find:
+    nineteen PUTs on one event in fleet 185 sent nothing and left it dated before its transaction.
     """
-    from datetime import datetime, timezone
     call = ops.call("GET", "/webhook/events", params={
-        "platformUid": platform_uid, "eventState": "AWAITING_RESPONSE", "take": 50})
+        "platformUid": platform_uid, "eventState": "AWAITING_RESPONSE", "take": 500})
     if not call.ok or not isinstance(call.body, list):
-        return 0
-    now = now or datetime.now(timezone.utc)
-    resent = 0
+        return frozenset()
+    ids = set()
     for event in call.body:
+        if event.get("eventType") != "SAVINGS_TRANSACTION":
+            continue
         try:
-            created = datetime.fromisoformat(event["createdAt"].replace("Z", "+00:00"))
-        except (KeyError, ValueError, AttributeError):
+            ids.add(json.loads(event.get("eventPayload") or "{}")["payload"]["transactionId"])
+        except (ValueError, KeyError, TypeError):
             continue
-        if (now - created).total_seconds() < RESEND_AFTER_SECONDS or not event.get("eventUid"):
-            continue
-        if ops.call("PUT", "/webhook/{}/resend/false".format(event["eventUid"])).ok:
-            resent += 1
-    return resent
+    return frozenset(ids)
 
 
 # --- receiver -------------------------------------------------------------------------------
@@ -164,6 +157,10 @@ class _Capture:
 
 def _handler(capture):
     class Handler(BaseHTTPRequestHandler):
+        # HTTP/1.1 keeps the connection core's client pools. Under HTTP/1.0 the handler closed
+        # each connection after answering, and core lost requests sent on one it reused.
+        protocol_version = "HTTP/1.1"
+
         def log_message(self, *args):
             pass
 
@@ -339,7 +336,8 @@ def _events(records, platform_uid):
     return events, redelivered
 
 
-def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None):
+def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None,
+          outstanding=frozenset()):
     """Hold the platform's deliveries up against the API's reads.
 
     Returns (findings, stats). A finding is a dict with rule, subject, detail, expected, actual.
@@ -435,6 +433,11 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
             young.add(row.get("accountId"))
             continue
         copies = delivered.get(tx_id, [])
+        if not copies and tx_id in outstanding:
+            # Core still holds the event AWAITING_RESPONSE; a deployed core's resend job sends it
+            # again, and locally that job is off, so it is outstanding, not undelivered.
+            young.add(row.get("accountId"))
+            continue
         if not copies:
             found("every transaction the API shows is delivered",
                   "transaction {}".format(tx_id),

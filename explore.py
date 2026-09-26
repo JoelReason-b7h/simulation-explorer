@@ -517,8 +517,6 @@ class Run:
                     types))
         if not self.webhook_subscribed:
             return 0
-        # Stand in for core's resend job, which is off locally.
-        resent = webhooks.resend_stuck(self.ops, self.platform_uid)
         waited, left = 0.0, None
         if final:
             while waited < self.WEBHOOK_DRAIN_SECONDS:
@@ -527,7 +525,6 @@ class Run:
                     break
                 time.sleep(10)
                 waited += 10
-                resent += webhooks.resend_stuck(self.ops, self.platform_uid)
         findings, stats = self.webhook_findings(0.0 if final else self.WEBHOOK_GRACE_SECONDS)
         if findings is None:
             return 0
@@ -544,7 +541,6 @@ class Run:
         stats["awaitingResponse"] = left if final else webhooks.outstanding(
             self.ops, self.platform_uid)
         stats["drainWaitSeconds"] = waited
-        stats["resent"] = resent
         self.webhook_stats = stats
         print("  -- webhook accounting{}: {}".format(" (final)" if final else "",
                                                      json.dumps(stats, sort_keys=True)))
@@ -566,7 +562,12 @@ class Run:
         if truncated:
             print("  -- webhook accounting is off: the capture reached its size limit")
             return None, None
-        return webhooks.check(records, world_now, self.platform_uid, self.minted, grace)
+        outstanding = webhooks.outstanding_transactions(self.ops, self.platform_uid)
+        findings, stats = webhooks.check(records, world_now, self.platform_uid, self.minted, grace,
+                                         outstanding=outstanding)
+        if stats is not None:
+            stats = dict(stats, outstandingTransactions=len(outstanding))
+        return findings, stats
 
     CONFIRM_PAUSE_SECONDS = float(os.environ.get("SIM_CONFIRM_PAUSE", "2.0"))
 

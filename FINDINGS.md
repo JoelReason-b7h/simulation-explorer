@@ -178,15 +178,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 20. **PlaceWithdrawal accepts an empty instructionReference.** `ExternalDirectInstructionRequest`
     has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
 
-21. **A SAVINGS_TRANSACTION webhook event is created with timestamps eleven minutes older than
-    its transaction and is never sent.** Row `2258759c`, transaction `b4cc581b` (0.01 INTEREST,
-    created 14:00:15 UTC): the event's created_at and updated_at are 13:49:05 while its payload's
-    firstSeen is 14:00:15.876, it stays AWAITING_RESPONSE, and the platform never received it; the
-    INTEREST_REALISED event for the same transaction was delivered. Under investigation.
-
-Under investigation too: fleet 185 recorded a SAVINGS_WITHDRAWAL (transaction 584, -0.01) booked
-while customer `b64f1aff` was FROZEN; it may be the intended hold, where only the payout is held.
-
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
@@ -196,6 +187,14 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
 
 ## Checked and holding
 
+- A withdrawal booked while its customer is FROZEN is intended when the payout was released
+  before the freeze: fleet 185's 0.01 was paid by the bank 1.7 s before the freeze and booked when
+  the statement confirmed it. The hold is decided when the PLATFORM payment due is raised, and the
+  harness rule now judges the status at that moment.
+- A SAVINGS_TRANSACTION event dated eleven minutes before its transaction was the harness's own
+  doing: ops-api's PUT /webhook/{uid}/resend only backdates the row by 15 minutes for core's
+  resend job, which is off locally, so nineteen harness PUTs sent nothing. In production a single
+  timed-out delivery is resent by that job.
 - FLAGGED_PAYMENTS counts more unresolved credits than MI_RECON lists. By design: the daily
   MI_RECON leaves out unclaimed platform credits younger than one hour
   (`ClearingReportsReplicaRepository.java:233-236`) and the monthly count does not

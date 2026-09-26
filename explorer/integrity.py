@@ -167,26 +167,31 @@ CHECKS = (
     ),
     (
         # CustomerActionPolicy holds a payout for a FROZEN customer (WITHDRAWAL_PAYOUT_EXECUTION),
-        # so a withdrawal booked while the customer read FROZEN, and FROZEN two seconds before,
-        # went out through a path the policy does not guard.
+        # and the hold is decided once, when the payout's PLATFORM payment due is raised. The
+        # savings debit books later, when the bank statement shows the money left, so judging the
+        # status at the booking flagged fleet 185's withdrawal paid 1.7 s before the freeze.
         "no withdrawal books while the customer is frozen",
         "account_transaction",
         """
-        SELECT at.sid, pc.uid, at.customer_amount, at.created_at
+        SELECT at.sid, pc.uid, at.customer_amount, pd.created_at
         FROM account_transaction at
         JOIN customer_product_account cpa ON cpa.sid = at.customer_product_account_sid
         JOIN customer_account ca ON ca.sid = cpa.customer_account_sid
         JOIN platform_customer pc ON pc.sid = ca.platform_customer_sid
+        JOIN direct_instruction_subject dis ON dis.sid = at.balance_change_subject_id
+        JOIN payment_due_direct_customer_instruction pd
+          ON pd.direct_instruction_sid = dis.instruction_sid AND pd.payment_due_type = 'PLATFORM'
         WHERE at.transaction_type = 'SAVINGS_WITHDRAWAL'
           AND (SELECT h.to_state FROM platform_customer_status_history h
-            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= pd.created_at
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) = 'FROZEN'
           AND (SELECT h.to_state FROM platform_customer_status_history h
-            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at - interval '2 seconds'
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= pd.created_at - interval '2 seconds'
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) = 'FROZEN'
         ORDER BY at.sid DESC LIMIT {limit}
         """,
-        "transaction {0} paid {2} out of customer {1}'s account at {3} while the customer was FROZEN",
+        "transaction {0} paid {2} out of customer {1}'s account, its payout raised at {3} while the "
+        "customer was FROZEN",
     ),
     (
         # A deposit is held for a FROZEN customer and refused for PENDING, DEACTIVATED, CANCELLED
