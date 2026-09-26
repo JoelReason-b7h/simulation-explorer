@@ -187,10 +187,17 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     twice; each redelivery in production ends in the DLQ and its alarm. Fleet 187, seven failures,
     from the harness's duplicate delivery. Low.
 
-23. **A bank reversal clearing cannot match retries to the dead-letter queue.** Fleet 190:
-    `TransactionEventSqsConsumer` failed 8 deliveries with `IllegalStateException: Can not find
-    payment to reverse: PEC000000100047B`. Under investigation: why clearing holds no payment for
-    that reference, and where the reversed money ends up.
+24. **One payment with no creditor name stops every outbound payment.** Clearing's
+    `BatchedFileSender.sendFiles` (`:56`) sends each file in turn with no per-file catch, and
+    `PartyIdentification` (`:47`) requires the account name. Payment initiation 552
+    (PEC000000100044F, a Direct payee withdrawal) has a NULL `creditor_name`, so every run throws
+    an NPE at that file and no later file is sent: from 17:01:46 London on 2026-09-26 about 178
+    payments across every platform stayed unsent, 408 NPEs in fleet 190 alone. Six initiations
+    have a NULL name (552, 554, 563, 565, 600, 601); core's `payee_account` holds the name, so it
+    is lost between core and clearing. High. Under investigation: where the name is lost.
+    Databases kept in `archive/finding24-send-loop-db`. Found while tracing candidate 23, which
+    was the harness reversing PEC000000100047B at the bank although that payment, stranded behind
+    552, was never sent.
 
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
