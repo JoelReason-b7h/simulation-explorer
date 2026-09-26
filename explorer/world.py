@@ -6,6 +6,7 @@ unless the harness asks; each call below stands in for a cron that would otherwi
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -271,6 +272,48 @@ def bank_product_for(platform_product_uid):
     if done.returncode != 0 or len(rows) != 1 or len(rows[0]) != 4:
         return None
     return tuple(rows[0])
+
+
+REJECT_GROUP = "/operations/own/payment/management/payment/groups/{}/REJECT_FAIL"
+CLEARED_GROUPS_LOG = Path(__file__).resolve().parent.parent / "cleared-groups.jsonl"
+
+
+def clear_nameless_groups(ops_client, minutes=2):
+    """Fail every APPROVED payment group holding a payment with no creditor name.
+
+    One such payment makes clearing's file sender throw on every run and send nothing behind it
+    (SAV-11699), which halted every outbound payment on the stack for hours. An operator would fail
+    the group; the harness does the same, and logs each one so the evidence survives.
+    """
+    sql = ("SELECT DISTINCT pg.uid, pi.end_to_end_id, pi.created_at FROM payment_initiation pi "
+           "JOIN payment_group pg ON pg.sid = pi.payment_group_sid "
+           "WHERE pg.status = 'APPROVED' AND pi.creditor_name IS NULL AND pi.sent_at IS NULL "
+           "AND pi.is_return IS NOT TRUE "
+           "AND pi.created_at < now() - interval '{} minutes'").format(int(minutes))
+    try:
+        done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-c", sql],
+                              capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if done.returncode != 0:
+        return []
+    cleared = []
+    for line in done.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        group, end_to_end, created = parts
+        call = ops_client.call("PUT", REJECT_GROUP.format(group))
+        cleared.append({"group": group, "endToEndId": end_to_end, "createdAt": created,
+                        "status": getattr(call, "status", None),
+                        "at": datetime.now().isoformat(timespec="seconds")})
+    if cleared:
+        with open(CLEARED_GROUPS_LOG, "a") as handle:
+            for row in cleared:
+                handle.write(json.dumps(row) + "\n")
+        print("  cleared {} nameless payment group(s): {}".format(
+            len(cleared), [(r["group"][:8], r["status"]) for r in cleared]))
+    return cleared
 
 
 def settle_payments(ops_client):

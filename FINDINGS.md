@@ -187,7 +187,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     twice; each redelivery in production ends in the DLQ and its alarm. Fleet 187, seven failures,
     from the harness's duplicate delivery. Low.
 
-24. **One payment with no creditor name stops every outbound payment.** Clearing's
+24. **SAV-11699. One payment with no creditor name stops every outbound payment.** Clearing's
     `BatchedFileSender.sendFiles` (`:56`) sends the oldest ten files in order with no per-file
     catch, and `PartyIdentification` (`:47`) requires the account name, so one nameless file throws
     an NPE on every run and no file behind it is sent. The only escape is two overlapping runs, where
@@ -204,9 +204,9 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     Locally the drain never ran (scheduling is off and the harness did not call
     `/operations/processor/nominated-account/publish/drain`), which made the window unbounded; the
     harness now calls it on every settle. Databases kept in `archive/finding24-send-loop-db` and
-    `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments.
+    `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments. No ops endpoint can clear it: `REJECT_FAIL` answers 400 "Payment group must be pending approval" for an APPROVED group, and `PaymentFileRepository.SELECT_FILES_TO_SEND` ignores the group status, so a rejected group's unsent file would still be picked first. Only a database change moves the file.
 
-25. **A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
+25. **SAV-11111. A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
     `resolveCounterpart` takes the current nominated account with no verification check, unlike
     `CustomerWithdrawalPayoutRaisingService` (`:152-159`). A withdrawal accepted before a payee
     change pays the new payee even when its CoP result is AWAITING_REVIEW, and clearing inserts it
