@@ -84,27 +84,41 @@ POLL_OVERLAP_SECONDS = 2
 
 
 def _next_poll_window():
-    """The window since the last poll by any run on this machine, as London wall-clock times.
+    """The window since the last successful poll by any run on this machine, as London times.
 
     With no window the endpoint re-reads the last 30 minutes, and clearing inserts every entry it
     reads again: a line it cannot allocate is never matched as a duplicate, so 126 unallocated
     credits became 5809 EXCEPTION lines in one cycle. The scheduler in a deployed environment polls
     each period once, so the harness does the same, with a two-second overlap at the edge.
+    Returns (start, end, end as a datetime); only _mark_polled moves the mark, after a poll that
+    answered, because a poll made while clearing was stopped used to consume its window and left
+    fleet 183's credit at 14:12:01 unread for good.
     """
     now = datetime.now(LONDON).replace(microsecond=0)
+    with open(POLL_MARK, "a+") as handle:
+        fcntl.flock(handle, fcntl.LOCK_SH)
+        handle.seek(0)
+        try:
+            last = datetime.fromisoformat(handle.read().strip())
+        except ValueError:
+            last = now - timedelta(minutes=30)
+    start = max(last - timedelta(seconds=POLL_OVERLAP_SECONDS),
+                now.replace(hour=0, minute=0, second=0))
+    return start.time().isoformat(), now.time().isoformat(), now
+
+
+def _mark_polled(end):
     with open(POLL_MARK, "a+") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         handle.seek(0)
         try:
             last = datetime.fromisoformat(handle.read().strip())
         except ValueError:
-            last = now - timedelta(minutes=30)
-        start = max(last - timedelta(seconds=POLL_OVERLAP_SECONDS),
-                    now.replace(hour=0, minute=0, second=0))
-        handle.seek(0)
-        handle.truncate()
-        handle.write(now.isoformat())
-    return start.time().isoformat(), now.time().isoformat()
+            last = None
+        if last is None or end > last:
+            handle.seek(0)
+            handle.truncate()
+            handle.write(end.isoformat())
 
 
 def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIRECT",
@@ -114,8 +128,8 @@ def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIREC
     Crediting the bank alone leaves `account_statement_line` empty, so processing finds nothing and
     every call still returns 200. The corpus polls before it processes.
     """
-    start, end = _next_poll_window()
-    return ops_client.call("POST", POLL_TRANSACTIONS, json_body={
+    start, end, end_at = _next_poll_window()
+    call = ops_client.call("POST", POLL_TRANSACTIONS, json_body={
         "connectorType": connector,
         "realAccountType": account_type,
         "internalCurrencyCode": currency,
@@ -123,6 +137,9 @@ def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIREC
         "taxWrapperType": "DEFAULT",
         "transactionTimePeriodRequest": {"transactionTimeFrom": start, "transactionTimeTo": end},
     })
+    if getattr(call, "ok", False):
+        _mark_polled(end_at)
+    return call
 
 
 def drain_transactions(ops_client):

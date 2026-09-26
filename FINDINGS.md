@@ -158,11 +158,15 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     and no row with that name exists afterwards. The harness labelled it "reference", because
     its text mutation replaces the first text field it finds, which here was `accountName`.
 
-18. **Clearing fails to aggregate a payment due with "Cannot change value of aggregate_uid once
-    set".** Fleet 183, 14:12:18: `clearing-pd-aggregator - Unable to aggregate payment dues
-    [cfb96b8b-...]`, raised by a database trigger. Four platforms settle concurrently against one
-    shared DIRECT account. Under investigation: whether aggregation selects dues another run is
-    aggregating, and what the failed run leaves behind.
+18. **A redelivered PaymentExpectation re-aggregates a due already stored, and the trigger
+    stops it with an ERROR.** `PaymentExpectationAction.process` (`:78-82`) calls
+    `insertExternalPaymentDue`, which treats a duplicate uid as a no-op (SAV-9995), then aggregates
+    anyway from the message, with no aggregate (`:92-96`). The second aggregation mints a new
+    aggregate uid and `prevent_aggregate_uid_update` rejects it: "Cannot change value of
+    aggregate_uid once set". No money moves twice and nothing is left unaggregated; each
+    redelivery logs an ERROR, which is a Sentry issue in deployed environments, and SQS is
+    at-least-once there. Fleet 183, due `cfb96b8b`, from the harness's own duplicate delivery
+    (FundAccountDuplicated). Low. Fix: skip aggregation when the insert was a no-op.
 
 19. **A realisation whose interest rounds to 0.00 books an INTEREST transaction that no webhook
     announces.** `RealisedInterestTransactionService` (`:64-83`) books the row when the interest,

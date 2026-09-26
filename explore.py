@@ -1071,6 +1071,9 @@ class Run:
         self.restarted_at = self.steps
         self.faulted_boundary = "clearing stopped, with a message delivered twice"
         self.faulted_at = self.steps
+        # Other runs' 500s while clearing is down belong to this stop; without the note fleet
+        # 183 blamed them on a cut that had already expired.
+        fleet.note("restart", "clearing stopped to deliver a message twice")
         copied = []
         try:
             # These are the steps that put messages on the queues clearing consumes.
