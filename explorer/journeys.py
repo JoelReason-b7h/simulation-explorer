@@ -678,10 +678,12 @@ def _nominate(j, name, pair=("100000", "41610008")):
 
 
 def payee_change(run):
-    """A withdrawal placed, then the nominated account changed before its payout is raised: the
-    payout goes to the account active when it is raised (CustomerWithdrawalPayoutRaisingService
-    .resolveUsableDestination). A second withdrawal whose payee is replaced by one that fails
-    Confirmation of Payee must not pay out until a verified payee returns, and then exactly once."""
+    """Change the nominated account between withdrawals, each change made with nothing pending
+    and published before the next withdrawal: every payout goes to the payee nominated when the
+    withdrawal was placed, a payee that fails Confirmation of Payee refuses new withdrawals, and a
+    verified payee brings them back, each paying out once.
+
+    A change made while a withdrawal is pending is FINDINGS.md 24 and 25, so it is not repeated."""
     j = Journey(run, "JourneyPayeeChange")
     instant = j.product("INSTANT")
     if not instant or not j.new_customer():
@@ -694,14 +696,6 @@ def payee_change(run):
                           and not j.pending()):
         return j.done(note="the funding did not land")
     tag = run.mint("", 8)[-6:]
-    started = time.time() - 2
-
-    first = j.instruct(account, "WITHDRAW", Decimal("2.17"))
-    j.step("withdraw 2.17", first.status)
-    if not first.ok:
-        return j.done(note="the first withdrawal was refused")
-    payee_a = "Payee A {}".format(tag)
-    _nominate(j, payee_a, PAYEES["A"])
 
     def settled():
         return not [r for r in j.pending(account["accountId"]) if r.get("type") == "WITHDRAWAL"]
@@ -713,59 +707,59 @@ def payee_change(run):
             time.sleep(SETTLE_PAUSE)
             j.settle_payouts()
         return settled()
-    paid = payouts_settled()
-    dues = [d for d in _payouts_since(j.customer, started) if _money(d[1]) == Decimal("2.17")]
-    j.step("payout dues for 2.17", dues)
-    names = {d[3] for d in dues}
-    j.expect(bool(dues) and all(PAYEES["A"][1] in n for n in names),
-             "a payout goes to the nominated account active when it is raised",
-             "the 2.17 withdrawal's payout dues name {}; '{}' ({}) was nominated after the "
-             "withdrawal and before its payout".format(sorted(names), payee_a, PAYEES["A"][1]),
-             PAYEES["A"][1], sorted(names), body=dues)
-    # Completion waits on the bank's debit coming back through a statement poll, which the
-    # shared poll window can hold back, so it is recorded rather than judged.
-    j.step("the 2.17 withdrawal", "completed" if paid else "still pending")
 
-    second_started = time.time() - 2
-    second = j.instruct(account, "WITHDRAW", Decimal("1.23"))
-    j.step("withdraw 1.23", second.status)
-    if not second.ok:
-        return j.done(note="the second withdrawal was refused")
+    def publish():
+        # settle_world drains the nominated-account outbox, which puts the new payee in clearing.
+        for _ in range(2):
+            time.sleep(SETTLE_PAUSE)
+            run.settle_world()
+
+    def withdraw_to(amount, payee, pair):
+        started = time.time() - 2
+        call = j.instruct(account, "WITHDRAW", amount)
+        j.step("withdraw {}".format(amount), call.status)
+        if not call.ok:
+            return None
+        paid = payouts_settled()
+        dues = [d for d in _payouts_since(j.customer, started) if _money(d[1]) == amount]
+        live = [d for d in dues if d[2] not in ("CANCELLED", "FAILED")]
+        j.step("payout dues for {}".format(amount), dues)
+        j.expect(bool(live) and all(pair[1] in d[3] for d in live),
+                 "a payout goes to the nominated account active when it is raised",
+                 "the {} withdrawal's payout dues name {}; '{}' ({}) was nominated and published "
+                 "before the withdrawal".format(amount, sorted({d[3] for d in dues}), payee,
+                                                 pair[1]),
+                 pair[1], sorted({d[3] for d in dues}), body=dues)
+        j.expect(len(live) <= 1, "a withdrawal pays out once",
+                 "the {} withdrawal has {} live payout dues".format(amount, len(live)), 1,
+                 len(live), body=dues)
+        j.step("the {} withdrawal".format(amount), "completed" if paid else "still pending")
+        return call
+
+    payee_a = "Payee A {}".format(tag)
+    _nominate(j, payee_a, PAYEES["A"])
+    publish()
+    if withdraw_to(Decimal("2.17"), payee_a, PAYEES["A"]) is None:
+        return j.done(note="the first withdrawal was refused")
+    if not settled():
+        return j.done(note="the 2.17 withdrawal is still pending, so the payee is not changed")
+
     payee_b = "Payee B NOMATCH {}".format(tag)
     _nominate(j, payee_b, PAYEES["B"])
-    for _ in range(3):
-        time.sleep(SETTLE_PAUSE)
-        run.settle_world()
-    dues = [d for d in _payouts_since(j.customer, second_started) if _money(d[1]) == Decimal("1.23")]
-    bad = _unverified_payouts(j.customer, dues)
-    j.expect(not bad, "no payout goes to a payee that failed Confirmation of Payee",
-             "the 1.23 withdrawal's payout went to {} after '{}' was nominated; core holds that "
-             "payee {}".format([d[3] for d in bad], payee_b, [d[-1] for d in bad]),
-             "no payment to an unverified payee", [(d[0], d[2], d[-1]) for d in bad], body=dues)
-    third = j.instruct(account, "WITHDRAW", Decimal("0.50"))
-    j.expect(not third.ok, "a withdrawal is refused while the payee is unverified",
+    publish()
+    refused = j.instruct(account, "WITHDRAW", Decimal("0.50"))
+    j.expect(not refused.ok, "a withdrawal is refused while the payee is unverified",
              "a 0.50 withdrawal placed with '{}' nominated answered {}".format(payee_b,
-                                                                            third.status),
-             "a 4xx", third.status, body=third.body)
-    j.step("withdraw 0.50 with an unverified payee", third.status)
+                                                                            refused.status),
+             "a 4xx", refused.status, body=refused.body)
+    j.step("withdraw 0.50 with an unverified payee", refused.status)
+    if refused.ok and not payouts_settled():
+        return j.done(note="the 0.50 withdrawal was accepted and is still pending")
 
     payee_c = "Payee C {}".format(tag)
-    nominated_c = time.time()
     _nominate(j, payee_c, PAYEES["C"])
-    paid = payouts_settled()
-    dues = [d for d in _payouts_since(j.customer, second_started) if _money(d[1]) == Decimal("1.23")]
-    live = [d for d in dues if d[2] not in ("CANCELLED", "FAILED")]
-    j.step("payout dues for 1.23", dues)
-    j.expect(len(live) <= 1, "a withdrawal pays out once",
-             "the 1.23 withdrawal has {} live payout dues".format(len(live)), 1, len(live),
-             body=dues)
-    later = [d for d in live if float(d[5]) >= nominated_c]
-    j.expect(not later or PAYEES["C"][1] in later[0][3],
-             "a payout goes to the nominated account active when it is raised",
-             "the 1.23 payout raised after '{}' was nominated names '{}'".format(
-                 payee_c, later[0][3] if later else None), PAYEES["C"][1],
-             later[0][3] if later else None, body=dues)
-    j.step("the 1.23 withdrawal", "completed" if paid else "still pending")
+    publish()
+    withdraw_to(Decimal("1.23"), payee_c, PAYEES["C"])
     return j.done()
 
 

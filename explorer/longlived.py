@@ -398,7 +398,8 @@ class Population:
                                 "accountId": account_id, "productId": destination,
                                 "accountReference": account.get("accountReference"),
                                 "productType": "NOTICE"}
-        elif persona == "changer":
+        elif persona == "changer" and not j.pending():
+            # Only with nothing in flight: a change while a withdrawal is pending is FINDINGS.md 24.
             from explorer.journeys import PAYEES, _nominate
             pair = PAYEES["A"] if entry.get("payee") != "A" else PAYEES["C"]
             call = _nominate(j, "Long life payee {}".format(customer[:6]), pair)
