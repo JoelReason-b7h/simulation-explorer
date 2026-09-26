@@ -127,3 +127,19 @@ def retry_of_payment(sid):
     if not rows:
         return None
     return dict(zip(PAYMENT_COLUMNS, rows[0]))
+
+
+HSB_DSN = os.environ.get("SIM_HSB_DSN", "postgresql://hsb:password@localhost:5444/hsb")
+
+
+def bank_paid(end_to_end_id):
+    """Whether the bank simulator recorded this payment as settled (ACSC)."""
+    if not end_to_end_id:
+        return False
+    import subprocess
+    done = subprocess.run(
+        ["psql", HSB_DSN, "-tA", "-c",
+         "SELECT 1 FROM payment_transaction_status WHERE end_to_end_id = '{}' AND status = 'ACSC' "
+         "LIMIT 1".format(str(end_to_end_id).replace("'", ""))],
+        capture_output=True, text=True, timeout=30)
+    return done.returncode == 0 and done.stdout.strip() == "1"

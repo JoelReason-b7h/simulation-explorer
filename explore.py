@@ -1583,8 +1583,14 @@ class Run:
         if not payment:
             return self.record_closure_injection(
                 "returned", held, note="closing raised no payment, so nothing could be returned")
-        # Let the payout settle first, so the return arrives for money that has left.
+        # Let the payout settle first, so the return arrives for money that has left. A payment
+        # clearing created but never sent was returned in fleet 190, so the bank credited a
+        # reversal of a payment it never received; return only what the bank has paid.
         self.settle_world()
+        if not ledger.bank_paid(payment.get("end_to_end_id")):
+            return self.record_closure_injection(
+                "returned", held, payment=payment,
+                note="the bank has no record of the closure payment, so nothing could be returned")
         self.return_payment(payment)
         self.settle_world()
         return self.record_closure_injection("returned", held, payment=payment)

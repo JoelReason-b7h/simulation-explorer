@@ -335,6 +335,35 @@ def payments_clearing_and_the_bank_disagree_on(limit=LIMIT):
     return findings[:limit], []
 
 
+def payments_left_unsent(limit=LIMIT, minutes=10):
+    """Payment initiations clearing created but never sent, older than `minutes`.
+
+    One payment with no creditor name made BatchedFileSender throw on every run and stranded
+    every later file (finding 24); nothing in the run noticed for more than forty minutes.
+    """
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT pi.end_to_end_id, pi.created_at, pi.creditor_name IS NULL FROM payment_initiation pi "
+        "JOIN payment_group pg ON pg.sid = pi.payment_group_sid "
+        # A group held for approval is waiting on an operator, not stuck; only an APPROVED group
+        # clearing should already have sent counts.
+        "WHERE pg.status = 'APPROVED' "
+        "AND pi.sent_at IS NULL AND pi.status IS NULL AND pi.is_return IS NOT TRUE "
+        "AND pi.created_at < now() - interval '{} minutes' "
+        "ORDER BY pi.sid LIMIT {}".format(int(minutes), int(limit)))
+    if error:
+        return [], ["clearing payments: {}".format(error)]
+    return [{
+        "rule": "clearing sends every payment it creates",
+        "table": "payment_initiation",
+        "subject": row[0],
+        "detail": "payment {} was created at {} and is still unsent{}".format(
+            row[0], row[1], ", and has no creditor name" if row[2] == "t" else ""),
+        "expected": "sent within {} minutes".format(minutes),
+        "actual": "unsent",
+        "row": row,
+    } for row in rows if row], []
+
+
 def accounts_core_and_clearing_disagree_on_closing(limit=LIMIT):
     """Accounts core holds open that clearing has soft-closed.
 
@@ -510,6 +539,9 @@ def sweep(limit=LIMIT):
                 "detail": shape.format(*filled[:5]),
                 "row": row,
             })
+    unsent, unread = payments_left_unsent(limit)
+    findings.extend(unsent)
+    errors.extend(unread)
     paid, unread = payments_clearing_and_the_bank_disagree_on(limit)
     findings.extend(paid)
     errors.extend(unread)
