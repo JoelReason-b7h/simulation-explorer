@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cycle  # noqa: E402
-from explorer import config, local_auth  # noqa: E402
+from explorer import config, local_auth, webhooks  # noqa: E402
 
 HERE = cycle.HERE
 FIELDS = ("bankUid", "platformUid", "productUid", "termProductUid", "shortTermProductUid",
@@ -37,7 +37,8 @@ def stand_up(reuse=None, suffix=""):
                           capture_output=True, text=True, timeout=2400)
     sys.stdout.write("".join("    " + line + "\n" for line in done.stdout.splitlines()
                              if line.startswith(("  REJ", "  ok  open", "  ok  give",
-                                                 "      reusing")) or "Uid" in line))
+                                                 "      reusing", "  ok  subscribe",
+                                                 "  SKIP")) or "Uid" in line))
     if done.returncode != 0:
         print(done.stdout[-2000:])
         print(done.stderr[-2000:])
@@ -53,7 +54,7 @@ def stand_up(reuse=None, suffix=""):
     return found
 
 
-def launch(index, cohort, iban, run_name, seconds, events):
+def launch(index, cohort, iban, run_name, seconds, events, capture):
     env = cycle.child_env()
     env.update({
         "PLATFORM_UID": cohort["platformUid"],
@@ -64,6 +65,7 @@ def launch(index, cohort, iban, run_name, seconds, events):
         "auth_client_id": cohort["clientId"],
         "auth_client_secret": "local",
         "SIM_FLEET_EVENTS": str(events),
+        "SIM_WEBHOOK_CAPTURE": str(capture),
         "SIM_FLEET_ROLE": "conductor" if index == 0 else "member",
     })
     handle = open(HERE / "{}.log".format(run_name), "w")
@@ -80,6 +82,10 @@ def main():
     if config.load("local").get("local_auth"):
         patched = cycle.stack_patch.patch(cycle.REPO)
         local_auth.serve()
+    # Started before the standup, which subscribes each platform to it. Every delivery of the
+    # cycle, for any platform, lands in this one file.
+    capture = webhooks.capture_path(HERE, name)
+    webhooks.ensure_serving(capture)
     wiped = False
     # The stack is wiped only when a patch changed what it reads at start, or when asked with
     # SIM_FORCE_WIPE=1. A wipe on a timer destroyed the rows behind fleet 10's findings before
@@ -116,7 +122,7 @@ def main():
         run_name = "{}-p{}".format(name, index)
         print("  {} platform {} client {} virtual account {}".format(
             run_name, cohort["platformUid"], cohort["clientId"], iban))
-        runs.append(launch(index, cohort, iban, run_name, seconds, events))
+        runs.append(launch(index, cohort, iban, run_name, seconds, events, capture))
     (HERE / "{}.cohorts.json".format(name)).write_text(json.dumps(cohorts, indent=2))
 
     deadline = time.time() + seconds + 900

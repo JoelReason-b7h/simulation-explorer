@@ -19,7 +19,7 @@ from decimal import Decimal
 import sys
 
 from explorer import (actions, config, driver, faults, fleet, integrity, ledger, oracles,
-                      preflight, projector, race, triallog, weird, world)
+                      preflight, projector, race, triallog, webhooks, weird, world)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -149,6 +149,15 @@ class Run:
         self.notice_closures = []
         self.notice_attempts = 0
         self.notice_forced_at = 0
+        # Every reference the run minted, with its kind, so a SAVINGS_TRANSACTION delivery that
+        # carries one can be tied back to the run's own action.
+        self.minted = {}
+        # The cycle's webhook capture, which fleet_cycle's receiver writes. Unset outside a fleet.
+        self.webhook_capture = os.environ.get("SIM_WEBHOOK_CAPTURE")
+        self.webhook_checked_at = 0.0
+        self.webhook_seen_before = set()
+        self.webhook_subscribed = None
+        self.webhook_stats = None
 
     @property
     def held(self):
@@ -195,7 +204,9 @@ class Run:
     def mint(self, kind, limit):
         """Run-id prefixed so replay never collides, and alphanumeric so the 16-char batch reference accepts it."""
         self.counter += 1
-        return "{}{}{}".format(self.run_id, kind, self.counter)[:limit]
+        reference = "{}{}{}".format(self.run_id, kind, self.counter)[:limit]
+        self.minted[reference] = kind
+        return reference
 
     def read(self, entity):
         held = self.held
@@ -476,6 +487,82 @@ class Run:
                 for t in self.log[-8:]]
             self.record_violation(row, violation)
         return len(found)
+
+    WEBHOOK_SWEEP_SECONDS = float(os.environ.get("SIM_WEBHOOK_SWEEP_SECONDS", "180"))
+    # A transaction this young may still have its delivery on the way, so a sweep leaves it out.
+    WEBHOOK_GRACE_SECONDS = float(os.environ.get("SIM_WEBHOOK_GRACE_SECONDS", "120"))
+    # How long the final accounting waits for the platform's AWAITING_RESPONSE events to clear.
+    WEBHOOK_DRAIN_SECONDS = float(os.environ.get("SIM_WEBHOOK_DRAIN_SECONDS", "180"))
+
+    def account_webhooks(self, final=False):
+        """Hold the platform's webhook deliveries up against the Direct API's reads.
+
+        Every run does this for its own platform, members included, because each platform has
+        its own url. During the run a finding is recorded only when the sweep before found it
+        too, since a delivery can trail its transaction by a retry. The final accounting waits
+        for the platform's AWAITING_RESPONSE events to clear, then records only what a second
+        reading agrees with.
+        """
+        if not self.webhook_capture or not self.ops or not self.platform_uid:
+            return 0
+        now = time.time()
+        if not final and now - self.webhook_checked_at < self.WEBHOOK_SWEEP_SECONDS:
+            return 0
+        self.webhook_checked_at = now
+        if self.webhook_subscribed is None:
+            types = webhooks.subscribed(self.ops, self.platform_uid)
+            self.webhook_subscribed = bool(types) and len(types) == len(webhooks.EVENT_TYPES)
+            if not self.webhook_subscribed:
+                print("  -- webhook accounting is off: the platform is subscribed to {}".format(
+                    types))
+        if not self.webhook_subscribed:
+            return 0
+        waited, left = 0.0, None
+        if final:
+            while waited < self.WEBHOOK_DRAIN_SECONDS:
+                left = webhooks.outstanding(self.ops, self.platform_uid)
+                if not left:
+                    break
+                time.sleep(10)
+                waited += 10
+        findings, stats = self.webhook_findings(0.0 if final else self.WEBHOOK_GRACE_SECONDS)
+        if findings is None:
+            return 0
+        keys = {(f["rule"], f["expected"]) for f in findings}
+        if final and findings:
+            time.sleep(20)
+            again, stats = self.webhook_findings(0.0)
+            confirmed = {(f["rule"], f["expected"]) for f in again or []}
+        else:
+            confirmed = self.webhook_seen_before
+        self.webhook_seen_before = keys
+        stats = dict(stats or {})
+        stats["final"] = final
+        stats["awaitingResponse"] = left if final else webhooks.outstanding(
+            self.ops, self.platform_uid)
+        stats["drainWaitSeconds"] = waited
+        self.webhook_stats = stats
+        print("  -- webhook accounting{}: {}".format(" (final)" if final else "",
+                                                     json.dumps(stats, sort_keys=True)))
+        recorded = 0
+        for finding in findings:
+            if (finding["rule"], finding["expected"]) not in confirmed:
+                continue
+            self.note_violation("WebhookAccounting", finding["rule"], finding["subject"],
+                                finding["detail"], finding["expected"], finding["actual"])
+            recorded += 1
+        return recorded
+
+    def webhook_findings(self, grace):
+        world_now = webhooks.read_world(self.client)
+        if world_now is None:
+            print("  -- webhook accounting could not list the platform's customers")
+            return None, None
+        records, truncated = webhooks.load(self.webhook_capture)
+        if truncated:
+            print("  -- webhook accounting is off: the capture reached its size limit")
+            return None, None
+        return webhooks.check(records, world_now, self.platform_uid, self.minted, grace)
 
     CONFIRM_PAUSE_SECONDS = float(os.environ.get("SIM_CONFIRM_PAUSE", "2.0"))
 
@@ -3017,6 +3104,7 @@ class Run:
         self.steps += 1
         self.explorer.steps = self.steps
         self.sweep_transition_chains()
+        self.account_webhooks()
         self.ignore_repeats_now()
         self.top_up_accounts_now()
         self.rotate_batch()
@@ -3941,6 +4029,7 @@ class Run:
                 "noticeClosures": self.notice_closures,
                 "operatorQueues": getattr(self, "operator_queues", None),
                 "inFlight": self.in_flight_now(),
+                "webhooks": self.webhook_stats,
             }, handle)
         os.replace(scratch, target)
         # live.html with no ?run= reads current.json, so the plain address always follows the
@@ -4097,6 +4186,7 @@ def main():
     # One last reading of the chains, because a break written by the final trials would otherwise
     # go unread until the next run.
     run.sweep_transition_chains(force=True)
+    run.account_webhooks(final=True)
 
     print()
     print("  {:22} {}".format("oracle violations", len(run.violations)))

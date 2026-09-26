@@ -26,7 +26,7 @@ import sys
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from explorer import config, world
+from explorer import config, webhooks, world
 from explorer.client import BearerClient
 
 BANK_NAME = "Harness Direct Bank"
@@ -303,6 +303,28 @@ def require_cop(platform_uid):
     return required
 
 
+def subscribe_webhooks(ops, platform_uid):
+    """Subscribe the platform to every Direct webhook, for the run's webhook accounting.
+
+    Never fails the standup: two failed standups in a row wipe the stack, and a run without
+    webhooks still explores. A refusal is printed and the run's accounting then finds no
+    subscription and says so.
+    """
+    try:
+        done, refused = webhooks.subscribe(ops, platform_uid)
+        readback = webhooks.subscribed(ops, platform_uid)
+    except Exception as fault:  # noqa: BLE001 - any fault here is logged and skipped
+        print("  SKIP {:44} {}".format("subscribe webhooks", repr(fault)[:300]))
+        return
+    if refused or readback is None or len(readback) != len(webhooks.EVENT_TYPES):
+        print("  SKIP {:44} {} subscribed, {} read back, refused: {}".format(
+            "subscribe webhooks", len(done), "none" if readback is None else len(readback),
+            "; ".join(refused)[:400] or "none"))
+        return
+    print("  ok  {:44} {} event types at {}".format(
+        "subscribe webhooks", len(readback), webhooks.url_for(platform_uid)))
+
+
 def uid_from(body):
     if isinstance(body, str):
         return body.strip('"')
@@ -446,6 +468,7 @@ def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, sh
     hsb.close()
 
     client_id = own_client(platform_uid)
+    subscribe_webhooks(ops, platform_uid)
     # adapter learns banks and platforms only from the partner file core writes every five
     # minutes, and that scheduler is off locally.
     step(ops, "refresh the partner file adapter reads", "POST",

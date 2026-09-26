@@ -175,6 +175,13 @@ def sanity(name, seconds, runs):
         done = len(re.findall(r"^\s+(?:ok|REJ)\s", text, re.M))
         if done and refused / done > 0.6:
             problems.append("{} had {} of {} trials refused".format(run, refused, done))
+        if "webhook accounting is off" in text:
+            problems.append("{} ran without webhook accounting".format(run))
+    capture = HERE / "{}.webhooks.jsonl".format(name)
+    if not capture.exists():
+        problems.append("no webhook reached the receiver")
+    elif '"capture truncated"' in capture.read_text(errors="replace")[-200:]:
+        problems.append("the webhook capture reached its size limit")
     for run, counts in runs.items():
         trials = counts.get("trials") or 0
         if trials and (counts.get("unattributed") or 0) > trials * 0.05:
@@ -243,7 +250,7 @@ def main():
     LENGTH.write_text(str(summary["next"]))
 
     packed = [p for pattern in ("{}-p*.log", "{}-p*.trials.jsonl", "{}.events.jsonl",
-                                "{}.subjects.jsonl",
+                                "{}.subjects.jsonl", "{}.webhooks.jsonl",
                                 "{}.service-errors.log")
               for p in HERE.glob(pattern.format(name))]
     if packed:
