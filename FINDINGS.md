@@ -204,7 +204,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     Locally the drain never ran (scheduling is off and the harness did not call
     `/operations/processor/nominated-account/publish/drain`), which made the window unbounded; the
     harness now calls it on every settle. Databases kept in `archive/finding24-send-loop-db` and
-    `archive/finding24-before-reject-db`.
+    `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments.
 
 25. **A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
     `resolveCounterpart` takes the current nominated account with no verification check, unlike
