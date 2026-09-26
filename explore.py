@@ -2190,7 +2190,10 @@ class Run:
 
     REEMIT_PATH = "/operations/processor/direct/feed/reemit/bank/{}/{}/{}/{}"
     REEMIT_FILE_TYPES = ("CUSTOMER", "ACCOUNT", "PRODUCT")
-    REEMIT_MODES = ("INSERT", "UPDATE")
+    # UPDATE only. An INSERT re-emit of an entity the feed already sent makes the next file carry a
+    # second INSERT for it, which the feed checker rightly flags: fleet 190 reported ACCOUNT
+    # 2c40bb8d "appears again as INSERT" after this action asked for exactly that.
+    REEMIT_MODES = ("UPDATE",)
     REEMIT_ENTRY = {
         "CUSTOMER": ("investec_file_customer_entry", "customer_sid", "platform_customer"),
         "ACCOUNT": ("investec_file_account_entry", "account_sid", "customer_product_account"),
