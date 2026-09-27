@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cycle  # noqa: E402
-from explorer import config, local_auth, longlived, webhooks  # noqa: E402
+from explorer import clock, config, local_auth, longlived, webhooks  # noqa: E402
 
 HERE = cycle.HERE
 FIELDS = ("bankUid", "platformUid", "productUid", "termProductUid", "shortTermProductUid",
@@ -140,7 +140,7 @@ def main():
     events.write_text("")
     if longlived.reuse_enabled():
         # Read by every run of the cycle: the clock, the population and the webhook accounting.
-        os.environ.update({"SIM_LONG_LIVED": "1", "SIM_CYCLE_STARTED": str(time.time()),
+        os.environ.update({"SIM_LONG_LIVED": "1", "SIM_CYCLE_STARTED": str(clock.time()),
                            "SIM_SAVED_COHORT": str(longlived.saved_cohort_path())})
     runs = []
     for index, cohort in enumerate(cohorts):

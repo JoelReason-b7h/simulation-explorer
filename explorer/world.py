@@ -1,7 +1,10 @@
 """The calls a real integrator never makes.
 
-Everything here is a test-stack accommodation. Locally the schedulers are off, so nothing moves
-unless the harness asks; each call below stands in for a cron that would otherwise do the work.
+Everything here is a test-stack accommodation. On the real clock the schedulers are off, so
+nothing moves unless the harness asks; each call below stands in for a cron that would otherwise
+do the work. On a fake clock the schedulers are on (clock.schedulers_run), so each stand-in whose
+cron exists answers without calling and names the scheduler that does the work instead. The
+operator actions stand in for people, not crons, and run either way.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ import subprocess
 import sys
 import uuid
 import fcntl
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
@@ -23,7 +26,13 @@ if str(PERF_ROOT) not in sys.path:
 
 from lib.auth import CognitoUserAuth  # noqa: E402
 
-from explorer import local_auth  # noqa: E402
+from explorer import clock, local_auth  # noqa: E402
+from explorer.client import Call  # noqa: E402
+
+
+def _left_to(path, scheduler):
+    """The answer of a stand-in whose cron runs on its own under the fake clock."""
+    return Call("POST", path, 204, {"message": "not called: {} does this".format(scheduler)}, 0)
 
 DRAIN_TRANSACTIONS = "/operations/hsbc/statement/transactions/process"
 POLL_TRANSACTIONS = "/operations/hsbc/statement/transactions/poll"
@@ -96,7 +105,7 @@ def _next_poll_window():
     answered, because a poll made while clearing was stopped used to consume its window and left
     fleet 183's credit at 14:12:01 unread for good.
     """
-    now = datetime.now(LONDON).replace(microsecond=0)
+    now = clock.london_now().replace(microsecond=0)
     with open(POLL_MARK, "a+") as handle:
         fcntl.flock(handle, fcntl.LOCK_SH)
         handle.seek(0)
@@ -130,12 +139,16 @@ def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIREC
     Crediting the bank alone leaves `account_statement_line` empty, so processing finds nothing and
     every call still returns 200. The corpus polls before it processes.
     """
+    if clock.schedulers_run():
+        # Polls INVESTEC DIRECT too while direct-account-features is on, as the acceptance
+        # profile sets it, every five minutes from 06:00 to 23:55 London.
+        return _left_to(POLL_TRANSACTIONS, "HsbcAccountStatementPollingScheduler")
     start, end, end_at = _next_poll_window()
     call = ops_client.call("POST", POLL_TRANSACTIONS, json_body={
         "connectorType": connector,
         "realAccountType": account_type,
         "internalCurrencyCode": currency,
-        "transactionsDate": transactions_date or date.today().isoformat(),
+        "transactionsDate": transactions_date or clock.today().isoformat(),
         "taxWrapperType": "DEFAULT",
         "transactionTimePeriodRequest": {"transactionTimeFrom": start, "transactionTimeTo": end},
     })
@@ -145,11 +158,20 @@ def poll_bank_transactions(ops_client, connector="INVESTEC", account_type="DIREC
 
 
 def drain_transactions(ops_client):
+    if clock.schedulers_run():
+        return _left_to(DRAIN_TRANSACTIONS, "AccountStatementLineProcessingScheduler, every minute")
     return ops_client.call("POST", DRAIN_TRANSACTIONS)
 
 
 def raise_platform_dues(ops_client, platform_uid):
     """Raises the platform's own payment dues, which is what moves pooled money on to the accounts."""
+    if clock.schedulers_run():
+        # Creating the platform schedules each event from its end of day; PlatformScheduleManager
+        # raises them every minute that one falls due.
+        return [_left_to(PLATFORM_SCHEDULED_TASK.format(platform_uid, event),
+                         "PlatformScheduleManager's {} schedule".format(event))
+                for event in ("DEPOSIT_PAYMENT_DUE", "WITHDRAWAL_PAYMENT_DUE",
+                              "DISTRIBUTION_PAYMENT_DUE")]
     return [
         ops_client.call("POST", PLATFORM_SCHEDULED_TASK.format(platform_uid, event))
         for event in ("DEPOSIT_PAYMENT_DUE", "WITHDRAWAL_PAYMENT_DUE", "DISTRIBUTION_PAYMENT_DUE")
@@ -163,6 +185,9 @@ def advance_business_day(ops_client, bank_uid):
     calls setNextBusinessDate, then realises. So n calls put the cohort n days into logical time
     with no clock movement, which is the only way a run reaches a balance that has earned interest.
     """
+    if clock.schedulers_run():
+        return _left_to(ACCRUE_AND_REALISE.format(bank_uid),
+                        "BankScheduleManager's ACCRUALS_AND_REALISATIONS schedule")
     return ops_client.call("POST", ACCRUE_AND_REALISE.format(bank_uid))
 
 
@@ -198,11 +223,16 @@ def enquire_payment_status(ops_client):
     as sent until this call reads the status back, so nothing downstream of a rejection runs
     without it.
     """
+    if clock.schedulers_run():
+        return _left_to(ENQUIRE_GROUPS, "PaymentLifecycleScheduler.enquireStatus, every 15 minutes")
     return ops_client.call("POST", ENQUIRE_GROUPS)
 
 
 def process_closures(ops_client):
     """Sweeps every account sitting at CLOSING, which is what finishes a close."""
+    if clock.schedulers_run():
+        return _left_to(PROCESS_CLOSURES,
+                        "DirectAccountClosureService, hourly 09:00 to 17:00 Monday to Friday")
     return ops_client.call("POST", PROCESS_CLOSURES)
 
 
@@ -213,6 +243,8 @@ def process_due_notice(ops_client):
     second one, and it locks an account only when that account already reads CLOSING, so a close
     that lands between the two is the case worth racing against it.
     """
+    if clock.schedulers_run():
+        return _left_to(PROCESS_DUE_NOTICE, "DirectNoticeWithdrawalScheduler, 03:00 London")
     return ops_client.call("POST", PROCESS_DUE_NOTICE)
 
 
@@ -307,7 +339,7 @@ def clear_nameless_groups(ops_client, minutes=2):
                         "status": getattr(call, "status", None),
                         "message": (call.body or {}).get("message")
                         if isinstance(getattr(call, "body", None), dict) else None,
-                        "at": datetime.now().isoformat(timespec="seconds")})
+                        "at": clock.local_naive().isoformat(timespec="seconds")})
     if cleared:
         with open(CLEARED_GROUPS_LOG, "a") as handle:
             for row in cleared:
@@ -337,7 +369,7 @@ def approve_duplicate_holds(ops_client, minutes=5):
     for group, amount in rows:
         call = ops_client.call("PUT", APPROVE_GROUP.format(group))
         approved.append({"group": group, "amount": amount, "status": getattr(call, "status", None),
-                         "at": datetime.now().isoformat(timespec="seconds")})
+                         "at": clock.local_naive().isoformat(timespec="seconds")})
     if approved:
         with open(DUPLICATE_HOLDS_LOG, "a") as handle:
             for row in approved:
@@ -371,7 +403,7 @@ def decide_refused_groups(ops_client, minutes=10):
                         "status": getattr(call, "status", None),
                         "message": (call.body or {}).get("message")
                         if isinstance(getattr(call, "body", None), dict) else None,
-                        "at": datetime.now().isoformat(timespec="seconds")})
+                        "at": clock.local_naive().isoformat(timespec="seconds")})
     if decided:
         with open(REFUSED_DECISIONS_LOG, "a") as handle:
             for row in decided:
@@ -397,6 +429,13 @@ def settle_payments(ops_client):
     clear_nameless_groups(ops_client)
     approve_duplicate_holds(ops_client)
     decide_refused_groups(ops_client)
+    if clock.schedulers_run():
+        return [
+            _left_to(DRAIN_NOMINATED_ACCOUNTS, "NominatedAccountPublishingScheduler, every 30s"),
+            _left_to(SETTLE_OUTGOING, "PaymentDueScheduler, every minute"),
+            _left_to(SETTLE_TRANSFERS, "InternalTransferScheduler, every 5 minutes 06:00-23:55"),
+            _left_to(PROCESS_GROUPS, "PaymentLifecycleScheduler, every 2 minutes"),
+        ]
     return [
         # NominatedAccountPublishingScheduler drains this outbox every 30s in a deployed stack and
         # is off locally, so without the call a replaced nominated account on a CoP platform never
@@ -423,6 +462,10 @@ def top_up_preloaded_accounts(ops_client):
     off locally, so a long run emptied it and each opening then failed. The top-up adds at least
     100 accounts only when fewer than 50 are left, so calling it often is cheap.
     """
+    if clock.schedulers_run():
+        # InvestecAccountAutoPreloadScheduler tops up every 10 minutes, and
+        # PreloadedAccountActivationScheduler activates at 05:00 London.
+        return []
     return [ops_client.call("POST", path).status for path in (PRELOAD_TOP_UP, PRELOAD_ACTIVATE)]
 
 

@@ -24,7 +24,7 @@ KEY = Path(os.environ.get("SIM_RESULTS_KEY", Path.home() / ".ssh/simulation_expl
 REMOTE = os.environ.get("SIM_RESULTS_REMOTE", "git@github.com:JoelReason-b7h/simulation-explorer.git")
 BRANCH = "results"
 RUN_KEYS = ("summary", "trialTotals", "violations", "why_counts", "reach", "faults", "journeys",
-            "webhooks", "operatorDecisions", "longLived", "interestOracle")
+            "webhooks", "operatorDecisions", "longLived", "interestOracle", "clock")
 FEED_SAMPLES = 3
 
 
@@ -77,7 +77,8 @@ def digest(name):
         run = json.loads(path.read_text())
         runs[path.stem] = {key: run.get(key) for key in RUN_KEYS}
     mi = HERE / "findings" / "{}-mi.json".format(name)
-    return {"name": name, "progress": progress_line(name), "runs": runs,
+    clock = next((r["clock"] for r in runs.values() if r.get("clock")), None)
+    return {"name": name, "progress": progress_line(name), "runs": runs, "clock": clock,
             "mi": json.loads(mi.read_text()) if mi.exists() else None,
             "feed": feed_digest(name)}
 

@@ -10,7 +10,7 @@ entity_internal_account, because no ops endpoint exposes it.
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 import os
 import shutil
 import time
@@ -21,7 +21,7 @@ import sys
 
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
                       preflight, projector, race, triallog, webhooks, weird, world)
-from explorer import interest_oracle, journeys, longlived
+from explorer import clock, interest_oracle, journeys, longlived
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -417,6 +417,10 @@ class Run:
         statuses = world.top_up_preloaded_accounts(self.ops)
         if any(s >= 400 for s in statuses):
             print("  -- preloaded account top-up answered {}".format(statuses))
+        if clock.schedulers_run() and self.bank_uid:
+            # RunDataFeed marked the sealed files sent before asking for the next feed. On a fake
+            # clock the feed runs on its own schedule, so the mark is kept current here instead.
+            world.mark_feed_files_sent(self.bank_uid)
 
     def take_chain_baseline(self):
         """Remember the breaks that exist before the first action, so the run reports only its own.
@@ -736,7 +740,7 @@ class Run:
         if not self.platform_uid or not product:
             return Call("POST", "ChangePlatformFee", 412, {"message": "no platform product"}, 0)
         raising = not getattr(self, "platform_fee_raised", False)
-        start = date.today() + timedelta(days=self.PLATFORM_FEE_LEAD_DAYS if raising else 0)
+        start = clock.today() + timedelta(days=self.PLATFORM_FEE_LEAD_DAYS if raising else 0)
         proposal = self.ops.call(
             "POST", "/operations/proposals/platforms/{}/platform-products/{}/platform-fee-rate"
             .format(self.platform_uid, product),
@@ -785,14 +789,14 @@ class Run:
         if raising:
             rises = (turn // 2) % self.BANK_RATE_RISES_BEFORE_WRAPPING
             rate = self.BANK_RATE_RISE_FROM + self.BANK_RATE_RISE_STEP * rises
-            start = date.today()
+            start = clock.today()
         else:
             rate = self.BANK_RATE_CUT
-            start = date.today() + timedelta(days=self.BANK_RATE_CUT_LEAD_DAYS + turn // 2)
+            start = clock.today() + timedelta(days=self.BANK_RATE_CUT_LEAD_DAYS + turn // 2)
         proposal = self.ops.call(
             "PUT", "/operations/proposals/banks/{}/products/{}/rates".format(bank_uid, product_uid),
             json_body={"grossRate": str(rate), "startDate": start.isoformat(),
-                       "announcedAt": date.today().isoformat()})
+                       "announcedAt": clock.today().isoformat()})
         if not proposal.ok:
             return proposal
         # The proposal answers with no body, so the approval is found by the product's name, as
@@ -2144,7 +2148,7 @@ class Run:
             return Call("POST", "SetMaturityToNotice", 412, {
                 "message": "the TERM account reads {} with maturity date {}, so it is not "
                            "funded".format(account.get("status"), account.get("maturityDate"))}, 0)
-        today = datetime.now(world.LONDON).date()
+        today = clock.london_now().date()
         if date.fromisoformat(str(account["maturityDate"])[:10]) <= today:
             return Call("POST", "SetMaturityToNotice", 412, {
                 "message": "the account matures on {}, less than a day away".format(
@@ -2224,7 +2228,8 @@ class Run:
                     status, action)}, 0)
         created = str(read.body.get("createdAt") or "")
         try:
-            age = time.time() - datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp()
+            # The system stamped createdAt on its own clock; the allowance is real seconds.
+            age = clock.real_seconds(clock.age_seconds(created))
         except ValueError:
             age = None
         if age is not None and age < self.OFFICER_MIN_AGE_SECONDS:
@@ -2785,7 +2790,7 @@ class Run:
             return Call("POST", "advance-business-day", 412,
                         {"message": "BANK_UID is not set, so no bank can be advanced"}, 0)
         call = world.advance_business_day(self.ops, self.bank_uid)
-        if getattr(call, "ok", False):
+        if getattr(call, "ok", False) and not clock.schedulers_run():
             self.days_advanced += 1
             self.note_in_flight("interest", "an interest accrual and realisation")
         return call
@@ -3804,7 +3809,8 @@ class Run:
 
     def raceable(self, constructible):
         """The actions of this state that may take part in a race."""
-        return [n for n in constructible if n not in actions.NEVER_RACED]
+        return [n for n in constructible
+                if n not in actions.NEVER_RACED and n not in actions.DISABLED]
 
     def race_due(self, constructible, key):
         """Race only after this state has nothing left to try alone, and at most once per four
@@ -4225,6 +4231,9 @@ class Run:
                 "journeys": getattr(self, "journeys", []),
                 "interestOracle": getattr(self, "interest_stats", None),
                 "longLived": self.long.snapshot() if getattr(self, "long", None) else None,
+                # The rate, the fake start and the boundary it was chosen before, so a finding
+                # made on a fake clock can be replayed from the same moment.
+                "clock": clock.describe(),
             }, handle)
         os.replace(scratch, target)
         # live.html with no ?run= reads current.json, so the plain address always follows the

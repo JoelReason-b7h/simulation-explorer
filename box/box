@@ -5,7 +5,9 @@
 #   box sh [command]        a shell on the box, or one command
 #   box sync                copy the harness, the stack files and their inputs; check them
 #   box images              build the ten service images for amd64 and load them on the box
-#   box start|pause|stop    ./harness start|pause|stop on the box, detached from this session
+#   box start|up [rate] [--at "YYYY-MM-DD HH:MM"]
+#                           ./harness start|up on the box, detached, on a fake clock with a rate
+#   box pause|stop          ./harness pause|stop on the box, detached from this session
 #   box logs <service>      the last 100 lines of a container's log
 #   box dump <cycle> [dir]  copy a cycle's database dumps to the Mac (default ~/Downloads)
 #   box install             the dashboard's cron entry and `tailscale serve`
@@ -97,9 +99,11 @@ cmd_images() {
 }
 
 cmd_harness() {
+  # Quoted for the remote shell, so --at "2026-12-31 18:00" arrives as one argument.
+  local args; args=$(printf ' %q' "$@")
   ssh -n -o BatchMode=yes -o ConnectTimeout=10 "$HOST" \
-    "$REMOTE_ENV && setsid nohup ./harness $1 >> harness.out 2>&1 < /dev/null & disown"
-  echo "./harness $1 started on the box; follow it with: box sh tail -f sim/simulation-explorer/harness.log"
+    "$REMOTE_ENV && setsid nohup ./harness$args >> harness.out 2>&1 < /dev/null & disown"
+  echo "./harness$args started on the box; follow it with: box sh tail -f sim/simulation-explorer/harness.log"
 }
 
 cmd_status() {
@@ -138,9 +142,9 @@ case "${1:-}" in
   sh) shift; if [ $# -eq 0 ]; then ssh "$HOST"; else on_box "$@"; fi ;;
   sync) cmd_sync ;;
   images) cmd_images ;;
-  start|pause|stop) cmd_harness "$1" ;;
+  start|up|pause|stop) cmd_harness "$@" ;;
   logs) on_box "docker logs --tail 100 docker-${2:?usage: box logs <service>}-1 2>&1" ;;
   dump) shift; cmd_dump "$@" ;;
   install) cmd_install ;;
-  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

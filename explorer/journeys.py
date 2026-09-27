@@ -22,16 +22,31 @@ from __future__ import annotations
 
 import contextlib
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
-from explorer import fleet, interest_oracle, longlived, race, world
+from explorer import clock, fleet, interest_oracle, longlived, race, world
 from explorer.client import Call
 
 ZERO = Decimal("0")
 SETTLE_ROUNDS = 6
 SETTLE_PAUSE = 3
 DAY_WAIT_SECONDS = 90
+# On a fake clock a journey waits for the 20:00 London accrual only when it is this close.
+ACCRUAL_WAIT_CAP_SECONDS = 300
+ACCRUAL_AT_LONDON = (20, 0)
+
+
+def accrual_wait_seconds():
+    """Real seconds until a minute after the next 20:00 London on the fake clock, or None when
+    that is further off than ACCRUAL_WAIT_CAP_SECONDS."""
+    now = clock.london_now()
+    due = now.replace(hour=ACCRUAL_AT_LONDON[0], minute=ACCRUAL_AT_LONDON[1], second=0,
+                      microsecond=0)
+    if due <= now:
+        due += timedelta(days=1)
+    wait = clock.real_seconds((due - now).total_seconds() + 60) + DAY_WAIT_SECONDS
+    return wait if wait <= ACCRUAL_WAIT_CAP_SECONDS + DAY_WAIT_SECONDS else None
 
 # England bank holidays the maturity date rolls over (BondsmithBankCustomMaturityDateFormula
 # snaps onto NationalHolidayService.getWorkingDayOnOrAfter). Weekends are handled apart.
@@ -338,20 +353,30 @@ class Journey:
             after = interest_oracle.business_date(run.bank_uid)
             self.step("advance the business date", "{} -> {}".format(before, after))
             return bool(moved) or after != before
-        if not fleet.is_member():
+        if not fleet.is_member() and not clock.schedulers_run():
             call = run.advance_business_day()
             after = interest_oracle.business_date(run.bank_uid)
             self.step("advance the business date", "{} {} -> {}".format(
                 getattr(call, "status", None), before, after))
             return getattr(call, "ok", False)
-        deadline = time.monotonic() + DAY_WAIT_SECONDS
+        wait, who = DAY_WAIT_SECONDS, "the conductor"
+        if clock.schedulers_run():
+            # Only the bank's ACCRUALS_AND_REALISATIONS schedule moves the date, at 20:00 London.
+            who = "the accrual job"
+            wait = accrual_wait_seconds()
+            if wait is None:
+                self.step("wait for the accrual job to advance the business date",
+                          "not waited: the next 20:00 London is more than {}s of real time away"
+                          .format(ACCRUAL_WAIT_CAP_SECONDS))
+                return False
+        deadline = time.monotonic() + wait
         after = before
         while time.monotonic() < deadline:
             time.sleep(3)
             after = interest_oracle.business_date(run.bank_uid)
             if after != before:
                 break
-        self.step("wait for the conductor to advance the business date",
+        self.step("wait for {} to advance the business date".format(who),
                   "{} -> {}".format(before, after))
         return after != before
 
@@ -379,7 +404,7 @@ class Journey:
 
 
 def _past_instant():
-    return (datetime.utcnow() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (clock.utcnow_naive() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _conductor_or_keeper(run):
@@ -554,7 +579,7 @@ def term_before_maturity(run):
         return j.refuse("the TERM account did not open")
     call = j.fund([(a_term, Decimal("50.00"))])
     j.step("fund the TERM account with 50.00", call.status)
-    opened_on = datetime.now(world.LONDON).date()
+    opened_on = clock.london_now().date()
     read = j.settle_until(lambda: (lambda a: a if a.get("status") == "OPEN" else None)(
         j.account(a_term["accountId"])))
     if not read:
@@ -712,7 +737,7 @@ def payee_change(run):
             run.settle_world()
 
     def withdraw_to(amount, payee, pair):
-        started = time.time() - 2
+        started = clock.time() - clock.system_seconds(2)
         call = j.instruct(account, "WITHDRAW", amount)
         j.step("withdraw {}".format(amount), call.status)
         if not call.ok:
@@ -932,7 +957,7 @@ def date_flip_under_load(run):
     before = interest_oracle.business_date(run.bank_uid)
     if longlived.keeps_clock(run):
         legs.append(lambda: longlived.clock_for(run).tick(force=True))
-    elif not fleet.is_member():
+    elif not fleet.is_member() and not clock.schedulers_run():
         legs.append(run.advance_business_day)
     results, elapsed = race.fire(legs)
     j.step("race a deposit, a withdrawal{}".format(

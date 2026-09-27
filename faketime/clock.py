@@ -51,10 +51,11 @@ def timeline_path(folder):
     return Path(folder) / "timeline.json"
 
 
-def anchor(folder, spec):
+def anchor(folder, spec, boundary=None):
     start, rate = parse(spec)
     Path(folder).mkdir(parents=True, exist_ok=True)
-    state = {"spec": spec, "fakeStart": start, "realStart": time.time(), "rate": rate}
+    state = {"spec": spec, "fakeStart": start, "realStart": time.time(), "rate": rate,
+             "boundary": boundary}
     timeline_path(folder).write_text(json.dumps(state) + "\n")
     return state
 
@@ -102,7 +103,8 @@ def run(folder, out):
 if __name__ == "__main__":
     command, folder = sys.argv[1], sys.argv[2]
     if command == "anchor":
-        print(anchor(folder, sys.argv[3]))
+        boundary = os.environ.get("SIM_CLOCK_BOUNDARY")
+        print(anchor(folder, sys.argv[3], json.loads(boundary) if boundary else None))
     elif command == "run":
         run(folder, sys.argv[3])
     elif command == "now":

@@ -13,11 +13,16 @@ Use `./harness` for everything. Do not run `scripts/launch_stack`, `local-down.s
 
 ```bash
 ./harness start    # launch the stack, wait for every service, start the fleet loop
-./harness up       # launch the stack and wait for every service; no fleet loop
+./harness start 10 # the same on a fake clock running ten times real time
+./harness start 10 --at "2026-12-31 18:00"   # ...starting at that London time
+./harness up [10]  # launch the stack and wait for every service; no fleet loop
 ./harness status   # containers, the loop's processes, the last cycles, the fake time
 ./harness pause    # stop the loop and leave the stack up; ./harness start resumes it
 ./harness stop     # stop the loop, take the stack down, release the stack lease
 ```
+
+The rate is a plain number. With no rate the stack runs on the real clock, as it always has. The
+start time can also be the second argument: `./harness up 10 "2026-12-31 18:00"`.
 
 `./harness start`:
 
@@ -47,13 +52,61 @@ then removes the fake clock's timeline.
 - `SIM_JOURNEY_SHARE`: the share of a run's time that journeys may use (default 0.3).
 - `SIM_STACK_REPO`: the sim-main checkout (default the Mac path in `exchange.worktrees`).
 - `SIM_AUTH_DIR`: the folder that holds the ops credentials (`local.env`).
-- `SIM_CLOCK`: run the stack on a fake clock, for example `SIM_CLOCK="@2026-10-25 00:00:00 x10"`
-  (the time is UTC; the rate is constant for the whole run). Unset, the stack runs on the real
-  clock and nothing below applies. Change it only with the stack down: `./harness stop` first.
+- `SIM_CLOCK`: the fake clock as libfaketime writes it, for example
+  `SIM_CLOCK="@2026-10-25 00:00:00 x10"` (UTC). `./harness start 10` sets it; set it by hand only
+  to replay an exact start from a cycle's results.
 
 ## The fake clock
 
-With `SIM_CLOCK` set, `stack_patch.py` adds `docker/docker-compose.faketime.yml` to
+One rate for the life of a stack. A rate change does not re-time the waits already running in
+the services, so `./harness start 20` on a stack that is up at x10, or on the real clock, stops
+with a message: `./harness stop`, then start again. A stack that is up keeps its clock, so
+`./harness start` with no rate resumes the loop on it.
+
+### Where a run starts
+
+With a rate and no start time, `faketime/boundaries.py` picks a boundary from this catalogue at
+random, within the next two years, and starts between 30 minutes and 6 hours before it (London
+time unless marked):
+
+- the clocks changing, GMT to BST and BST to GMT (the last Sunday of March and of October, 01:00
+  UTC);
+- London midnight during BST, which is 23:00 UTC;
+- month end: midnight after the last calendar day, and after the last working day when that is
+  earlier;
+- quarter end and year end, into 1 April, 1 July, 1 October and 1 January;
+- Friday 17:00, into the weekend;
+- Christmas Day, Boxing Day, Good Friday and Easter Monday;
+- 29 February 2028 and the 1 March after it;
+- just before a cron the services run daily: 00:00, 01:00, 02:00, 02:30, 03:00, 17:45 (the
+  platform deposit due), 18:00, 20:00 (the harness's accrual schedule) and 23:00.
+
+The rate, the fake start and the boundary go into the timeline, into every run's JSON and the
+cycle summary as `clock`, and into the digest `publish_results.py` pushes, so a finding can be
+replayed with `SIM_CLOCK` from the same moment.
+
+### What the harness does differently
+
+The services' own schedulers do the scheduled work, so the harness's stand-ins for those crons do
+nothing and answer with the scheduler that does it: payment sending, internal transfers, payment
+files and status enquiries, statement polling and processing, platform payment dues, accruals and
+realisations, the Direct feed, RECON and MI, the notice processor, the closure sweep, fee
+withdrawals, the nominated-account outbox, the partner file and the preloaded account pool. The
+driver no longer picks AdvanceBusinessDay, ProcessClosures, ProcessDueNotice or RunDataFeed, and
+the long-lived bank's clock keeper stays off: only the bank's accrual job, at 20:00 London, moves
+the business date. The operator actions (failing nameless payment groups, approving duplicate
+holds, deciding refused groups) and moving a notice due date still run, because they stand in for
+people and for elapsed calendar time, not for crons.
+
+Everything the harness sends to the system or compares with the system's timestamps reads
+`explorer/clock.py`: token `iat` and `exp`, product and rate dates, the statement window, and the
+"older than" windows over the databases. A window that allows the services time to finish work
+in the background is real time, so it grows by the rate on the fake clock. The harness's own
+timings, waits and HTTP timeouts stay on the real clock.
+
+### The stack under the fake clock
+
+`stack_patch.py` adds `docker/docker-compose.faketime.yml` to
 `scripts/launch_stack` and `local-up.sh`, and copies the libraries and `faketime/clock.py` into the
 checkout's `docker/faketime/`. The overlay:
 
@@ -67,9 +120,7 @@ checkout's `docker/faketime/`. The overlay:
 - turns on the schedulers of core, clearing, compliance and adapter, which the acceptance profile
   turns off, so their crons fire on the fake clock.
 
-WireMock and toxiproxy stay on the real clock. The harness's own processes do too, so its tokens
-and its business-date arithmetic are not yet on the fake clock: `./harness up` works, and
-`./harness start` does not yet.
+WireMock and toxiproxy stay on the real clock.
 
 ## Running it on Linux
 
@@ -80,6 +131,7 @@ Drive it from the Mac with `box/box`; run it with no arguments for the list of c
 box/box images    # build the ten images for amd64 and load them on the box
 box/box sync      # copy the harness, the sim-main stack files and their inputs, then check them
 box/box start     # ./harness start on the box, detached
+box/box start 10  # the same on a fake clock; box/box up 10 --at "2026-12-31 18:00" also works
 box/box status    # the dashboard's verdict
 box/box dump fleet12   # copy one cycle's database dumps to ~/Downloads
 ```
@@ -97,6 +149,8 @@ recently used first (`prune_dumps.py`).
   `host.docker.internal` to the host, because Linux Docker does not define that name and the
   services send webhooks and Cognito calls to the harness through it.
 - `caffeinate` and `~/.claude/bin/stack-lock` are used only where they exist.
+- `box/box sync` copies `faketime/` with the rest of the tracked files, and `stack_patch.py` picks
+  the `amd64` libraries by the host's architecture.
 
 ## Dashboard
 

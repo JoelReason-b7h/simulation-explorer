@@ -11,6 +11,8 @@ Each check states what it proves. A check that cannot prove its claim says so ra
 
 from __future__ import annotations
 
+from explorer import clock
+
 
 class NotReady(Exception):
     """The environment cannot support a run. Carries every failed check, not just the first."""
@@ -71,8 +73,14 @@ def check(client, ops, hsb, platform_uid, virtual_iban):
     if not platform_uid:
         failures.append("PLATFORM_UID is not set")
     else:
-        probe = ops.call("POST", "/operations/batch/processor/platform/{}/{}/sync".format(
-            platform_uid, "DEPOSIT_PAYMENT_DUE"))
+        if clock.schedulers_run():
+            # Raising a due by hand would run the platform's DEPOSIT_PAYMENT_DUE out of its
+            # schedule, so the fake clock reads the platform's own account instead.
+            probe = ops.call("GET", "/operations/entity-internal-account/platforms/{}/currency/GBP"
+                             .format(platform_uid))
+        else:
+            probe = ops.call("POST", "/operations/batch/processor/platform/{}/{}/sync".format(
+                platform_uid, "DEPOSIT_PAYMENT_DUE"))
         if not probe.ok:
             failures.append(
                 "the ops endpoint refused PLATFORM_UID {} with {}".format(platform_uid, probe.status))

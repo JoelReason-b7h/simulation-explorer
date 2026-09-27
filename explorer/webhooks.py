@@ -29,6 +29,8 @@ from decimal import Decimal, InvalidOperation
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from explorer import clock
+
 PORT = int(os.environ.get("SIM_WEBHOOK_PORT", "8432"))
 # The services run in docker and reach this machine by this name, as they reach the token server.
 SERVICE_HOST = "host.docker.internal"
@@ -304,8 +306,8 @@ def read_world(client, not_before=None):
     for customer_id in customers:
         # A customer made before `not_before` belongs to an earlier cycle on a long-lived bank,
         # whose deliveries went to that cycle's capture, so its accounts are not read.
-        created = _age_seconds(customers[customer_id].get("createdAt"), time.time())
-        if not_before and created is not None and time.time() - created < not_before:
+        created = _age_seconds(customers[customer_id].get("createdAt"), clock.time())
+        if not_before and created is not None and clock.time() - created < not_before:
             continue
         call = client.call("GET", "/direct/v1/customers/{}/accounts".format(customer_id))
         if not call.ok:
@@ -356,7 +358,9 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
     A transaction younger than `grace_seconds` is left out of the completeness and balance checks,
     because its delivery can still be on the way.
     """
-    now = now or time.time()
+    # The ages are of timestamps the services wrote on their clock; the grace is real seconds.
+    now = now or clock.time()
+    grace_seconds = clock.system_seconds(grace_seconds)
     minted = minted or {}
     findings = []
 

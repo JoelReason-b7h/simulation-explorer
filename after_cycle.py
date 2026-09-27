@@ -21,6 +21,8 @@ import tarfile
 import time
 from pathlib import Path
 
+from explorer import clock
+
 HERE = Path(__file__).resolve().parent
 FINDINGS = HERE / "findings"
 PROGRESS = HERE / "fleet.progress"
@@ -306,7 +308,7 @@ def main():
     cohorts_path = HERE / "{}.cohorts.json".format(name)
     cohorts = json.loads(cohorts_path.read_text()) if cohorts_path.exists() else []
     summary = {"name": name, "at": time.strftime("%Y-%m-%d %H:%M:%S"), "seconds": seconds,
-               "runs": {}}
+               "clock": clock.describe(), "runs": {}}
     new_rules = set()
     for page in sorted(HERE.glob("{}-p*.json".format(name))):
         try:
@@ -341,8 +343,11 @@ def main():
         cleared = subprocess.run([sys.executable, str(HERE / "checks" / "ignore_repeats.py")],
                                  cwd=str(HERE), capture_output=True, text=True, timeout=3000)
         summary["repeatsIgnored"] = (cleared.stdout.strip().splitlines() or ["?"])[-1]
+        # On a fake clock the bank's DIRECT_DATA_FEED and RECON schedules cut the files, so the
+        # check reads what they wrote rather than asking for more.
+        generate = [] if clock.schedulers_run() else ["--generate", "400"]
         summary["feed"] = run_check("direct_feed.py", bank, FINDINGS / "{}-feed.json".format(name),
-                                    "--generate", "400")
+                                    *generate)
         summary["mi"] = run_check("direct_mi.py", bank, FINDINGS / "{}-mi.json".format(name))
         if summary["feed"]["files"] and summary["feed"]["files"].startswith("0 files"):
             summary["sanity"].append("the data feed wrote no files for bank {}".format(bank))

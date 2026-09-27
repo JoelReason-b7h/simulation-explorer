@@ -26,7 +26,7 @@ import sys
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from explorer import config, webhooks, world
+from explorer import clock, config, webhooks, world
 from explorer.client import BearerClient
 
 BANK_NAME = "Harness Direct Bank"
@@ -40,7 +40,7 @@ VIRTUAL_ACCOUNT_REDRAWS = 20
 
 
 def today():
-    return date.today().isoformat()
+    return clock.today().isoformat()
 
 
 def bank_body():
@@ -230,8 +230,14 @@ def schedule_body():
     by the London offset — 20:00 London is 19:00Z under BST and 20:00Z under GMT. It is a datetime
     rather than a date; a plain date is rejected with "Invalid value" on that field. The first
     firing is tomorrow so the schedule cannot race the manual accrual calls that drive a run today.
+    On a fake clock nothing calls the accrual by hand, so it first fires at the next 20:00.
     """
     fire_at = datetime.combine(date.today() + timedelta(days=1), time(20, 0))
+    if clock.enabled():
+        now = clock.london_now().replace(tzinfo=None)
+        fire_at = datetime.combine(now.date(), time(20, 0))
+        if fire_at <= now:
+            fire_at += timedelta(days=1)
     in_utc = fire_at.replace(tzinfo=ZoneInfo("Europe/London")).astimezone(ZoneInfo("UTC"))
     return {
         "scheduledTime": ["20:00:00"],
@@ -494,17 +500,21 @@ def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, sh
 
     client_id = own_client(platform_uid)
     subscribe_webhooks(ops, platform_uid)
-    # adapter learns banks and platforms only from the partner file core writes every five
-    # minutes, and that scheduler is off locally.
-    step(ops, "refresh the partner file adapter reads", "POST",
-         "/operations/processor/partners/refresh")
+    # On a fake clock PartnerDataRefreshProcessor (every 5 minutes) and
+    # InvestecAccountAutoPreloadScheduler (every 10) do both of these on their own.
+    if not clock.schedulers_run():
+        # adapter learns banks and platforms only from the partner file core writes every five
+        # minutes, and that scheduler is off locally.
+        step(ops, "refresh the partner file adapter reads", "POST",
+             "/operations/processor/partners/refresh")
 
-    # Creating the platform records a request in core for its own internal account, left at status
-    # INACTIVE, and clearing gets the PLATFORM account_owner row but no account. The schedulers
-    # that would fill the pool carry a @SchedulerLock and are off locally, so the harness asks.
-    # Without this the whole funding sequence returns 200 at every step and the money never lands.
-    step(ops, "preload the Investec virtual accounts", "POST",
-         "/account/preload/investec/auto-preload")
+        # Creating the platform records a request in core for its own internal account, left at
+        # status INACTIVE, and clearing gets the PLATFORM account_owner row but no account. The
+        # schedulers that would fill the pool carry a @SchedulerLock and are off locally, so the
+        # harness asks. Without this the whole funding sequence returns 200 at every step and the
+        # money never lands.
+        step(ops, "preload the Investec virtual accounts", "POST",
+             "/account/preload/investec/auto-preload")
 
     print()
     print("  cohort ready")
