@@ -25,7 +25,10 @@ from explorer.client import BearerClient  # noqa: E402
 # The checkout whose compose files and launch scripts bring the stack up. The images are built from
 # origin/main, and main's compose and env files differ from this branch's old base, so the stack is
 # launched from a worktree at main that carries the toxiproxy changes the harness needs.
-REPO = Path(os.environ.get("SIM_STACK_REPO", HERE.parents[1]))
+# sim-main, always: the images are built there and only its docker files carry the local-auth
+# settings. Defaulting to this worktree launched a stack whose adapter could not start.
+REPO = Path(os.environ.get("SIM_STACK_REPO",
+                           "/Users/joelreason/IdeaProjects/exchange.worktrees/sim-main"))
 
 
 # The ops credentials live in performance-testing/data/auth, which is gitignored, so this worktree
@@ -197,6 +200,10 @@ def restart_stack():
     if down is not None and down.returncode != 0:
         print(down.stderr[-2000:])
         raise SystemExit("could not bring the stack down")
+    import stack_check
+    wrong = stack_check.checkout_problems(REPO)
+    if wrong:
+        raise SystemExit("refusing to launch from the wrong checkout: {}".format("; ".join(wrong)))
     up = shell("./scripts/launch_stack", timeout=1200)
     if up.returncode != 0:
         print(up.stdout[-3000:])
