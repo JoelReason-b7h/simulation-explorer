@@ -274,6 +274,10 @@ def cumulative(by_date, upto):
 
 def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, out):
     previous = None
+    # Sorted across files, not within each: a late INTEREST row sent after an account closed
+    # otherwise overwrites the closing withdrawal's 0.00 and fails every RECON from then on.
+    transactions = sorted((t for g in files if g.entity == "TRANSACTION" for t in g.rows),
+                          key=lambda t: (day(t.get("ValueDate")), t.get("BookingDateTime", "")))
     for f in recons:
         if not f.rows:
             out.add("RECON carries one row", f.name, "no rows")
@@ -307,12 +311,10 @@ def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, 
                     f.name, "RECON says {}, the ACCOUNT files give {}".format(
                         r.get("TotalAccruedInterest"), want_accrued), r)
         latest = {}
-        for g in files:
-            if g.entity == "TRANSACTION":
-                for t in sorted(g.rows, key=lambda t: (day(t.get("ValueDate")),
-                                                       t.get("BookingDateTime", ""))):
-                    if day(t.get("ValueDate")) <= recon_day:
-                        latest[t["AccountId"]] = money(t.get("UpdatedBalance"))
+        for t in transactions:
+            if day(t.get("ValueDate")) > recon_day:
+                break
+            latest[t["AccountId"]] = money(t.get("UpdatedBalance"))
         balances = sum(latest.values(), Decimal(0)).quantize(PENNY)
         if money(r.get("TotalBalanceAtEndOfDay")) != balances:
             out.add("TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
