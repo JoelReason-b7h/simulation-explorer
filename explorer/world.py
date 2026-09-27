@@ -347,6 +347,40 @@ def approve_duplicate_holds(ops_client, minutes=5):
     return approved
 
 
+DECIDE_REFUSED_GROUP = "/operations/own/payment/management/payment/groups/{}/{}"
+REFUSED_DECISIONS_LOG = Path(__file__).resolve().parent.parent / "refused-group-decisions.jsonl"
+
+
+def decide_refused_groups(ops_client, minutes=10):
+    """Decide payment groups the bank refused, as the operator who finds them would.
+
+    A refusal moves the group to PENDING_APPROVAL with no message, and only the closure
+    injection's own groups had an operator; 39 others waited for good, their withdrawals PENDING.
+    After `minutes` the harness decides each one, alternating APPROVE (clearing resends the
+    payment) and REJECT_FAIL (core fails the withdrawal), so both outcomes are exercised.
+    """
+    rows = _clearing_rows(
+        "SELECT uid FROM payment_group WHERE status = 'PENDING_APPROVAL' "
+        "AND coalesce(message, '') = '' "
+        "AND updated_at < now() - interval '{} minutes' ORDER BY sid LIMIT 50".format(int(minutes)))
+    decided = []
+    for (group,) in rows:
+        decision = "APPROVE" if int(group.replace("-", ""), 16) % 2 == 0 else "REJECT_FAIL"
+        call = ops_client.call("PUT", DECIDE_REFUSED_GROUP.format(group, decision))
+        decided.append({"group": group, "decision": decision,
+                        "status": getattr(call, "status", None),
+                        "message": (call.body or {}).get("message")
+                        if isinstance(getattr(call, "body", None), dict) else None,
+                        "at": datetime.now().isoformat(timespec="seconds")})
+    if decided:
+        with open(REFUSED_DECISIONS_LOG, "a") as handle:
+            for row in decided:
+                handle.write(json.dumps(row) + "\n")
+        print("  decided {} refused payment group(s): {}".format(
+            len(decided), sorted({(r["decision"], r["status"]) for r in decided}, key=str)))
+    return decided
+
+
 def _clearing_rows(sql):
     try:
         done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-v", "ON_ERROR_STOP=1",
@@ -362,6 +396,7 @@ def settle_payments(ops_client):
     """The global sweep. One cohort's call moves every cohort's money, which is why §10's P1 exists."""
     clear_nameless_groups(ops_client)
     approve_duplicate_holds(ops_client)
+    decide_refused_groups(ops_client)
     return [
         # NominatedAccountPublishingScheduler drains this outbox every 30s in a deployed stack and
         # is off locally, so without the call a replaced nominated account on a CoP platform never
