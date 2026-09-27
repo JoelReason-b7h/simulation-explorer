@@ -13,6 +13,19 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    defaults a null status to RJCT. A connection that closes before the bank answers leaves the
    status null, so clearing holds RJCT while the bank paid (ACSC), and a retry pays twice.
    Evidence: cycle 48, payment `PEC000000100000B` (`chain48.json`).
+   The double payment also blocks every later payout from the same customer cash account.
+   The retry's settled DEBIT takes the account's `partner_payment` sum to one payment below
+   zero. The next withdrawal's credit only brings it back to 0.00. Then `AvailableBalanceValidator`
+   rejects that withdrawal's payout, but `insertAggregateUid` has already committed. The
+   per-minute `PaymentDueScheduler` only picks up dues with a NULL `aggregate_uid`, so it never
+   tries the payout again. The due stays EXPECTED and the instruction stays PENDING for good.
+   Fleets 10 and 11 found four of these through the rule "an instruction does not stay PENDING".
+   Cash accounts 26, 27, 136 and 256 are the four accounts whose RJCT payout was retried and
+   paid twice. Account 136: bb4f0777 (`PEC0000001000205`) got RJCT with "Connection closed before
+   response was received", and the bank paid it at 14:05:55. The retry `PEC0000001000289` paid
+   again at 14:17:12, and payout `d25becd6` was rejected at 14:20:22 with "availableAmount = 0.0".
+   Joel: a payout that stays stuck after a failed balance check is already known, so it needs no
+   ticket of its own. SAV-11344 comment 79776 records the harness evidence.
 2. **On hold until it happens again: a PaymentSettled fails with "Could not find instruction for
    payment due".** The account being CLOSING is not the cause. `completeInstructionForPaymentDue`
    (`DirectCustomerInstructionService.java:200-202`) updates only a PENDING instruction linked to
@@ -275,6 +288,13 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   the OPEN ones (realised 2028-11-18 against 2028-11-19), so every close-off misses them. The
   harness advances this bank from two places at once, so a second interest run for the same bank
   may cause the one-day gap; production runs one run per bank. Account `891d326f` is one.
+  Fleet 10 tripped the rule "an account does not stay CLOSING" on INSTANT account `6245916a`,
+  CLOSING for 169 days with no withdrawal instruction. On its bank, about 20 CLOSING INSTANT
+  accounts have realised to 2029-01-20, and many OPEN accounts to 2029-01-21.
+
+- An instruction PENDING behind `PotentialDuplicateGate` is intended. A repeated 1.00 payout to
+  the same nominated account fails the gate and waits for an ops approval, which the harness
+  never gives. Instruction `62134d8f`, payout `94c7c016`, stays SENT.
 
 - A withdrawal booked while its customer is FROZEN is intended when the payout was released
   before the freeze: fleet 185's 0.01 was paid by the bank 1.7 s before the freeze and booked when
