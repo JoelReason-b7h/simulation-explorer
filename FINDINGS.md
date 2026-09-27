@@ -203,7 +203,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     601 and 643; customer `0bb2eb94`: link AWAITING_REVIEW at 16:02:23.192, payout due raised at
     16:02:23.537 to 10799988837491 and SENT.
 
-26. **A funded fixed-term account accepts top-ups through a pooled batch.** SAV-10844 refunds a
+26. **SAV-11701. A funded fixed-term account accepts top-ups through a pooled batch.** SAV-10844 refunds a
     top-up only on the rail path (`DirectTransactionDepositHandler` `:151-160`); the batch path
     (`DirectPlatformAccountHandler.handleExternalCredit` → `DirectSettlementPlan` `:44-68`) and
     `MaxDepositValidator` never check that the TERM is already funded. TERM `8bd7b8e5` booked 50.00
