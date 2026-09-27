@@ -24,6 +24,8 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    paid twice. Account 136: bb4f0777 (`PEC0000001000205`) got RJCT with "Connection closed before
    response was received", and the bank paid it at 14:05:55. The retry `PEC0000001000289` paid
    again at 14:17:12, and payout `d25becd6` was rejected at 14:20:22 with "availableAmount = 0.0".
+   Joel: a payout that stays stuck after a failed balance check is already known, so it needs no
+   ticket of its own. SAV-11344 comment 79776 records the harness evidence.
 2. **On hold until it happens again: a PaymentSettled fails with "Could not find instruction for
    payment due".** The account being CLOSING is not the cause. `completeInstructionForPaymentDue`
    (`DirectCustomerInstructionService.java:200-202`) updates only a PENDING instruction linked to
