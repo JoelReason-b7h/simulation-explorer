@@ -46,6 +46,19 @@ output.
 ## Running it on Linux
 
 The harness also runs on a Linux host with Docker Engine, for example the mini PC on the tailnet.
+Drive it from the Mac with `box/box`; run it with no arguments for the list of commands.
+
+```bash
+box/box images    # build the ten images for amd64 and load them on the box
+box/box sync      # copy the harness, the sim-main stack files and their inputs, then check them
+box/box start     # ./harness start on the box, detached
+box/box status    # the dashboard's verdict
+box/box dump fleet12   # copy one cycle's database dumps to ~/Downloads
+```
+
+`BOX_HOST`, `BOX_STACK_SRC`, `BOX_PERF_SRC` and `BOX_HARNESS_SRC` override where it connects and
+what it copies. The box keeps at most `SIM_DUMP_BUDGET_GB` (default 100) of dumps, removing the least
+recently used first (`prune_dumps.py`).
 
 - Build the images on the Mac for `linux/amd64` and send them with `docker save | ssh <host> docker
   load`. The Dockerfiles only copy JARs, so the build needs no emulation.

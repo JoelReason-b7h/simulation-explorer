@@ -11,6 +11,7 @@ adapter exiting on a missing `core-dmi-adapter` queue.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import time
@@ -37,6 +38,21 @@ def checkout_problems(repo=None):
     jwks = repo / "docker/wiremock/__files/cognito-jwks.json"
     if not jwks.exists() or "simulation-explorer-local" not in jwks.read_text():
         problems.append("the WireMock JWKS lacks the harness key (run local_auth_patch.py)")
+    problems += mount_problems(repo)
+    return problems
+
+
+def mount_problems(repo):
+    """A bind mount whose source is missing makes Docker create a root-owned folder in its place,
+    and a missing permissions.sql then leaves Postgres with no service users."""
+    compose = repo / "docker/docker-compose.yml"
+    problems = []
+    for source in re.findall(r"^\s*-\s*(\.{1,2}/[^:\s]+):", compose.read_text(), re.M):
+        path = (compose.parent / source).resolve()
+        if not path.exists():
+            problems.append("{} mounts {}, which is missing".format(compose.name, path))
+        elif path.suffix and path.is_dir():
+            problems.append("{} is a folder, not a file (remove it and copy the file)".format(path))
     return problems
 
 
