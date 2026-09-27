@@ -12,6 +12,7 @@ agree with core's customers.
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import io
 import json
@@ -228,9 +229,14 @@ def main():
     if recon is None:
         out.add("the MI_RECON file for the date is archived", "MI_RECON_{}.csv".format(day),
                 "not in S3 after generation")
-    flagged = sorted(n for n in paths if n.startswith("FLAGGED_PAYMENTS_"))
-    if flagged:
-        month_end = flagged[-1][len("FLAGGED_PAYMENTS_"):-4]
+    # The monthly reports are the ones generated above, named for the month end of the date. The
+    # long-lived run's clock cuts later-named files at simulated month ends, earlier in the cycle,
+    # so the last name in the archive holds counts that core has since moved past.
+    asked = date.fromisoformat(day)
+    snapped = asked.replace(day=calendar.monthrange(asked.year, asked.month)[1]).isoformat()
+    flagged = "FLAGGED_PAYMENTS_{}.csv".format(snapped)
+    if flagged in paths:
+        month_end = snapped
         month_recon = paths.get("MI_RECON_{}.csv".format(month_end))
         # A report asked for in the middle of a month is snapped to its month end, which has no
         # MI_RECON yet, so the items still open today stand in for the ones open at month end.
@@ -238,10 +244,10 @@ def main():
             month_items = check_recon(month_recon, month_end, direct_feed.Findings())
         else:
             month_items, month_end = recon_items, day
-        check_flagged(paths[flagged[-1]], month_items, month_end, out, young)
-    onboarding = sorted(n for n in paths if n.startswith("ONBOARDING_"))
-    if onboarding:
-        check_onboarding(paths[onboarding[-1]], args.bank_uid, out)
+        check_flagged(paths[flagged], month_items, month_end, out, young)
+    onboarding = "ONBOARDING_{}.csv".format(snapped)
+    if onboarding in paths:
+        check_onboarding(paths[onboarding], args.bank_uid, out)
     print("{} MI files; MI_RECON rows {}".format(
         len(paths), len(recon_items) if recon_items is not None else "none"))
     for item in out.items:
