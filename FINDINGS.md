@@ -226,7 +226,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     it out. The hold withholds only the payout, so a held withdrawal has already moved money that
     the cancel does not put back or book.
 
-29. **A TERM funded between midnight and 01:00 London in summer matures a day early.**
+29. **SAV-11702. A TERM funded between midnight and 01:00 London in summer matures a day early.**
     `DirectTransactionDepositHandler.processOpeningPayment` (`:321`) sets the maturity date when the
     opening payment clears, through `CustomerProductAccountMaturityService.upsertMaturityDate`
     (`:47-49`), whose start date is `timeProvider.getLocalDate()`. `AbstractTimeProvider` (`:16-17`,
