@@ -14,6 +14,7 @@ Use `./harness` for everything. Do not run `scripts/launch_stack`, `local-down.s
 ```bash
 ./harness start    # launch the stack, wait for every service, start the fleet loop
 ./harness status   # containers, the loop's processes, the last cycles
+./harness pause    # stop the loop and leave the stack up; ./harness start resumes it
 ./harness stop     # stop the loop, take the stack down, release the stack lease
 ```
 

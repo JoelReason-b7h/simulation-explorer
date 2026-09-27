@@ -2,6 +2,7 @@
 # The only way to start, stop or inspect the harness and its stack.
 #
 #   ./harness start    launch the stack from sim-main, wait for every service, start the loop
+#   ./harness pause    stop the loop and leave the stack up; ./harness start resumes it
 #   ./harness stop     stop the loop, take the stack down, release the stack lease
 #   ./harness status   the containers, the loop, and the latest cycles
 #
@@ -41,12 +42,21 @@ print(max(nums) + 1 if nums else 1)" 2>/dev/null || echo 1)
   say "the loop is running from fleet$n (pids $(loop_pids | tr '\n' ' '))"
 }
 
-stop() {
+halt_loop() {
   touch stop.fleet
   pkill -f "fleet_loop.running.sh|fleet_loop.sh|fleet_cycle.py|explore.py|after_cycle.py"
   sleep 2
   [ -z "$(pgrep -f 'fleet_loop|fleet_cycle.py|explore.py|after_cycle.py')" ] \
     || { say "harness processes are still running"; exit 1; }
+}
+
+pause() {
+  halt_loop
+  say "the loop is paused; the stack is still up (./harness start resumes)"
+}
+
+stop() {
+  halt_loop
   say "the harness is stopped; taking the stack down"
   (cd "$SIM_STACK_REPO" && timeout 600 ./local-down.sh >> "$OLDPWD/$LOG" 2>&1)
   [ -z "$(docker ps -q --filter name=docker-)" ] || { say "containers are still running"; exit 1; }
@@ -70,7 +80,8 @@ EOF
 
 case "$1" in
   start) start ;;
+  pause) pause ;;
   stop) stop ;;
   status) status ;;
-  *) echo "usage: ./harness start|stop|status   (README.md describes each step)"; exit 2 ;;
+  *) echo "usage: ./harness start|pause|stop|status   (README.md describes each step)"; exit 2 ;;
 esac
