@@ -96,19 +96,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    hourly runs between, which is how it meets the second prerequisite without an outage.
    Walkthrough video: `~/tools/feed-stall-video/out/feed-stall.mp4`.
 
-11. **Clearing's integrity check fails for about a second after every statement line is
-    published.** `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT`
-    (`ClearingIntegrityCheckReplicaRepository.java:24-30`) has no grace period, while the
-    `partner_payment` row is written by the relay consumer 0.3 s (median) to 2 s (p99) after the
-    publish commits. The harness runs the check straight after funding, so it lands in that gap:
-    5 failed runs of 82 since the last wipe, each followed by a pass, and 0 lines unlinked now.
-    `56f8686a` was one such row that fleet 4 read again from fleet 3. In prod the check alerts only
-    after 4 failures in a row, so this is noise. Low; a grace window like the dropped-deposit
-    check's would remove it. Two lasting paths exist in the code and were not seen: a publish
-    whose relay message throws after the line is marked PUBLISHED
-    (`AccountStatementLinePublisher.java:61-65` swallows it), and a relay processor that only
-    logs an unknown account.
-
 12. **A NOTICE closure whose payout is refused and failed stays CLOSING for good, still
     showing the balance.** After the bank rejects the payout and ops choose REJECT_FAIL,
     `InstructionFailureService.handleDirectPaymentFailure` cancels the instruction (`:166`) and
@@ -358,6 +345,15 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   core logs the error with an empty `traceId`, so support cannot link a platform's call to the log;
   that comes from `GlobalExceptionHandler` (`b7h.libs.micronaut`) and affects every unexpected 500.
   Box fleet1 p3 trial 182, under the harness's cut of core's calls to clearing.
+- Clearing's `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT` check
+  (`ClearingIntegrityCheckReplicaRepository.java:24-30`) fails for about a second after a statement
+  line is published, because the relay consumer writes the `partner_payment` row 0.3 s (median) to
+  2 s (p99) later and the check has no grace period. The harness runs it straight after funding,
+  so it lands in that gap: 5 of 82 runs on the Mac, and once each in box fleets 7 and 8, every one
+  followed by a pass. Production alerts only after 4 failures in a row, so it never alerts.
+  Joel: move to holding. Two paths would leave a line unlinked for good, from the code and never
+  seen: `AccountStatementLinePublisher.java:61-65` swallows a relay send error after the line is
+  marked PUBLISHED, and the relay processor only logs an unknown account.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
