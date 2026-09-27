@@ -1,0 +1,146 @@
+#!/bin/bash
+# Every interaction with the Linux host that runs the harness, from the Mac.
+#
+#   box status              the dashboard's verdict and problems
+#   box sh [command]        a shell on the box, or one command
+#   box sync                copy the harness, the stack files and their inputs; check them
+#   box images              build the ten service images for amd64 and load them on the box
+#   box start|pause|stop    ./harness start|pause|stop on the box, detached from this session
+#   box logs <service>      the last 100 lines of a container's log
+#   box dump <cycle> [dir]  copy a cycle's database dumps to the Mac (default ~/Downloads)
+#   box install             the dashboard's cron entry and `tailscale serve`
+#
+# Copies use tar over ssh: macOS's openrsync exits 0 without copying multi-source or --files-from
+# transfers. Remote processes are stopped by the harness script, never by a pkill in an ssh
+# command line, which matches the ssh command itself.
+set -euo pipefail
+
+HOST=${BOX_HOST:-joel@192.168.0.39}
+HARNESS_SRC=${BOX_HARNESS_SRC:-$(cd "$(dirname "$0")/.." && pwd)}
+STACK_SRC=${BOX_STACK_SRC:-$HOME/IdeaProjects/exchange.worktrees/sim-main}
+PERF_SRC=${BOX_PERF_SRC:-$HOME/IdeaProjects/exchange.worktrees/sim-harness-design/tools/performance-testing}
+SPEC=IdeaProjects/api-docs-portal/specs/openapi-v1.yml
+AUTH=IdeaProjects/exchange/tools/performance-testing/data/auth/local.env
+SERVICES=(
+  "savings-exchange-core apps/savings-exchange/core"
+  "savings-exchange-adapter apps/savings-exchange/adapter"
+  "savings-exchange-clearing apps/savings-exchange/clearing"
+  "savings-exchange-hot-sauce-bank apps/savings-exchange/fakes/hot-sauce-bank"
+  "savings-exchange-api-ops apps/savings-exchange/api/ops-api"
+  "savings-exchange-api-compliance apps/savings-exchange/api/compliance-api"
+  "savings-exchange-api-public apps/savings-exchange/api/public-api"
+  "savings-exchange-simulator-api apps/savings-exchange/api/simulator-api"
+  "forge-compliance apps/forge/compliance"
+  "forge-notification apps/forge/notification"
+)
+# The AWS CLI is installed in ~/.local (Ubuntu 24.04 has no apt package), and a non-interactive
+# ssh session does not read ~/.profile, so ~/.local/bin is added here.
+REMOTE_ENV='export PATH=$HOME/.local/bin:$PATH SIM_STACK_REPO=$HOME/sim/sim-main; cd ~/sim/simulation-explorer'
+TOOLS="docker psql pg_dump aws git curl tar"
+
+on_box() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+
+# tar <source dir> <remote dir> <paths...>: paths relative to the source dir.
+send() {
+  local src=$1 dest=$2; shift 2
+  (cd "$src" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - "$@") \
+    | on_box "mkdir -p $dest && tar -xf - -C $dest"
+}
+
+check_files() {
+  local missing
+  missing=$(on_box "cd ~ && for f in $*; do [ -f \"\$f\" ] || echo \"\$f\"; done")
+  if [ -n "$missing" ]; then echo "missing on the box:"; echo "$missing"; exit 1; fi
+}
+
+cmd_sync() {
+  echo "harness from $HARNESS_SRC"
+  local files; files=$(git -C "$HARNESS_SRC" ls-files)
+  # shellcheck disable=SC2086
+  send "$HARNESS_SRC" sim/simulation-explorer $files
+  echo "stack files from $STACK_SRC"
+  local root; root=$(cd "$STACK_SRC" && git ls-files | grep -v / )
+  # shellcheck disable=SC2086
+  send "$STACK_SRC" sim/sim-main docker scripts $root
+  echo "performance-testing lib and envs from $PERF_SRC"
+  send "$PERF_SRC" sim/performance-testing lib envs
+  send "$HOME" . "$SPEC" "$AUTH"
+  on_box "chmod 600 ~/$AUTH"
+  check_files sim/sim-main/permissions.sql sim/sim-main/scripts/launch_stack \
+    sim/sim-main/docker/docker-compose.yml sim/simulation-explorer/harness \
+    sim/simulation-explorer/dashboard/dash.py sim/performance-testing/lib/auth.py "$SPEC" "$AUTH"
+  local absent
+  absent=$(on_box "$REMOTE_ENV; for t in $TOOLS; do command -v \$t > /dev/null || echo \$t; done")
+  if [ -n "$absent" ]; then echo "missing tools on the box: $absent"; exit 1; fi
+  on_box "$REMOTE_ENV && python3 stack_patch.py \$SIM_STACK_REPO && python3 stack_check.py checkout"
+}
+
+cmd_images() {
+  local tasks=() imgs=() pair name dir
+  for pair in "${SERVICES[@]}"; do
+    read -r name dir <<< "$pair"
+    tasks+=(":${dir//\//:}:assemble" ":${dir//\//:}:dockerfile")
+  done
+  (cd "$STACK_SRC" && timeout 15m ./gradlew "${tasks[@]}" -x test -x integrationTest \
+    --no-configuration-cache -q)
+  for pair in "${SERVICES[@]}"; do
+    read -r name dir <<< "$pair"
+    docker buildx build --platform linux/amd64 --load -q \
+      -t "simharness-amd64/$name:latest" "$STACK_SRC/$dir/build/docker/main" > /dev/null
+    imgs+=("simharness-amd64/$name:latest")
+    echo "built $name"
+  done
+  docker save "${imgs[@]}" | on_box docker load
+  on_box 'for i in $(docker image ls --format "{{.Repository}}" | grep ^simharness-amd64/); do
+            docker tag "$i:latest" "simharness/${i#simharness-amd64/}:latest"; done'
+  echo "images loaded; the next launch uses them"
+}
+
+cmd_harness() {
+  ssh -n -o BatchMode=yes -o ConnectTimeout=10 "$HOST" \
+    "$REMOTE_ENV && setsid nohup ./harness $1 >> harness.out 2>&1 < /dev/null & disown"
+  echo "./harness $1 started on the box; follow it with: box sh tail -f sim/simulation-explorer/harness.log"
+}
+
+cmd_status() {
+  on_box 'curl -s --max-time 30 http://127.0.0.1:8440/api/status' | python3 -c '
+import json, sys
+s = json.load(sys.stdin)
+print(s["verdict"].upper(), s["checkedAt"])
+for p in s["problems"]:
+    print(" -", p)
+h = s["harness"]
+if h.get("current"):
+    c = h["current"]
+    print("cycle", c["name"], "{}s of {}s".format(c["elapsed"], c["seconds"]))
+for r in h.get("recent", [])[:3]:
+    print(r["name"], r["at"], "trials", r["trials"], "violations", r["violations"], "exit", r["exit"])'
+}
+
+cmd_dump() {
+  local cycle=${1:?usage: box dump <cycle> [dir]} dest=${2:-$HOME/Downloads}
+  mkdir -p "$dest"
+  on_box "cd ~/sim/simulation-explorer/archive && tar -cf - $cycle-db" | tar -xf - -C "$dest"
+  echo "$dest/$cycle-db"
+}
+
+cmd_install() {
+  local run='$HOME/sim/simulation-explorer/dashboard/run.sh'
+  on_box "chmod +x ~/sim/simulation-explorer/dashboard/run.sh
+    (crontab -l 2>/dev/null | grep -v harness-dash | grep -v dashboard/run.sh
+     echo \"@reboot $run\"; echo \"* * * * * $run\") | crontab -
+    old=\$(pgrep -f '[h]arness-dash/dash.py' || true); [ -n \"\$old\" ] && kill \$old
+    $run; tailscale serve --bg 8440 > /dev/null; crontab -l; tailscale serve status"
+}
+
+case "${1:-}" in
+  status) cmd_status ;;
+  sh) shift; if [ $# -eq 0 ]; then ssh "$HOST"; else on_box "$@"; fi ;;
+  sync) cmd_sync ;;
+  images) cmd_images ;;
+  start|pause|stop) cmd_harness "$1" ;;
+  logs) on_box "docker logs --tail 100 docker-${2:?usage: box logs <service>}-1 2>&1" ;;
+  dump) shift; cmd_dump "$@" ;;
+  install) cmd_install ;;
+  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

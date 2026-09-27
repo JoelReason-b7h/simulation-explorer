@@ -20,6 +20,8 @@ LOCK=~/.claude/bin/stack-lock
 export SIM_STACK_REPO=${SIM_STACK_REPO:-/Users/joelreason/IdeaProjects/exchange.worktrees/sim-main}
 export SIM_POOL_LIVE=${SIM_POOL_LIVE:-20}
 PLATFORMS=${FLEET_PLATFORMS:-4}
+AWAKE=()
+command -v caffeinate > /dev/null && AWAKE=(caffeinate -i -s)
 n=${1:-1}
 rm -f stop.fleet
 "$LOCK" mutate > /dev/null 2>&1
@@ -30,9 +32,11 @@ while [ ! -f stop.fleet ]; do
   name="fleet$n"
   SECONDS_PER_CYCLE=$(cat fleet.seconds 2>/dev/null || echo 900)
   echo "{\"name\": \"$name\", \"started\": \"$(date '+%Y-%m-%d %H:%M:%S')\", \"seconds\": $SECONDS_PER_CYCLE}" >> fleet.progress
-  caffeinate -i -s python3 -u fleet_cycle.py "$SECONDS_PER_CYCLE" "$name" "$PLATFORMS" > "$name.cycle.log" 2>&1
+  "${AWAKE[@]}" python3 -u fleet_cycle.py "$SECONDS_PER_CYCLE" "$name" "$PLATFORMS" > "$name.cycle.log" 2>&1
   echo "CYCLE_EXIT $?" >> "$name.cycle.log"
   python3 -u after_cycle.py "$name" >> "$name.cycle.log" 2>&1
+  python3 -u prune_dumps.py >> "$name.cycle.log" 2>&1
+  python3 -u publish_results.py "$name" >> "$name.cycle.log" 2>&1
   n=$((n + 1))
 done
 kill "$KEEP" 2>/dev/null

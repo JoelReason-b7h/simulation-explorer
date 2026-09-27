@@ -9,43 +9,35 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 
 ## Open
 
-1. **A payment with no status from the bank is recorded as rejected.** `ClearinghouseHsbcPaymentService.java:85`
+1. **A payment with no status from the bank is recorded as rejected.** SAV-11344. `ClearinghouseHsbcPaymentService.java:85`
    defaults a null status to RJCT. A connection that closes before the bank answers leaves the
    status null, so clearing holds RJCT while the bank paid (ACSC), and a retry pays twice.
    Evidence: cycle 48, payment `PEC000000100000B` (`chain48.json`).
-2. **PaymentSettled on a CLOSING account fails with "Could not find instruction for payment due".**
-   `DirectCustomerInstructionService.java:202`. The message retries until the dead-letter queue.
-   Near SAV-11636, and a separate defect. Evidence: cycle 48, `060b83a9` (`chain48.json`).
-   Again in fleet 5: PaymentSettled for account `71cc626a`, CLOSING, went to the DLQ after 13
-   deliveries (`fleet5-p0.json`, stack in `archive/fleet5.tgz`).
-   Fleet 10 shows the other face of it: `PaymentInformationSqsConsumer` fails with "Unable to find
-   direct accounts for payment dues" from `PaymentDueDirectCustomerAccountService.
-   fetchAccountsForPaymentDues` (`:193`), 8 deliveries each for dues `e1782ca9` and `a145407e`. The
-   method throws when any due in the message has no Direct account with an instruction, while its
-   neighbour around `:181` logs the missing dues and settles the rest, so one unresolvable due
-   dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`. Fleet 12
-   traced where such dues come from: finding 15.
-4. **Core opens, funds and closes a Direct account that clearing never created, then leaves its
-   money on the CLOSED account.** Core asks clearing for the account asynchronously at opening
-   (`DirectCustomerAccountOrchestrator.java:81-82`) and never checks that clearing made it. In
-   cycle 48 the INVESTEC GBP DIRECT preloaded pool had 0 AVAILABLE rows, so clearing's
-   `AccountRequested` handler threw and dead-lettered. The account still opened and took 3.00,
-   because Direct funding moves money to the bank's virtual account and never touches the missing
-   account. `closeAndDrainInternalAccount` succeeds on an unknown account (the lock, the balance
-   read and the soft close all no-op), so CLOSING commits. The closure sweep has no balance or
-   clearing check (`DirectCustomerAccountRepository.java:119-130`), `closeAccount` writes CLOSED
-   first, and the payout `TransferExpectation` names the missing account, so clearing throws "No
-   account found" and dead-letters it after 13 deliveries. Nothing in core notices. No injected
-   fault was live at any step. It can happen in a deployed environment whenever the pool runs dry,
-   and the INVESTEC auto-preloader is off by default in prod. The code path is unchanged on
-   `origin/main`. Evidence: `chain48.json` violations 20 and 21, account `4f41bd4e`, due `ec7ec4d8`.
-   The harness now keeps the pool full, so it only reaches this on purpose.
-
+2. **On hold until it happens again: a PaymentSettled fails with "Could not find instruction for
+   payment due".** The account being CLOSING is not the cause. `completeInstructionForPaymentDue`
+   (`DirectCustomerInstructionService.java:200-202`) updates only a PENDING instruction linked to
+   the due, so it throws when the due has no linked instruction (the closure drain, finding 15,
+   SAV-11694) or when the linked instruction is no longer PENDING, for example cancelled by the
+   closure before its payout settled (near SAV-11636). The message retries until the dead-letter
+   queue. Cycle 48 (`060b83a9`, `chain48.json`) and fleet 5 (account `71cc626a`) cannot say which:
+   the harness kept only 300 characters of each dead letter, cut before the payment due, neither
+   archive holds the stack, and no database dump exists for either. The harness now keeps the whole
+   message, and the box keeps each cycle's service-error log and dump, so the next occurrence can
+   be traced. Box fleets 1 to 10 have not produced it.
+   The fleet 10 part first filed here, "Unable to find direct accounts for payment dues" from
+   `PaymentDueDirectCustomerAccountService.fetchAccountsForPaymentDues` (`:193`), is finding 15
+   (SAV-11694); the box has reproduced it in fleets 3, 5, 6 and 9.
 6. **A CLOSED customer moves back to ACTIVATED through a KYC status change.** SAV-11534 part 2.
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
 
 7. **Clearing inserts a bank entry again on every poll that reads it, and never deduplicates the
-   copies it cannot allocate.** `AccountStatementLineRepository.insertAccountStatementLine`
+   copies it cannot allocate.** PROD-3976, whose fix is tracked in SAV-11009 (In Development).
+   PROD-3976 was moved to Done on 2026-09-03 when it was linked as "implemented by SAV-11009", not
+   when a fix landed: no commit on `origin/main` names it, and the code below is unchanged since
+   SAV-11011. PROD-3976 saw it in production: one 1,737.00 credit was allocated from its camt.054,
+   then reached the exceptions queue from both the camt.052 intraday report and the camt.053
+   end-of-day report. Its fix, still to be done in SAV-11009: add `EndToEndId` to the duplicate key
+   before the servicer reference, and compare against EXCEPTION rows as well. `AccountStatementLineRepository.insertAccountStatementLine`
    (`AccountStatementLineRepository.java:60-104`) is a plain INSERT with no `ON CONFLICT`, and
    `account_statement_line` has no unique key on any bank identifier. The only duplicate check is
    in `FallbackHandler.handle`: a line that cannot be enriched goes to EXCEPTION at
@@ -57,58 +49,55 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    entry in 16 minutes, and MI_RECON listed 5815 items. hot-sauce-bank held each entry once.
    Reach in a deployed environment: the scheduler polls each period once, so the copies need a
    period read twice: a retry after a failed poll, a manual ops poll, or an end-of-day statement
-   over entries the intraday polls already read. The last is not yet shown.
+   over entries the intraday polls already read, which PROD-3976 shows happening in production.
    Evidence: `findings/fleet2-mi.json`, and the rows in clearing until the next wipe.
 
-8. **A day with only interest can stop a bank's Direct feed for good, once a RECON has sealed.**
-   From reading the code, not yet run. The feed date comes from `minOpenTransactionValueDate`
-   (`InvestecFileRepository.java:207-233`). SAV-10950 (#11942) stops INTEREST rows choosing that
-   date until a file has `sent_at` after the last date flip, whatever date the INTEREST row is on;
-   SAV-10940 and SAV-10950 fixed the neighbouring cases, and SAV-10950's criteria assume no open
-   row is dated T. The stall: RECON misses its daily slot, so the watermark W falls a day behind;
-   day W+1 holds only interest, still unshipped; a deposit dated W+2 exists before the next run.
-   Every run then picks W+2 and holds (`DirectDataFeedService.java:160`), so no file is written,
-   so no file gets `sent_at` after the flip, so the INTEREST gate stays shut, and RECON for W+1
-   waits on that interest, so W never moves. All four files stop and nothing recovers it. The
-   harness marking files sent does not help, because a held run writes nothing to mark.
-   Reproduced in CI without a missed RECON: PR #12453, run 36232970688. With RECON sealed for
-   2026-04-06, the 2026-04-07 interest unshipped and a deposit settled on 2026-04-08, core logged
-   "Holding DirectDataFeed ... business date 2026-04-08 exceeds watermark 2026-04-06 + 1 day" and
-   the latest TRANSACTION file stayed on 2026-04-06.
+8. **After a day with no feed file, one deposit can stop a bank's Direct feed for good.** Low: it
+   needs an earlier day-long feed or RECON failure, but once it starts nothing recovers it.
+   How the date is chosen: each `DirectDataFeedService` run sends one business date, the oldest
+   open value date from `minOpenTransactionValueDate` (`InvestecFileRepository.java:207-233`), or
+   the watermark + 1 when nothing is open. INTEREST is left out of that choice until a non-RECON
+   file has `sent_at` after the bank's business date last moved (SAV-10950), because the nightly
+   realisation is booked with the new live date. A run whose date is more than one day past the
+   watermark (the last sealed RECON) holds and writes nothing (`DirectDataFeedService.java:160`).
+   RECON seals a date only when no transaction dated up to it is unsent
+   (`findAnyUnsealedTransactionValueDatedInWindow`). RECON never sends a feed file.
 
-10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
-    account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
-    error handling on the path from `DirectCustomerAccountService.cancelDirectCustomerAccount`
-    (`:144`), so a cut or a timeout becomes a bare 500 with no logref rather than an answer the
-    platform can retry on. fleet 4 p0 trial 168 had the cut from core to clearing in force; two
-    more (fleet 3 p3, fleet 4 p1) had no fault recorded. Evidence: `fleet4-p0.json`.
-    CloseAccount does the same under the same cut (fleet 5 p0, `fleet5-p0.json`).
-11. **Clearing's integrity check fails for about a second after every statement line is
-    published.** `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT`
-    (`ClearingIntegrityCheckReplicaRepository.java:24-30`) has no grace period, while the
-    `partner_payment` row is written by the relay consumer 0.3 s (median) to 2 s (p99) after the
-    publish commits. The harness runs the check straight after funding, so it lands in that gap:
-    5 failed runs of 82 since the last wipe, each followed by a pass, and 0 lines unlinked now.
-    `56f8686a` was one such row that fleet 4 read again from fleet 3. In prod the check alerts only
-    after 4 failures in a row, so this is noise. Low; a grace window like the dropped-deposit
-    check's would remove it. Two lasting paths exist in the code and were not seen: a publish
-    whose relay message throws after the line is marked PUBLISHED
-    (`AccountStatementLinePublisher.java:61-65` swallows it), and a relay processor that only
-    logs an unknown account.
+   Prerequisites, all of them, around the midnight when the date moves from D to D+1:
+   - Day D holds only interest: no deposit or withdrawal dated D is unsent at the first feed run
+     after midnight. Any such row would make that run pick D and close it.
+   - D's interest is still unsent at midnight. It can only go out once RECON has sealed D-1, so
+     this needs no feed file sent between RECON sealing D-1 and midnight: the feed is down for
+     the rest of day D, or RECON for D-1 seals only after midnight (for example because
+     `interestProcessingIncomplete` skipped it while the accrual run was RUNNING or FAILED). On
+     the hourly schedule (`V20260521092320__SAV-10151_backfill_dm_data_feed_schedule.sql`,
+     00:00 to 23:00) that is about 23 runs in a row sending nothing.
+   - A deposit or withdrawal dated D+1 settles after the accrual run moves the date and before the
+     first feed run after it. Without it, that run falls back to watermark + 1 = D and sends D.
 
-12. **A NOTICE closure whose payout is refused and failed stays CLOSING for good, still
-    showing the balance.** After the bank rejects the payout and ops choose REJECT_FAIL,
-    `InstructionFailureService.handleDirectPaymentFailure` cancels the instruction (`:166`) and
-    logs ERROR "closure cannot finalise until it is paid out manually" (`:191-196`). The closure
-    sweep needs a zero balance for NOTICE (`DirectCustomerAccountRepository.java:127`), a CLOSING
-    account takes no new instruction, and nothing raises a new payout. From reading the code, with
-    a deterministic scenario drafted; not yet run. With finding 1 upstream, the bank has paid,
-    core keeps the balance, and a manual payout pays twice. The fleet 3 and 4 cases first filed
-    here were a harness fault: the harness never brought the closure's notice withdrawal due, so
-    no payout was raised. Fixed in `finalise_the_closure`.
+   What follows: the first run after midnight leaves both days' interest out, picks D+1 from the
+   deposit, and holds because D+1 is two days past the watermark (D-1). It writes no file, so no
+   file has `sent_at` after the date moved, so every later run makes the same choice and holds.
+   RECON for D skips because D's interest is unsent, so the watermark never moves. All four files
+   stop for that bank. No ops endpoint recovers it: `reemitDirectFeedEntry` covers only CUSTOMER,
+   ACCOUNT and PRODUCT entries, and a held run plans no file anyway.
+
+   Fix: keep INTEREST in the date choice when it is dated no later than watermark + 1, which is
+   the day being closed and so can never jump the run ahead. Add `OR at.value_date <= ?:watermark
+   + 1` beside the `EXISTS` in `minOpenTransactionValueDate`. The nightly realisation, dated the
+   live date, is still left out on the first run after the date moves, and a stuck bank recovers
+   on its first run after deploy.
+
+   Evidence: PR #12453 adds the scenario "A deposit on the live date does not stop the feed closing
+   the unshipped day before it" (`direct_data_feed_recon_hold.feature:110`) and no production
+   code. CI run 36232970688 failed on it alone: with RECON sealed for 2026-04-06, the 2026-04-07
+   interest unsent and a deposit settled on 2026-04-08, the latest TRANSACTION file stayed on
+   2026-04-06 where 2026-04-07 was expected. The scenario moves the clock a day at a time with no
+   hourly runs between, which is how it meets the second prerequisite without an outage.
+   Walkthrough video: `~/tools/feed-stall-video/out/feed-stall.mp4`.
 
 15. **Closing a Direct account with cash on its internal account dead-letters the drain's
-    settlement, so core never books it.** `DirectAccountClosureOperations.requestAccountClosure`
+    settlement, so core never books it.** SAV-11694. `DirectAccountClosureOperations.requestAccountClosure`
     calls clearing's `closeAndDrainInternalAccount` (`DirectAccountClosureOperations.java:126`,
     call at `:142`) for INSTANT and NOTICE. When the account holds withdrawable cash,
     `InternalAccountCreationService.closeAndDrainInternalAccount` (`:74-96`) creates the payout
@@ -159,7 +148,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     its text mutation replaces the first text field it finds, which here was `accountName`.
 
 18. **A redelivered PaymentExpectation re-aggregates a due already stored, and the trigger
-    stops it with an ERROR.** `PaymentExpectationAction.process` (`:78-82`) calls
+    stops it with an ERROR.** SAV-11684. `PaymentExpectationAction.process` (`:78-82`) calls
     `insertExternalPaymentDue`, which treats a duplicate uid as a no-op (SAV-9995), then aggregates
     anyway from the message, with no aggregate (`:92-96`). The second aggregation mints a new
     aggregate uid and `prevent_aggregate_uid_update` rejects it: "Cannot change value of
@@ -179,7 +168,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
 
 22. **A redelivered TransferExpectation fails on the payment due's unique key and retries to the
-    dead-letter queue.** `PartnerPaymentDueRepository.insertInternalPaymentDue` (`:129-212`) has no
+    dead-letter queue.** SAV-11684. `PartnerPaymentDueRepository.insertInternalPaymentDue` (`:129-212`) has no
     `ON CONFLICT (uid) DO NOTHING`, unlike `insertExternalPaymentDue` (`:125`, SAV-9995), so the
     second delivery of the same expectation throws `duplicate key value violates unique
     constraint "partner_payment_due_uid_key"`, `PaymentExpectationConsumer` fails the message, and
@@ -214,14 +203,19 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     601 and 643; customer `0bb2eb94`: link AWAITING_REVIEW at 16:02:23.192, payout due raised at
     16:02:23.537 to 10799988837491 and SENT.
 
-26. **A funded fixed-term account accepts top-ups through a pooled batch.** SAV-10844 refunds a
+26. **SAV-11701. A funded fixed-term account accepts top-ups through a pooled batch.** SAV-10844 refunds a
     top-up only on the rail path (`DirectTransactionDepositHandler` `:151-160`); the batch path
     (`DirectPlatformAccountHandler.handleExternalCredit` → `DirectSettlementPlan` `:44-68`) and
     `MaxDepositValidator` never check that the TERM is already funded. TERM `8bd7b8e5` booked 50.00
     then 5.00 (batch `81r0qrp46`); TERM `9c1138ce` booked 26 deposits of 3.00.
 
-27. **Deactivating a frozen customer cancels a held closure withdrawal whose money clearing has
-    already moved, and core never books it.** Fleet 192, customer `aee6c983`, INSTANT account
+27. **Fixed by SAV-11198 (PR #12160, open). Deactivating a frozen customer cancels a held closure
+    withdrawal whose money clearing has already moved, and core never books it.** #12160 books the
+    savings debit and the cash credit when the internal transfer settles, so core and clearing both
+    show the 3.00 on the customer's cash account, and the cancel correctly moves nothing. Joel: the
+    money then staying on a deactivated customer's cash account is intended, because a compliance
+    intervention needs manual work to get the money to the right place. Not yet run against #12160's
+    branch. Fleet 192, customer `aee6c983`, INSTANT account
     `7ee36205` with 3.00: FROZEN at 17:05:58; the account closed at 17:06:11 and raised full-balance
     withdrawal `32228427`; clearing's INTERNAL due `6b214939` went PRODUCED at 17:06:17 and credited
     3.00 to the account's cash balance (`cash_account_balance` on internal account 985, now
@@ -232,18 +226,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     it out. The hold withholds only the payout, so a held withdrawal has already moved money that
     the cancel does not put back or book.
 
-28. **A NOTICE closure can leave one accrual row for a day after the account stopped earning.**
-    When the closure's full-balance notice withdrawal is processed,
-    `DirectNoticeWithdrawalOperations.drainIfClosing` (`:109-125`) realises what has accrued and
-    sets both next-value dates on `interest_processing_schedule` to NULL, which is the point the
-    account stops earning. The per-bank accrual sweep (`InterestProcessing.accrue`, `:38-44`) lists
-    its accounts in one transaction and accrues each in a later one with no re-check of the
-    schedule, so an account listed before the disable still gets an accrual written after it. The
-    customer loses nothing: that row is for a day the account was not earning, and it is never
-    realised. Account `5f3b4e67`: notice 341 processed at 19:16:57.618 UTC, accrual 321569 (value
-    date 2028-02-04, 0.00020616) written at 19:16:57.674, schedule 1127 both dates NULL. Low.
-
-29. **A TERM funded between midnight and 01:00 London in summer matures a day early.**
+29. **SAV-11702. A TERM funded between midnight and 01:00 London in summer matures a day early.**
     `DirectTransactionDepositHandler.processOpeningPayment` (`:321`) sets the maturity date when the
     opening payment clears, through `CustomerProductAccountMaturityService.upsertMaturityDate`
     (`:47-49`), whose start date is `timeProvider.getLocalDate()`. `AbstractTimeProvider` (`:16-17`,
@@ -260,6 +243,20 @@ recorded every one as `POST /operations/processor/payment/groups/process` answer
 sends each payment to the bank. Here the bank simulator was slow because the harness had filled it
 with 7.9 million virtual accounts, so this is mostly a harness condition; the part that is the
 product's is the same as finding 10, a timeout surfaced as a bare 500.
+
+30. **SAV-11700. Ops can REJECT_FAIL a payment group whose payout has already settled.** A payout
+    whose connection closed before the bank answered is held as RJCT (finding 1, SAV-11344) and its
+    group waits in PENDING_APPROVAL. The bank had paid, so the statement line settled it anyway and
+    core completed the withdrawal (`DirectTransactionWithdrawalHandler.java:84,106` completes only
+    on `PaymentSettled`). REJECT_FAIL then sent `PaymentFailed`. `InstructionFailureService.
+    handleDirectPaymentFailure` (`:166`) calls `cancelInstructionGroup`, whose update matches only
+    PENDING instructions (`DirectCustomerInstructionRepository.java:138-144`), so it throws "No
+    instruction group found to cancel" and the message retries to the DLQ. Had it gone through, the
+    amount would have moved back to savings for money already paid out. Box fleet 7: withdrawals
+    `b4c2d309`, `a7cf8671`, `5b41b35b` (1.00 each, COMPLETED by 14:00 UTC), bank ACSC on
+    `PEC00000010001FD`, `PEC0000001000201`, `PEC0000001000207` at 14:05, the harness's
+    `decide_refused_groups` REJECT_FAIL at 14:17 (`refused-group-decisions.jsonl`), three dead
+    letters at 14:17.
 
 ## Checked and holding
 
@@ -296,8 +293,65 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   earlier in the archive. Joel: not important in practice, because runs seconds apart do not happen.
 - A TERM account opens for an amount above the product's deposit maximum. Joel: the stored requested
   amount is not used anywhere in practice, and the deposit limits hold when money arrives.
+- A NOTICE closure whose payout the bank refuses, and ops then REJECT_FAIL, stays CLOSING with its
+  balance. `InstructionFailureService.handleDirectPaymentFailure` cancels the withdrawal (`:166`),
+  moves nothing back because a CLOSING account takes no instruction, and logs ERROR "closure cannot
+  finalise until it is paid out manually" (`:191-196`); the sweep closes NOTICE only at a zero
+  balance (`DirectCustomerAccountRepository.java:127`). Joel: intended, ops pay it out by hand.
+  INSTANT differs: its sweep ignores the balance, so it closes with the money on it (the REJECT_FAIL
+  note below). While CLOSING, the customer cannot open another account on that product. Box fleet5
+  account `710d1bbb`, 3.00, CLOSING since 13:45 on 2026-09-27; the harness's "a closure the bank
+  refused still finishes" rule still reports it.
 - A closure payment the bank refuses (REJECT_FAIL) leaves its money on the CLOSED account. This
   is the intended outcome: money that cannot be paid out stays on the account.
+- A FEES transaction carries the wall-clock date as its value date, not the bank's business date.
+  All three writers do this: `PlatformFeeWithdrawalRepository.movePlatformFeesToBondsmithPot`
+  (`?:createdAt::date`), `BondsmithFeeWithdrawalOrderService` (`:122`,
+  `timeProvider.getLocalDate()`) and the Trust order-adjustment insert in
+  `CustomerAccountBalanceRepository` (`current_date`). Every other transaction takes
+  `bank_business_date`. The only reader affected is `get_cpa_end_of_day_stats`, which totals
+  `platform_withdrawal_amount` and `bondsmith_withdrawal_amount` by `value_date`, so a withdrawal
+  on the wrong day makes both days' pot start balances wrong. The two dates match once the day's
+  accrual run has moved the business date on (`DirectModelInterestProcessing.execute`), and the
+  scheduled fee withdrawals (`FEE_WITHDRAWALS`, daily 04:30 in the test fixtures) run after the
+  accrual run (00:00). So the dates differ only when a fee withdrawal runs before that night's
+  accrual run finishes: the accrual run is late or failed, which is a much worse fault by itself,
+  or an ops withdrawal lands in the minutes after midnight. Joel: as long as fees come after
+  accruals, this does not happen. Box fleets 3, 5, 7 and 8 reported 12 of these rows under "a
+  transaction booked after an accrual's cutoff is dated after that day", because the harness runs
+  the business date months ahead of the clock.
+- Core opens, funds and closes a Direct account that clearing never created, and leaves its money
+  on the CLOSED account. Core asks clearing for the account asynchronously
+  (`DirectInternalAccountCreationService.java:65,82`) and never checks that clearing made it, so an
+  empty INVESTEC GBP DIRECT preloaded pool makes clearing's `AccountRequested` handler throw while
+  the account opens, takes money and closes (cycle 48, account `4f41bd4e`, due `ec7ec4d8`,
+  `chain48.json` violations 20 and 21). Joel: this does not happen in prod, because ops watch the
+  virtual account counts closely, so the pool does not run dry. The INVESTEC auto-preloader
+  (`InvestecAccountAutoPreloadScheduler`) runs only with `b7h.clearing.investec.auto-preload.enabled`,
+  and the harness keeps the pool full, so it reaches this only on purpose.
+- CancelAccountOpening and CloseAccount answer 500 when core cannot reach clearing. The clearing
+  call (`softCloseAccounts`, `DirectCashWithdrawalService.java:75`) runs inside core's transaction,
+  so a failure rolls core back, and clearing's soft close is a plain `UPDATE ... SET access_status =
+  'SOFT_CLOSED'` that is safe to repeat, so the platform can retry. Joel: a 500 is acceptable here
+  for now. The body says "please contact support with the logRef below" with `logref: null`, and
+  core logs the error with an empty `traceId`, so support cannot link a platform's call to the log;
+  that comes from `GlobalExceptionHandler` (`b7h.libs.micronaut`) and affects every unexpected 500.
+  Box fleet1 p3 trial 182, under the harness's cut of core's calls to clearing.
+- Clearing's `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT` check
+  (`ClearingIntegrityCheckReplicaRepository.java:24-30`) fails for about a second after a statement
+  line is published, because the relay consumer writes the `partner_payment` row 0.3 s (median) to
+  2 s (p99) later and the check has no grace period. The harness runs it straight after funding,
+  so it lands in that gap: 5 of 82 runs on the Mac, and once each in box fleets 7 and 8, every one
+  followed by a pass. Production alerts only after 4 failures in a row, so it never alerts.
+  Joel: move to holding. Two paths would leave a line unlinked for good, from the code and never
+  seen: `AccountStatementLinePublisher.java:61-65` swallows a relay send error after the line is
+  marked PUBLISHED, and the relay processor only logs an unknown account.
+- A NOTICE closure can leave one accrual row for a day after the account stopped earning: the
+  per-bank accrual run (`InterestProcessing.accrue`, `:38-44`) lists accounts in one transaction and
+  accrues each later without re-reading the schedule that
+  `DirectNoticeWithdrawalOperations.drainIfClosing` (`:109-125`) has just nulled. Joel: fine, the
+  accrual never realises, so no interest is paid. Mac account `5f3b4e67`, accrual 321569 written
+  56 ms after notice 341 was processed.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
