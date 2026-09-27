@@ -27,22 +27,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    The fleet 10 part first filed here, "Unable to find direct accounts for payment dues" from
    `PaymentDueDirectCustomerAccountService.fetchAccountsForPaymentDues` (`:193`), is finding 15
    (SAV-11694); the box has reproduced it in fleets 3, 5, 6 and 9.
-4. **Core opens, funds and closes a Direct account that clearing never created, then leaves its
-   money on the CLOSED account.** Core asks clearing for the account asynchronously at opening
-   (`DirectCustomerAccountOrchestrator.java:81-82`) and never checks that clearing made it. In
-   cycle 48 the INVESTEC GBP DIRECT preloaded pool had 0 AVAILABLE rows, so clearing's
-   `AccountRequested` handler threw and dead-lettered. The account still opened and took 3.00,
-   because Direct funding moves money to the bank's virtual account and never touches the missing
-   account. `closeAndDrainInternalAccount` succeeds on an unknown account (the lock, the balance
-   read and the soft close all no-op), so CLOSING commits. The closure sweep has no balance or
-   clearing check (`DirectCustomerAccountRepository.java:119-130`), `closeAccount` writes CLOSED
-   first, and the payout `TransferExpectation` names the missing account, so clearing throws "No
-   account found" and dead-letters it after 13 deliveries. Nothing in core notices. No injected
-   fault was live at any step. It can happen in a deployed environment whenever the pool runs dry,
-   and the INVESTEC auto-preloader is off by default in prod. The code path is unchanged on
-   `origin/main`. Evidence: `chain48.json` violations 20 and 21, account `4f41bd4e`, due `ec7ec4d8`.
-   The harness now keeps the pool full, so it only reaches this on purpose.
-
 6. **A CLOSED customer moves back to ACTIVATED through a KYC status change.** SAV-11534 part 2.
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
 
@@ -330,6 +314,15 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   accruals, this does not happen. Box fleets 3, 5, 7 and 8 reported 12 of these rows under "a
   transaction booked after an accrual's cutoff is dated after that day", because the harness runs
   the business date months ahead of the clock.
+- Core opens, funds and closes a Direct account that clearing never created, and leaves its money
+  on the CLOSED account. Core asks clearing for the account asynchronously
+  (`DirectInternalAccountCreationService.java:65,82`) and never checks that clearing made it, so an
+  empty INVESTEC GBP DIRECT preloaded pool makes clearing's `AccountRequested` handler throw while
+  the account opens, takes money and closes (cycle 48, account `4f41bd4e`, due `ec7ec4d8`,
+  `chain48.json` violations 20 and 21). Joel: this does not happen in prod, because ops watch the
+  virtual account counts closely, so the pool does not run dry. The INVESTEC auto-preloader
+  (`InvestecAccountAutoPreloadScheduler`) runs only with `b7h.clearing.investec.auto-preload.enabled`,
+  and the harness keeps the pool full, so it reaches this only on purpose.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
