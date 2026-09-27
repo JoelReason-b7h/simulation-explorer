@@ -254,6 +254,21 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     and `c1a8905a`) got maturity 2026-10-26 where the rule gives 2026-10-27: one day less of the
     term and one day less interest than the customer was promised.
 
+30. **A zero-value FEES transaction on a long-lived account is booked with today's wall-clock
+    date instead of the accrual's own value date.** Across five cycles (fleet3, fleet5, fleet7,
+    fleet8, fleet9) the InterestOracle and JourneyPlatformFeeWithdrawal checks keep flagging the
+    same shape of FEES 0.00 row: each is created just after an interest accrual reads the
+    account's balance for a date the harness has advanced the account to (2027-04-07, 2027-08-25,
+    2027-11-18, 2026-12-03/04, 2027-03-20/21), but the FEES row itself carries value date
+    2026-09-27, the real day the harness ran on, never a date after the accrual's own cutoff. The
+    same four long-lived accounts (`e1bf345c-bc46-4d36-96ce-5d1c3794fe45`,
+    `c4b13f96-c11c-4138-8618-b0a644fd336d`, `7fcc5cc5-5b7c-40fe-86dd-4905e9401de0`,
+    `ec8b540b-11ac-4041-88c7-14381367ecd2`) each produce a fresh instance of this every cycle they
+    are advanced, so it is not a one-off race, even though the harness's own attribution could not
+    pin a single cycle's cause on it (several settlement sweeps and accruals were in flight at
+    once each time). Code path not confirmed this session (no exchange checkout to hand); a
+    `box dump` of fleet9 would show which service wrote these rows.
+
 The 500s from FundAccount, SettleWorld and CloseAccount are ops-api's read timeout. Fleet 181
 recorded every one as `POST /operations/processor/payment/groups/process` answering 500 after
 30.0 s: ops-api gives up on clearing at 30 s and answers a bare 500 with no logref, while clearing
