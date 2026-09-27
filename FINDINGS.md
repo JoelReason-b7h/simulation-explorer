@@ -226,17 +226,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     it out. The hold withholds only the payout, so a held withdrawal has already moved money that
     the cancel does not put back or book.
 
-28. **A NOTICE closure can leave one accrual row for a day after the account stopped earning.**
-    When the closure's full-balance notice withdrawal is processed,
-    `DirectNoticeWithdrawalOperations.drainIfClosing` (`:109-125`) realises what has accrued and
-    sets both next-value dates on `interest_processing_schedule` to NULL, which is the point the
-    account stops earning. The per-bank accrual sweep (`InterestProcessing.accrue`, `:38-44`) lists
-    its accounts in one transaction and accrues each in a later one with no re-check of the
-    schedule, so an account listed before the disable still gets an accrual written after it. The
-    customer loses nothing: that row is for a day the account was not earning, and it is never
-    realised. Account `5f3b4e67`: notice 341 processed at 19:16:57.618 UTC, accrual 321569 (value
-    date 2028-02-04, 0.00020616) written at 19:16:57.674, schedule 1127 both dates NULL. Low.
-
 29. **A TERM funded between midnight and 01:00 London in summer matures a day early.**
     `DirectTransactionDepositHandler.processOpeningPayment` (`:321`) sets the maturity date when the
     opening payment clears, through `CustomerProductAccountMaturityService.upsertMaturityDate`
@@ -357,6 +346,12 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   Joel: move to holding. Two paths would leave a line unlinked for good, from the code and never
   seen: `AccountStatementLinePublisher.java:61-65` swallows a relay send error after the line is
   marked PUBLISHED, and the relay processor only logs an unknown account.
+- A NOTICE closure can leave one accrual row for a day after the account stopped earning: the
+  per-bank accrual run (`InterestProcessing.accrue`, `:38-44`) lists accounts in one transaction and
+  accrues each later without re-reading the schedule that
+  `DirectNoticeWithdrawalOperations.drainIfClosing` (`:109-125`) has just nulled. Joel: fine, the
+  accrual never realises, so no interest is paid. Mac account `5f3b4e67`, accrual 321569 written
+  56 ms after notice 341 was processed.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
