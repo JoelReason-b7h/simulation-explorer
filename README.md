@@ -13,7 +13,8 @@ Use `./harness` for everything. Do not run `scripts/launch_stack`, `local-down.s
 
 ```bash
 ./harness start    # launch the stack, wait for every service, start the fleet loop
-./harness status   # containers, the loop's processes, the last cycles
+./harness up       # launch the stack and wait for every service; no fleet loop
+./harness status   # containers, the loop's processes, the last cycles, the fake time
 ./harness pause    # stop the loop and leave the stack up; ./harness start resumes it
 ./harness stop     # stop the loop, take the stack down, release the stack lease
 ```
@@ -23,16 +24,20 @@ Use `./harness` for everything. Do not run `scripts/launch_stack`, `local-down.s
 1. Checks the stack checkout (`stack_check.py checkout`). The checkout must be
    `exchange.worktrees/sim-main` with the local-auth patch applied (`local_auth_patch.py`). If it
    is not, the command stops.
-2. Launches the stack from that checkout with `scripts/launch_stack`, unless it is already up.
+2. Unless the stack is already up, applies `stack_patch.py` to that checkout, writes the fake
+   clock's timeline when `SIM_CLOCK` is set, and launches the stack with `scripts/launch_stack`.
 3. Waits until every service is running and ops-api answers `/health` with 200
    (`stack_check.py up`). A service that stopped early is started again, up to three times. For
    example, the adapter can start before LocalStack has created its queues.
 4. Starts `fleet_loop.sh` in the background at the next unused cycle number.
 
+`./harness up` runs steps 1 to 3 only.
+
 Each step checks its own result and stops with a message if it fails. `harness.log` holds the
 output.
 
-`./harness stop` checks that no harness process is left and that no container is still running.
+`./harness stop` checks that no harness process is left and that no container is still running,
+then removes the fake clock's timeline.
 
 ## Settings
 
@@ -42,6 +47,29 @@ output.
 - `SIM_JOURNEY_SHARE`: the share of a run's time that journeys may use (default 0.3).
 - `SIM_STACK_REPO`: the sim-main checkout (default the Mac path in `exchange.worktrees`).
 - `SIM_AUTH_DIR`: the folder that holds the ops credentials (`local.env`).
+- `SIM_CLOCK`: run the stack on a fake clock, for example `SIM_CLOCK="@2026-10-25 00:00:00 x10"`
+  (the time is UTC; the rate is constant for the whole run). Unset, the stack runs on the real
+  clock and nothing below applies. Change it only with the stack down: `./harness stop` first.
+
+## The fake clock
+
+With `SIM_CLOCK` set, `stack_patch.py` adds `docker/docker-compose.faketime.yml` to
+`scripts/launch_stack` and `local-up.sh`, and copies the libraries and `faketime/clock.py` into the
+checkout's `docker/faketime/`. The overlay:
+
+- preloads libfaketime into postgres, LocalStack, redis and every Java service. The libraries in
+  `faketime/<base>-<arch>/` are the distributions' own packages, copied by `faketime/build.sh`:
+  `trixie` for the Debian 13 images and `alpine` for redis;
+- adds a `faketime-clock` container that keeps the current fake time in a shared volume. Each
+  process reads it once, when it starts, and then runs at the rate from there, so every container
+  shows the same time and a restarted one carries on rather than starting over
+  (`faketime/clock.py` explains why);
+- turns on the schedulers of core, clearing, compliance and adapter, which the acceptance profile
+  turns off, so their crons fire on the fake clock.
+
+WireMock and toxiproxy stay on the real clock. The harness's own processes do too, so its tokens
+and its business-date arithmetic are not yet on the fake clock: `./harness up` works, and
+`./harness start` does not yet.
 
 ## Running it on Linux
 
