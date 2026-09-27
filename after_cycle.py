@@ -56,6 +56,9 @@ KNOWN = {
 # Known findings a rule reports under one action for many causes, told apart by their detail.
 KNOWN_DETAIL = {
     ("no message goes to the dead letter queue", '"detail-type":"PaymentSettled"'),
+    # FINDINGS holding: a FEES row takes the wall-clock date as its value date. On the box's fast
+    # clock every fee withdrawal runs "before" the accrual run, so this fired in almost every cycle.
+    ("a transaction booked after an accrual's cutoff is dated after that day", "FEES "),
     # The Direct opening request declares amount @PositiveOrZero, so a zero fixed-term amount is
     # accepted by contract.
     ("an invalid request is refused", "zero amount on OpenAccount"),

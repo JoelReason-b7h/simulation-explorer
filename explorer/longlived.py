@@ -467,6 +467,14 @@ class Population:
                                customer, "TRANSFER rows sum to {}".format(transfers), "0",
                                transfers)
         if total.compare(booked) != 0:
+            # The balances and the transactions are two reads, and the clock keeper realises a day
+            # of interest every few seconds: box fleets 20 and 21 each saw 0.01 between them. Only
+            # a gap that survives a second read is reported.
+            again = j.money()
+            if again is not None:
+                total, by_type = again
+                booked = sum(by_type.values(), ZERO)
+        if total.compare(booked) != 0:
             run.note_violation("LongLife", "over its life a customer's balances are its "
                                "transactions", customer, "the accounts hold {} and every "
                                "transaction sums to {}".format(total, booked), booked, total,
