@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 import os
 import shutil
 import time
+import zlib
 import uuid
 from decimal import Decimal
 import sys
@@ -1814,8 +1815,15 @@ class Run:
         if last is not None and self.steps - last < self.JOURNEY_SPACING:
             return None
         names = list(journeys.ALL)
-        name = names[getattr(self, "journey_turn", 0) % len(names)]
-        return name if self.someone_can(name) else None
+        if not hasattr(self, "journey_turn"):
+            # Each run starts the rotation somewhere else: starting every run at the first name
+            # meant a 15-minute run only ever reached the first three of nine journeys.
+            self.journey_turn = zlib.crc32(str(self.run_id).encode()) % len(names)
+        name = names[self.journey_turn % len(names)]
+        if not self.someone_can(name):
+            self.journey_turn += 1
+            return None
+        return name
 
     def run_journey(self, name):
         """Run one journey, unless another ran fewer than JOURNEY_SPACING trials ago."""
