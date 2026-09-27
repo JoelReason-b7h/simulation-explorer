@@ -1,1 +1,2 @@
 {"name": "fleet1", "at": "2026-09-27 14:00:02", "quiet": false, "trials": 588, "violations": 17, "serviceErrors": 52, "newRules": []}
+{"name": "fleet3", "at": "2026-09-27 14:23:46", "quiet": false, "trials": 860, "violations": 48, "serviceErrors": 84, "newRules": ["a transaction booked after an accrual's cutoff is dated after that day (InterestOracle)"]}
