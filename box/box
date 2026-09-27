@@ -33,7 +33,10 @@ SERVICES=(
   "forge-compliance apps/forge/compliance"
   "forge-notification apps/forge/notification"
 )
-REMOTE_ENV='export SIM_STACK_REPO=$HOME/sim/sim-main; cd ~/sim/simulation-explorer'
+# The AWS CLI is installed in ~/.local (Ubuntu 24.04 has no apt package), and a non-interactive
+# ssh session does not read ~/.profile, so ~/.local/bin is added here.
+REMOTE_ENV='export PATH=$HOME/.local/bin:$PATH SIM_STACK_REPO=$HOME/sim/sim-main; cd ~/sim/simulation-explorer'
+TOOLS="docker psql pg_dump aws git curl tar"
 
 on_box() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
 
@@ -66,6 +69,9 @@ cmd_sync() {
   check_files sim/sim-main/permissions.sql sim/sim-main/scripts/launch_stack \
     sim/sim-main/docker/docker-compose.yml sim/simulation-explorer/harness \
     sim/simulation-explorer/dashboard/dash.py sim/performance-testing/lib/auth.py "$SPEC" "$AUTH"
+  local absent
+  absent=$(on_box "$REMOTE_ENV; for t in $TOOLS; do command -v \$t > /dev/null || echo \$t; done")
+  if [ -n "$absent" ]; then echo "missing tools on the box: $absent"; exit 1; fi
   on_box "$REMOTE_ENV && python3 stack_patch.py \$SIM_STACK_REPO && python3 stack_check.py checkout"
 }
 
