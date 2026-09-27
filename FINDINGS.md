@@ -261,6 +261,20 @@ sends each payment to the bank. Here the bank simulator was slow because the har
 with 7.9 million virtual accounts, so this is mostly a harness condition; the part that is the
 product's is the same as finding 10, a timeout surfaced as a bare 500.
 
+30. **SAV-11700. Ops can REJECT_FAIL a payment group whose payout has already settled.** A payout
+    whose connection closed before the bank answered is held as RJCT (finding 1, SAV-11344) and its
+    group waits in PENDING_APPROVAL. The bank had paid, so the statement line settled it anyway and
+    core completed the withdrawal (`DirectTransactionWithdrawalHandler.java:84,106` completes only
+    on `PaymentSettled`). REJECT_FAIL then sent `PaymentFailed`. `InstructionFailureService.
+    handleDirectPaymentFailure` (`:166`) calls `cancelInstructionGroup`, whose update matches only
+    PENDING instructions (`DirectCustomerInstructionRepository.java:138-144`), so it throws "No
+    instruction group found to cancel" and the message retries to the DLQ. Had it gone through, the
+    amount would have moved back to savings for money already paid out. Box fleet 7: withdrawals
+    `b4c2d309`, `a7cf8671`, `5b41b35b` (1.00 each, COMPLETED by 14:00 UTC), bank ACSC on
+    `PEC00000010001FD`, `PEC0000001000201`, `PEC0000001000207` at 14:05, the harness's
+    `decide_refused_groups` REJECT_FAIL at 14:17 (`refused-group-decisions.jsonl`), three dead
+    letters at 14:17.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
