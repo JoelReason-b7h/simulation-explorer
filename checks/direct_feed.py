@@ -307,12 +307,13 @@ def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, 
                     f.name, "RECON says {}, the ACCOUNT files give {}".format(
                         r.get("TotalAccruedInterest"), want_accrued), r)
         latest = {}
-        for g in files:
-            if g.entity == "TRANSACTION":
-                for t in sorted(g.rows, key=lambda t: (day(t.get("ValueDate")),
-                                                       t.get("BookingDateTime", ""))):
-                    if day(t.get("ValueDate")) <= recon_day:
-                        latest[t["AccountId"]] = money(t.get("UpdatedBalance"))
+        # Sorted across files, not within each: a late INTEREST row sent after an account closed
+        # otherwise overwrites the closing withdrawal's 0.00 and fails every RECON from then on.
+        rows = [t for g in files if g.entity == "TRANSACTION" for t in g.rows]
+        for t in sorted(rows, key=lambda t: (day(t.get("ValueDate")),
+                                             t.get("BookingDateTime", ""))):
+            if day(t.get("ValueDate")) <= recon_day:
+                latest[t["AccountId"]] = money(t.get("UpdatedBalance"))
         balances = sum(latest.values(), Decimal(0)).quantize(PENNY)
         if money(r.get("TotalBalanceAtEndOfDay")) != balances:
             out.add("TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
