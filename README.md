@@ -91,8 +91,9 @@ The services' own schedulers do the scheduled work, so the harness's stand-ins f
 nothing and answer with the scheduler that does it: payment sending, internal transfers, payment
 files and status enquiries, statement polling and processing, platform payment dues, accruals and
 realisations, the Direct feed, RECON and MI, the notice processor, the closure sweep, fee
-withdrawals, the nominated-account outbox, the partner file and the preloaded account pool. The
-driver no longer picks AdvanceBusinessDay, ProcessClosures, ProcessDueNotice or RunDataFeed, and
+withdrawals, the nominated-account outbox, and topping up the preloaded account pool during a
+run. The standup still seeds the pool and the partner file, because a deployed pool is never
+empty. The driver no longer picks AdvanceBusinessDay, ProcessClosures, ProcessDueNotice or RunDataFeed, and
 the long-lived bank's clock keeper stays off: only the bank's accrual job, at 20:00 London, moves
 the business date. The operator actions (failing nameless payment groups, approving duplicate
 holds, deciding refused groups) and moving a notice due date still run, because they stand in for

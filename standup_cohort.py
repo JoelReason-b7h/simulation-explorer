@@ -500,21 +500,21 @@ def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, sh
 
     client_id = own_client(platform_uid)
     subscribe_webhooks(ops, platform_uid)
-    # On a fake clock PartnerDataRefreshProcessor (every 5 minutes) and
-    # InvestecAccountAutoPreloadScheduler (every 10) do both of these on their own.
-    if not clock.schedulers_run():
-        # adapter learns banks and platforms only from the partner file core writes every five
-        # minutes, and that scheduler is off locally.
-        step(ops, "refresh the partner file adapter reads", "POST",
-             "/operations/processor/partners/refresh")
+    # Both of these seed a fresh stack, and run on a fake clock too. There the schedulers would get
+    # to them within a minute, but a deployed pool is never empty: leaving it to
+    # InvestecAccountAutoPreloadScheduler failed the first accounts' InternalAccountRequested
+    # messages with "Internal account insert failed" until its next run.
+    # adapter learns banks and platforms only from the partner file core writes every five
+    # minutes, and that scheduler is off locally.
+    step(ops, "refresh the partner file adapter reads", "POST",
+         "/operations/processor/partners/refresh")
 
-        # Creating the platform records a request in core for its own internal account, left at
-        # status INACTIVE, and clearing gets the PLATFORM account_owner row but no account. The
-        # schedulers that would fill the pool carry a @SchedulerLock and are off locally, so the
-        # harness asks. Without this the whole funding sequence returns 200 at every step and the
-        # money never lands.
-        step(ops, "preload the Investec virtual accounts", "POST",
-             "/account/preload/investec/auto-preload")
+    # Creating the platform records a request in core for its own internal account, left at status
+    # INACTIVE, and clearing gets the PLATFORM account_owner row but no account. The schedulers
+    # that would fill the pool carry a @SchedulerLock and are off locally, so the harness asks.
+    # Without this the whole funding sequence returns 200 at every step and the money never lands.
+    step(ops, "preload the Investec virtual accounts", "POST",
+         "/account/preload/investec/auto-preload")
 
     print()
     print("  cohort ready")

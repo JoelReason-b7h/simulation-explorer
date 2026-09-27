@@ -153,6 +153,21 @@ def keep_service_errors(name):
 CLEARING_DSN = "postgresql://clearing:password@localhost:5440/clearing"
 
 
+def feed_has_run(bank_uid):
+    """Whether the bank's DIRECT_DATA_FEED has run. On the real clock the check asks for the feed,
+    so it always has. On a fake clock a bank made in the evening has its first run at midnight,
+    and a cycle that ends before then has no files to show for a reason that is not a fault."""
+    if not clock.schedulers_run():
+        return True
+    done = subprocess.run(
+        ["psql", "postgresql://core:password@localhost:5432/core", "-tAc",
+         "SELECT count(*) FROM bank_event_schedule s JOIN partner_bank b ON b.sid = s.bank_sid "
+         "WHERE b.uid = '{}' AND s.event_type = 'DIRECT_DATA_FEED' "
+         "AND s.last_raised IS NOT NULL".format(bank_uid)],
+        capture_output=True, text=True, timeout=60)
+    return done.returncode != 0 or done.stdout.strip() != "0"
+
+
 def exception_copies():
     """How far clearing's repeated EXCEPTION lines (finding 7) grew this cycle, before the cleanup.
 
@@ -349,7 +364,8 @@ def main():
         summary["feed"] = run_check("direct_feed.py", bank, FINDINGS / "{}-feed.json".format(name),
                                     *generate)
         summary["mi"] = run_check("direct_mi.py", bank, FINDINGS / "{}-mi.json".format(name))
-        if summary["feed"]["files"] and summary["feed"]["files"].startswith("0 files"):
+        if summary["feed"]["files"] and summary["feed"]["files"].startswith("0 files") \
+                and feed_has_run(bank):
             summary["sanity"].append("the data feed wrote no files for bank {}".format(bank))
     summary["newRules"] = sorted(new_rules)
     file_failures = [k for k in ("feed", "mi") if summary.get(k, {}).get("exit")]
