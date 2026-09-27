@@ -31,7 +31,9 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
 
 7. **Clearing inserts a bank entry again on every poll that reads it, and never deduplicates the
-   copies it cannot allocate.** `AccountStatementLineRepository.insertAccountStatementLine`
+   copies it cannot allocate.** PROD-3976, marked Done, but no commit on `origin/main` names it and
+   the code below is unchanged since SAV-11011. PROD-3976 saw it in production: one credit reached
+   the exceptions queue from both the camt.052 intraday report and the camt.053 end-of-day report. `AccountStatementLineRepository.insertAccountStatementLine`
    (`AccountStatementLineRepository.java:60-104`) is a plain INSERT with no `ON CONFLICT`, and
    `account_statement_line` has no unique key on any bank identifier. The only duplicate check is
    in `FallbackHandler.handle`: a line that cannot be enriched goes to EXCEPTION at
@@ -43,7 +45,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    entry in 16 minutes, and MI_RECON listed 5815 items. hot-sauce-bank held each entry once.
    Reach in a deployed environment: the scheduler polls each period once, so the copies need a
    period read twice: a retry after a failed poll, a manual ops poll, or an end-of-day statement
-   over entries the intraday polls already read. The last is not yet shown.
+   over entries the intraday polls already read, which PROD-3976 shows happening in production.
    Evidence: `findings/fleet2-mi.json`, and the rows in clearing until the next wipe.
 
 8. **A day with only interest can stop a bank's Direct feed for good, once a RECON has sealed.**
