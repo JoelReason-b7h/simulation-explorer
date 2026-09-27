@@ -96,17 +96,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    hourly runs between, which is how it meets the second prerequisite without an outage.
    Walkthrough video: `~/tools/feed-stall-video/out/feed-stall.mp4`.
 
-12. **A NOTICE closure whose payout is refused and failed stays CLOSING for good, still
-    showing the balance.** After the bank rejects the payout and ops choose REJECT_FAIL,
-    `InstructionFailureService.handleDirectPaymentFailure` cancels the instruction (`:166`) and
-    logs ERROR "closure cannot finalise until it is paid out manually" (`:191-196`). The closure
-    sweep needs a zero balance for NOTICE (`DirectCustomerAccountRepository.java:127`), a CLOSING
-    account takes no new instruction, and nothing raises a new payout. From reading the code, with
-    a deterministic scenario drafted; not yet run. With finding 1 upstream, the bank has paid,
-    core keeps the balance, and a manual payout pays twice. The fleet 3 and 4 cases first filed
-    here were a harness fault: the harness never brought the closure's notice withdrawal due, so
-    no payout was raised. Fixed in `finalise_the_closure`.
-
 15. **Closing a Direct account with cash on its internal account dead-letters the drain's
     settlement, so core never books it.** SAV-11694. `DirectAccountClosureOperations.requestAccountClosure`
     calls clearing's `closeAndDrainInternalAccount` (`DirectAccountClosureOperations.java:126`,
@@ -310,6 +299,15 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   earlier in the archive. Joel: not important in practice, because runs seconds apart do not happen.
 - A TERM account opens for an amount above the product's deposit maximum. Joel: the stored requested
   amount is not used anywhere in practice, and the deposit limits hold when money arrives.
+- A NOTICE closure whose payout the bank refuses, and ops then REJECT_FAIL, stays CLOSING with its
+  balance. `InstructionFailureService.handleDirectPaymentFailure` cancels the withdrawal (`:166`),
+  moves nothing back because a CLOSING account takes no instruction, and logs ERROR "closure cannot
+  finalise until it is paid out manually" (`:191-196`); the sweep closes NOTICE only at a zero
+  balance (`DirectCustomerAccountRepository.java:127`). Joel: intended, ops pay it out by hand.
+  INSTANT differs: its sweep ignores the balance, so it closes with the money on it (the REJECT_FAIL
+  note below). While CLOSING, the customer cannot open another account on that product. Box fleet5
+  account `710d1bbb`, 3.00, CLOSING since 13:45 on 2026-09-27; the harness's "a closure the bank
+  refused still finishes" rule still reports it.
 - A closure payment the bank refuses (REJECT_FAIL) leaves its money on the CLOSED account. This
   is the intended outcome: money that cannot be paid out stays on the account.
 - A FEES transaction carries the wall-clock date as its value date, not the bank's business date.
