@@ -209,8 +209,13 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     `MaxDepositValidator` never check that the TERM is already funded. TERM `8bd7b8e5` booked 50.00
     then 5.00 (batch `81r0qrp46`); TERM `9c1138ce` booked 26 deposits of 3.00.
 
-27. **Deactivating a frozen customer cancels a held closure withdrawal whose money clearing has
-    already moved, and core never books it.** Fleet 192, customer `aee6c983`, INSTANT account
+27. **Fixed by SAV-11198 (PR #12160, open). Deactivating a frozen customer cancels a held closure
+    withdrawal whose money clearing has already moved, and core never books it.** #12160 books the
+    savings debit and the cash credit when the internal transfer settles, so core and clearing both
+    show the 3.00 on the customer's cash account, and the cancel correctly moves nothing. Joel: the
+    money then staying on a deactivated customer's cash account is intended, because a compliance
+    intervention needs manual work to get the money to the right place. Not yet run against #12160's
+    branch. Fleet 192, customer `aee6c983`, INSTANT account
     `7ee36205` with 3.00: FROZEN at 17:05:58; the account closed at 17:06:11 and raised full-balance
     withdrawal `32228427`; clearing's INTERNAL due `6b214939` went PRODUCED at 17:06:17 and credited
     3.00 to the account's cash balance (`cash_account_balance` on internal account 985, now
