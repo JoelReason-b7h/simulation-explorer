@@ -298,6 +298,22 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   amount is not used anywhere in practice, and the deposit limits hold when money arrives.
 - A closure payment the bank refuses (REJECT_FAIL) leaves its money on the CLOSED account. This
   is the intended outcome: money that cannot be paid out stays on the account.
+- A FEES transaction carries the wall-clock date as its value date, not the bank's business date.
+  All three writers do this: `PlatformFeeWithdrawalRepository.movePlatformFeesToBondsmithPot`
+  (`?:createdAt::date`), `BondsmithFeeWithdrawalOrderService` (`:122`,
+  `timeProvider.getLocalDate()`) and the Trust order-adjustment insert in
+  `CustomerAccountBalanceRepository` (`current_date`). Every other transaction takes
+  `bank_business_date`. The only reader affected is `get_cpa_end_of_day_stats`, which totals
+  `platform_withdrawal_amount` and `bondsmith_withdrawal_amount` by `value_date`, so a withdrawal
+  on the wrong day makes both days' pot start balances wrong. The two dates match once the day's
+  accrual run has moved the business date on (`DirectModelInterestProcessing.execute`), and the
+  scheduled fee withdrawals (`FEE_WITHDRAWALS`, daily 04:30 in the test fixtures) run after the
+  accrual run (00:00). So the dates differ only when a fee withdrawal runs before that night's
+  accrual run finishes: the accrual run is late or failed, which is a much worse fault by itself,
+  or an ops withdrawal lands in the minutes after midnight. Joel: as long as fees come after
+  accruals, this does not happen. Box fleets 3, 5, 7 and 8 reported 12 of these rows under "a
+  transaction booked after an accrual's cutoff is dated after that day", because the harness runs
+  the business date months ahead of the clock.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
