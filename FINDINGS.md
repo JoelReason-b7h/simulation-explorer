@@ -9,7 +9,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 
 ## Open
 
-1. **A payment with no status from the bank is recorded as rejected.** `ClearinghouseHsbcPaymentService.java:85`
+1. **A payment with no status from the bank is recorded as rejected.** SAV-11344. `ClearinghouseHsbcPaymentService.java:85`
    defaults a null status to RJCT. A connection that closes before the bank answers leaves the
    status null, so clearing holds RJCT while the bank paid (ACSC), and a retry pays twice.
    Evidence: cycle 48, payment `PEC000000100000B` (`chain48.json`).
@@ -108,7 +108,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     no payout was raised. Fixed in `finalise_the_closure`.
 
 15. **Closing a Direct account with cash on its internal account dead-letters the drain's
-    settlement, so core never books it.** `DirectAccountClosureOperations.requestAccountClosure`
+    settlement, so core never books it.** SAV-11694. `DirectAccountClosureOperations.requestAccountClosure`
     calls clearing's `closeAndDrainInternalAccount` (`DirectAccountClosureOperations.java:126`,
     call at `:142`) for INSTANT and NOTICE. When the account holds withdrawable cash,
     `InternalAccountCreationService.closeAndDrainInternalAccount` (`:74-96`) creates the payout
@@ -159,7 +159,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     its text mutation replaces the first text field it finds, which here was `accountName`.
 
 18. **A redelivered PaymentExpectation re-aggregates a due already stored, and the trigger
-    stops it with an ERROR.** `PaymentExpectationAction.process` (`:78-82`) calls
+    stops it with an ERROR.** SAV-11684. `PaymentExpectationAction.process` (`:78-82`) calls
     `insertExternalPaymentDue`, which treats a duplicate uid as a no-op (SAV-9995), then aggregates
     anyway from the message, with no aggregate (`:92-96`). The second aggregation mints a new
     aggregate uid and `prevent_aggregate_uid_update` rejects it: "Cannot change value of
@@ -179,7 +179,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
 
 22. **A redelivered TransferExpectation fails on the payment due's unique key and retries to the
-    dead-letter queue.** `PartnerPaymentDueRepository.insertInternalPaymentDue` (`:129-212`) has no
+    dead-letter queue.** SAV-11684. `PartnerPaymentDueRepository.insertInternalPaymentDue` (`:129-212`) has no
     `ON CONFLICT (uid) DO NOTHING`, unlike `insertExternalPaymentDue` (`:125`, SAV-9995), so the
     second delivery of the same expectation throws `duplicate key value violates unique
     constraint "partner_payment_due_uid_key"`, `PaymentExpectationConsumer` fails the message, and
