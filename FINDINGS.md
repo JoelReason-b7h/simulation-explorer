@@ -52,21 +52,49 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    over entries the intraday polls already read, which PROD-3976 shows happening in production.
    Evidence: `findings/fleet2-mi.json`, and the rows in clearing until the next wipe.
 
-8. **A day with only interest can stop a bank's Direct feed for good, once a RECON has sealed.**
-   From reading the code, not yet run. The feed date comes from `minOpenTransactionValueDate`
-   (`InvestecFileRepository.java:207-233`). SAV-10950 (#11942) stops INTEREST rows choosing that
-   date until a file has `sent_at` after the last date flip, whatever date the INTEREST row is on;
-   SAV-10940 and SAV-10950 fixed the neighbouring cases, and SAV-10950's criteria assume no open
-   row is dated T. The stall: RECON misses its daily slot, so the watermark W falls a day behind;
-   day W+1 holds only interest, still unshipped; a deposit dated W+2 exists before the next run.
-   Every run then picks W+2 and holds (`DirectDataFeedService.java:160`), so no file is written,
-   so no file gets `sent_at` after the flip, so the INTEREST gate stays shut, and RECON for W+1
-   waits on that interest, so W never moves. All four files stop and nothing recovers it. The
-   harness marking files sent does not help, because a held run writes nothing to mark.
-   Reproduced in CI without a missed RECON: PR #12453, run 36232970688. With RECON sealed for
-   2026-04-06, the 2026-04-07 interest unshipped and a deposit settled on 2026-04-08, core logged
-   "Holding DirectDataFeed ... business date 2026-04-08 exceeds watermark 2026-04-06 + 1 day" and
-   the latest TRANSACTION file stayed on 2026-04-06.
+8. **After a day with no feed file, one deposit can stop a bank's Direct feed for good.** Low: it
+   needs an earlier day-long feed or RECON failure, but once it starts nothing recovers it.
+   How the date is chosen: each `DirectDataFeedService` run sends one business date, the oldest
+   open value date from `minOpenTransactionValueDate` (`InvestecFileRepository.java:207-233`), or
+   the watermark + 1 when nothing is open. INTEREST is left out of that choice until a non-RECON
+   file has `sent_at` after the bank's business date last moved (SAV-10950), because the nightly
+   realisation is booked with the new live date. A run whose date is more than one day past the
+   watermark (the last sealed RECON) holds and writes nothing (`DirectDataFeedService.java:160`).
+   RECON seals a date only when no transaction dated up to it is unsent
+   (`findAnyUnsealedTransactionValueDatedInWindow`). RECON never sends a feed file.
+
+   Prerequisites, all of them, around the midnight when the date moves from D to D+1:
+   - Day D holds only interest: no deposit or withdrawal dated D is unsent at the first feed run
+     after midnight. Any such row would make that run pick D and close it.
+   - D's interest is still unsent at midnight. It can only go out once RECON has sealed D-1, so
+     this needs no feed file sent between RECON sealing D-1 and midnight: the feed is down for
+     the rest of day D, or RECON for D-1 seals only after midnight (for example because
+     `interestProcessingIncomplete` skipped it while the accrual run was RUNNING or FAILED). On
+     the hourly schedule (`V20260521092320__SAV-10151_backfill_dm_data_feed_schedule.sql`,
+     00:00 to 23:00) that is about 23 runs in a row sending nothing.
+   - A deposit or withdrawal dated D+1 settles after the accrual run moves the date and before the
+     first feed run after it. Without it, that run falls back to watermark + 1 = D and sends D.
+
+   What follows: the first run after midnight leaves both days' interest out, picks D+1 from the
+   deposit, and holds because D+1 is two days past the watermark (D-1). It writes no file, so no
+   file has `sent_at` after the date moved, so every later run makes the same choice and holds.
+   RECON for D skips because D's interest is unsent, so the watermark never moves. All four files
+   stop for that bank. No ops endpoint recovers it: `reemitDirectFeedEntry` covers only CUSTOMER,
+   ACCOUNT and PRODUCT entries, and a held run plans no file anyway.
+
+   Fix: keep INTEREST in the date choice when it is dated no later than watermark + 1, which is
+   the day being closed and so can never jump the run ahead. Add `OR at.value_date <= ?:watermark
+   + 1` beside the `EXISTS` in `minOpenTransactionValueDate`. The nightly realisation, dated the
+   live date, is still left out on the first run after the date moves, and a stuck bank recovers
+   on its first run after deploy.
+
+   Evidence: PR #12453 adds the scenario "A deposit on the live date does not stop the feed closing
+   the unshipped day before it" (`direct_data_feed_recon_hold.feature:110`) and no production
+   code. CI run 36232970688 failed on it alone: with RECON sealed for 2026-04-06, the 2026-04-07
+   interest unsent and a deposit settled on 2026-04-08, the latest TRANSACTION file stayed on
+   2026-04-06 where 2026-04-07 was expected. The scenario moves the clock a day at a time with no
+   hourly runs between, which is how it meets the second prerequisite without an outage.
+   Walkthrough video: `~/tools/feed-stall-video/out/feed-stall.mp4`.
 
 10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
     account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
