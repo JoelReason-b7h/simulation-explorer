@@ -1,0 +1,76 @@
+#!/bin/bash
+# The only way to start, stop or inspect the harness and its stack.
+#
+#   ./harness start    launch the stack from sim-main, wait for every service, start the loop
+#   ./harness stop     stop the loop, take the stack down, release the stack lease
+#   ./harness status   the containers, the loop, and the latest cycles
+#
+# Every step checks its own result and stops with a message when it fails, so nothing half-starts.
+cd "$(dirname "$0")" || exit 1
+export SIM_STACK_REPO=/Users/joelreason/IdeaProjects/exchange.worktrees/sim-main
+export FLEET_PLATFORMS=${FLEET_PLATFORMS:-4}
+LOG=harness.log
+say() { echo "$(date '+%H:%M:%S') $*" | tee -a "$LOG"; }
+
+loop_pids() { pgrep -f "fleet_loop.running.sh|fleet_loop.sh" ; }
+
+start() {
+  if [ -n "$(loop_pids)" ]; then say "the loop is already running (pids $(loop_pids | tr '\n' ' '))"; exit 1; fi
+  python3 stack_check.py checkout || { say "refusing to launch: wrong stack checkout"; exit 1; }
+  if [ "$(docker ps -q --filter name=docker-core-1)" = "" ]; then
+    say "launching the stack from $SIM_STACK_REPO"
+    python3 -c "
+import cycle, sys
+up = cycle.shell('./scripts/launch_stack', timeout=1500)
+sys.stdout.write(up.stdout[-1500:]); sys.stderr.write(up.stderr[-1500:])
+sys.exit(up.returncode)" >> "$LOG" 2>&1 || { say "launch_stack failed; see $LOG"; exit 1; }
+  else
+    say "the stack is already up"
+  fi
+  python3 stack_check.py up | tee -a "$LOG"
+  [ "${PIPESTATUS[0]}" -eq 0 ] || { say "the stack is not healthy; the loop was not started"; exit 1; }
+  rm -f stop.fleet
+  n=$(python3 -c "
+import json
+names = [json.loads(l).get('name', '') for l in open('fleet.progress') if l.strip()]
+nums = [int(''.join(c for c in n if c.isdigit())) for n in names if n.startswith('fleet')]
+print(max(nums) + 1 if nums else 1)" 2>/dev/null || echo 1)
+  nohup ./fleet_loop.sh "$n" > fleet_loop.out 2>&1 &
+  sleep 5
+  [ -n "$(loop_pids)" ] || { say "the loop did not start; see fleet_loop.out"; exit 1; }
+  say "the loop is running from fleet$n (pids $(loop_pids | tr '\n' ' '))"
+}
+
+stop() {
+  touch stop.fleet
+  pkill -f "fleet_loop.running.sh|fleet_loop.sh|fleet_cycle.py|explore.py|after_cycle.py"
+  sleep 2
+  [ -z "$(pgrep -f 'fleet_loop|fleet_cycle.py|explore.py|after_cycle.py')" ] \
+    || { say "harness processes are still running"; exit 1; }
+  say "the harness is stopped; taking the stack down"
+  (cd "$SIM_STACK_REPO" && timeout 600 ./local-down.sh >> "$OLDPWD/$LOG" 2>&1)
+  [ -z "$(docker ps -q --filter name=docker-)" ] || { say "containers are still running"; exit 1; }
+  ~/.claude/bin/stack-lock release >> "$LOG" 2>&1
+  say "the stack is down and the lease is released"
+}
+
+status() {
+  docker ps -a --filter name=docker- --format '{{.Names}}\t{{.Status}}' | sort
+  echo "loop pids: $(loop_pids | tr '\n' ' ')"
+  python3 - <<'EOF'
+import json
+lines = [json.loads(l) for l in open("fleet.progress") if l.strip()][-4:]
+for d in lines:
+    if "runs" in d:
+        print(d["name"], d["at"], [r.get("trials") for r in d["runs"].values()], d.get("newRules"))
+    else:
+        print(d["name"], "started", d["started"])
+EOF
+}
+
+case "$1" in
+  start) start ;;
+  stop) stop ;;
+  status) status ;;
+  *) echo "usage: ./harness start|stop|status   (README.md describes each step)"; exit 2 ;;
+esac
