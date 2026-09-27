@@ -2,3 +2,4 @@
 {"name": "fleet3", "at": "2026-09-27 14:23:46", "quiet": false, "trials": 860, "violations": 48, "serviceErrors": 84, "newRules": ["a transaction booked after an accrual's cutoff is dated after that day (InterestOracle)"]}
 {"name": "fleet4", "at": "2026-09-27 14:40:33", "quiet": false, "trials": 883, "violations": 20, "serviceErrors": 110, "newRules": ["no unexplained 5xx (FundAccount)", "no unexplained 5xx (SettleWorld)"]}
 {"name": "fleet5", "at": "2026-09-27 14:57:46", "quiet": false, "trials": 620, "violations": 26, "serviceErrors": 67, "newRules": ["a transaction booked after an accrual's cutoff is dated after that day (InterestOracle)"]}
+{"name": "fleet6", "at": "2026-09-27 15:15:27", "quiet": false, "trials": 808, "violations": 22, "serviceErrors": 69, "newRules": ["a FROZEN customer's account keeps accruing (JourneyFrozenLifecycle)"]}
