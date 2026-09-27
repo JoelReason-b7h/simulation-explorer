@@ -96,13 +96,6 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    hourly runs between, which is how it meets the second prerequisite without an outage.
    Walkthrough video: `~/tools/feed-stall-video/out/feed-stall.mp4`.
 
-10. **CancelAccountOpening answers 500 when clearing cannot be reached.** The cancel of a non-TERM
-    account calls clearing's `softCloseAccounts` at `DirectCashWithdrawalService.java:75`, with no
-    error handling on the path from `DirectCustomerAccountService.cancelDirectCustomerAccount`
-    (`:144`), so a cut or a timeout becomes a bare 500 with no logref rather than an answer the
-    platform can retry on. fleet 4 p0 trial 168 had the cut from core to clearing in force; two
-    more (fleet 3 p3, fleet 4 p1) had no fault recorded. Evidence: `fleet4-p0.json`.
-    CloseAccount does the same under the same cut (fleet 5 p0, `fleet5-p0.json`).
 11. **Clearing's integrity check fails for about a second after every statement line is
     published.** `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT`
     (`ClearingIntegrityCheckReplicaRepository.java:24-30`) has no grace period, while the
@@ -357,6 +350,14 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   virtual account counts closely, so the pool does not run dry. The INVESTEC auto-preloader
   (`InvestecAccountAutoPreloadScheduler`) runs only with `b7h.clearing.investec.auto-preload.enabled`,
   and the harness keeps the pool full, so it reaches this only on purpose.
+- CancelAccountOpening and CloseAccount answer 500 when core cannot reach clearing. The clearing
+  call (`softCloseAccounts`, `DirectCashWithdrawalService.java:75`) runs inside core's transaction,
+  so a failure rolls core back, and clearing's soft close is a plain `UPDATE ... SET access_status =
+  'SOFT_CLOSED'` that is safe to repeat, so the platform can retry. Joel: a 500 is acceptable here
+  for now. The body says "please contact support with the logRef below" with `logref: null`, and
+  core logs the error with an empty `traceId`, so support cannot link a platform's call to the log;
+  that comes from `GlobalExceptionHandler` (`b7h.libs.micronaut`) and affects every unexpected 500.
+  Box fleet1 p3 trial 182, under the harness's cut of core's calls to clearing.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
