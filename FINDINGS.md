@@ -13,18 +13,20 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    defaults a null status to RJCT. A connection that closes before the bank answers leaves the
    status null, so clearing holds RJCT while the bank paid (ACSC), and a retry pays twice.
    Evidence: cycle 48, payment `PEC000000100000B` (`chain48.json`).
-2. **PaymentSettled on a CLOSING account fails with "Could not find instruction for payment due".**
-   `DirectCustomerInstructionService.java:202`. The message retries until the dead-letter queue.
-   Near SAV-11636, and a separate defect. Evidence: cycle 48, `060b83a9` (`chain48.json`).
-   Again in fleet 5: PaymentSettled for account `71cc626a`, CLOSING, went to the DLQ after 13
-   deliveries (`fleet5-p0.json`, stack in `archive/fleet5.tgz`).
-   Fleet 10 shows the other face of it: `PaymentInformationSqsConsumer` fails with "Unable to find
-   direct accounts for payment dues" from `PaymentDueDirectCustomerAccountService.
-   fetchAccountsForPaymentDues` (`:193`), 8 deliveries each for dues `e1782ca9` and `a145407e`. The
-   method throws when any due in the message has no Direct account with an instruction, while its
-   neighbour around `:181` logs the missing dues and settles the rest, so one unresolvable due
-   dead-letters every due in the same PaymentSettled. Stack in `archive/fleet10.tgz`. Fleet 12
-   traced where such dues come from: finding 15.
+2. **On hold until it happens again: a PaymentSettled fails with "Could not find instruction for
+   payment due".** The account being CLOSING is not the cause. `completeInstructionForPaymentDue`
+   (`DirectCustomerInstructionService.java:200-202`) updates only a PENDING instruction linked to
+   the due, so it throws when the due has no linked instruction (the closure drain, finding 15,
+   SAV-11694) or when the linked instruction is no longer PENDING, for example cancelled by the
+   closure before its payout settled (near SAV-11636). The message retries until the dead-letter
+   queue. Cycle 48 (`060b83a9`, `chain48.json`) and fleet 5 (account `71cc626a`) cannot say which:
+   the harness kept only 300 characters of each dead letter, cut before the payment due, neither
+   archive holds the stack, and no database dump exists for either. The harness now keeps the whole
+   message, and the box keeps each cycle's service-error log and dump, so the next occurrence can
+   be traced. Box fleets 1 to 10 have not produced it.
+   The fleet 10 part first filed here, "Unable to find direct accounts for payment dues" from
+   `PaymentDueDirectCustomerAccountService.fetchAccountsForPaymentDues` (`:193`), is finding 15
+   (SAV-11694); the box has reproduced it in fleets 3, 5, 6 and 9.
 4. **Core opens, funds and closes a Direct account that clearing never created, then leaves its
    money on the CLOSED account.** Core asks clearing for the account asynchronously at opening
    (`DirectCustomerAccountOrchestrator.java:81-82`) and never checks that clearing made it. In
