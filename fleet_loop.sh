@@ -36,6 +36,7 @@ while [ ! -f stop.fleet ]; do
   echo "CYCLE_EXIT $?" >> "$name.cycle.log"
   python3 -u after_cycle.py "$name" >> "$name.cycle.log" 2>&1
   python3 -u prune_dumps.py >> "$name.cycle.log" 2>&1
+  python3 -u publish_results.py "$name" >> "$name.cycle.log" 2>&1
   n=$((n + 1))
 done
 kill "$KEEP" 2>/dev/null
