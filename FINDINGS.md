@@ -31,9 +31,13 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
 
 7. **Clearing inserts a bank entry again on every poll that reads it, and never deduplicates the
-   copies it cannot allocate.** PROD-3976, marked Done, but no commit on `origin/main` names it and
-   the code below is unchanged since SAV-11011. PROD-3976 saw it in production: one credit reached
-   the exceptions queue from both the camt.052 intraday report and the camt.053 end-of-day report. `AccountStatementLineRepository.insertAccountStatementLine`
+   copies it cannot allocate.** PROD-3976, whose fix is tracked in SAV-11009 (In Development).
+   PROD-3976 was moved to Done on 2026-09-03 when it was linked as "implemented by SAV-11009", not
+   when a fix landed: no commit on `origin/main` names it, and the code below is unchanged since
+   SAV-11011. PROD-3976 saw it in production: one 1,737.00 credit was allocated from its camt.054,
+   then reached the exceptions queue from both the camt.052 intraday report and the camt.053
+   end-of-day report. Its fix, still to be done in SAV-11009: add `EndToEndId` to the duplicate key
+   before the servicer reference, and compare against EXCEPTION rows as well. `AccountStatementLineRepository.insertAccountStatementLine`
    (`AccountStatementLineRepository.java:60-104`) is a plain INSERT with no `ON CONFLICT`, and
    `account_statement_line` has no unique key on any bank identifier. The only duplicate check is
    in `FallbackHandler.handle`: a line that cannot be enriched goes to EXCEPTION at
