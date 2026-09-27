@@ -11,10 +11,14 @@ local_auth_patch, then:
   it is in a deployed environment;
 - sends more of the stack's own traffic through toxiproxy, so a fault can be injected there: core
   to compliance, and clearing's second client to the bank.
+- on Linux, maps host.docker.internal to the host in every service. Docker Desktop defines that
+  name and Linux Docker does not, and the services reach the harness's webhook sink and its
+  Cognito stand-in through it.
 """
 
 from __future__ import annotations
 
+import platform
 import sys
 from pathlib import Path
 
@@ -42,6 +46,11 @@ ROUTES = {
 DROPPED = {"docker/core.env": ("B7H_DATABASE_CORE_PORT",)}
 LAUNCH = "scripts/launch_stack"
 ANCHOR = "create_proxy clearing-to-bank 0.0.0.0:20002 hot-sauce-bank:10002\n"
+
+HOST_OVERLAY = "docker/docker-compose.linux-host.yml"
+HOST_SERVICES = ("adapter", "clearing", "compliance", "compliance-api", "core", "core-ro",
+                 "hot-sauce-bank", "notification", "ops-api", "public-api", "simulator-api")
+COMPOSE_LINE = "COMPOSE_FILES=(-f ./docker/docker-compose.yml)\n"
 
 
 def _set_lines(path, wanted):
@@ -84,6 +93,26 @@ def _add_proxies(path):
     return True
 
 
+def _add_host_overlay(checkout):
+    overlay = checkout / HOST_OVERLAY
+    wanted = "services:\n" + "".join(
+        "  {}:\n    extra_hosts:\n      - \"host.docker.internal:host-gateway\"\n".format(s)
+        for s in HOST_SERVICES)
+    changed = False
+    if not overlay.exists() or overlay.read_text() != wanted:
+        overlay.write_text(wanted)
+        changed = True
+    launch = checkout / LAUNCH
+    text = launch.read_text()
+    if HOST_OVERLAY not in text:
+        if COMPOSE_LINE not in text:
+            raise SystemExit("{} has no COMPOSE_FILES line to add {} to".format(launch, HOST_OVERLAY))
+        launch.write_text(text.replace(COMPOSE_LINE, "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
+                                       " -f ./{})\n".format(HOST_OVERLAY)))
+        changed = True
+    return changed
+
+
 def patch(checkout):
     """Returns True when a file changed, because a running stack read them all at start."""
     checkout = Path(checkout)
@@ -102,6 +131,8 @@ def patch(checkout):
             path.write_text(after)
             changed = True
     changed = _add_proxies(checkout / LAUNCH) or changed
+    if platform.system() == "Linux":
+        changed = _add_host_overlay(checkout) or changed
     print("stack {} in {}".format("patched" if changed else "already patched", checkout))
     return changed
 

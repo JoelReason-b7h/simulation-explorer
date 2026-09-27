@@ -40,6 +40,34 @@ output.
 - `SIM_LOCAL_AUTH=0`: use the dev Cognito pool, not the harness's own tokens.
 - `SIM_LONG_LIVED_BANK=0`: stand up a fresh cohort each cycle, not the saved long-lived bank.
 - `SIM_JOURNEY_SHARE`: the share of a run's time that journeys may use (default 0.3).
+- `SIM_STACK_REPO`: the sim-main checkout (default the Mac path in `exchange.worktrees`).
+- `SIM_AUTH_DIR`: the folder that holds the ops credentials (`local.env`).
+
+## Running it on Linux
+
+The harness also runs on a Linux host with Docker Engine, for example the mini PC on the tailnet.
+
+- Build the images on the Mac for `linux/amd64` and send them with `docker save | ssh <host> docker
+  load`. The Dockerfiles only copy JARs, so the build needs no emulation.
+- The host needs `postgresql-client`, `python3-httpx` and `python3-yaml`.
+- Set `SIM_STACK_REPO` to a directory named `sim-main` that holds the compose files, `docker/`,
+  `scripts/` and `local-*.sh`. Set `SIM_AUTH_DIR` to a copy of the ops credentials.
+- `stack_patch.py` adds `docker/docker-compose.linux-host.yml` on Linux. It maps
+  `host.docker.internal` to the host, because Linux Docker does not define that name and the
+  services send webhooks and Cognito calls to the harness through it.
+- `caffeinate` and `~/.claude/bin/stack-lock` are used only where they exist.
+
+## Dashboard
+
+`dashboard/dash.py` serves a health page on `127.0.0.1:8440`: the host's load, memory, swap, disk
+and temperature, each container's state and memory against its limit, ops-api `/health`, the loop,
+the current cycle against its time budget, and the recent cycles. `/api/status` returns the same
+data as JSON. It uses only the standard library.
+
+```bash
+crontab -e                  # @reboot and * * * * * <repo>/dashboard/run.sh
+tailscale serve --bg 8440   # https://<host>.<tailnet>.ts.net, tailnet only
+```
 
 ## Files a cycle writes
 

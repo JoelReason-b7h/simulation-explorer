@@ -8,7 +8,7 @@
 #
 # Every step checks its own result and stops with a message when it fails, so nothing half-starts.
 cd "$(dirname "$0")" || exit 1
-export SIM_STACK_REPO=/Users/joelreason/IdeaProjects/exchange.worktrees/sim-main
+export SIM_STACK_REPO=${SIM_STACK_REPO:-/Users/joelreason/IdeaProjects/exchange.worktrees/sim-main}
 export FLEET_PLATFORMS=${FLEET_PLATFORMS:-4}
 LOG=harness.log
 say() { echo "$(date '+%H:%M:%S') $*" | tee -a "$LOG"; }
@@ -60,7 +60,7 @@ stop() {
   say "the harness is stopped; taking the stack down"
   (cd "$SIM_STACK_REPO" && timeout 600 ./local-down.sh >> "$OLDPWD/$LOG" 2>&1)
   [ -z "$(docker ps -q --filter name=docker-)" ] || { say "containers are still running"; exit 1; }
-  ~/.claude/bin/stack-lock release >> "$LOG" 2>&1
+  [ -x ~/.claude/bin/stack-lock ] && ~/.claude/bin/stack-lock release >> "$LOG" 2>&1
   say "the stack is down and the lease is released"
 }
 
