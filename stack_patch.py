@@ -56,7 +56,7 @@ ANCHOR = "create_proxy clearing-to-bank 0.0.0.0:20002 hot-sauce-bank:10002\n"
 HOST_OVERLAY = "docker/docker-compose.linux-host.yml"
 HOST_SERVICES = ("adapter", "clearing", "compliance", "compliance-api", "core", "core-ro",
                  "hot-sauce-bank", "notification", "ops-api", "public-api", "simulator-api")
-COMPOSE_LINE = "COMPOSE_FILES=(-f ./docker/docker-compose.yml)\n"
+COMPOSE_START = "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
 
 HERE = Path(__file__).resolve().parent
 CLOCK_OVERLAY = "docker/docker-compose.faketime.yml"
@@ -128,10 +128,12 @@ def _add_host_overlay(checkout):
     launch = checkout / LAUNCH
     text = launch.read_text()
     if HOST_OVERLAY not in text:
-        if COMPOSE_LINE not in text:
+        # Matched on its start, not the whole line: a checkout copied from the Mac can already
+        # carry the fake-clock overlay on it.
+        if COMPOSE_START not in text:
             raise SystemExit("{} has no COMPOSE_FILES line to add {} to".format(launch, HOST_OVERLAY))
-        launch.write_text(text.replace(COMPOSE_LINE, "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
-                                       " -f ./{})\n".format(HOST_OVERLAY)))
+        launch.write_text(text.replace(COMPOSE_START, "{} -f ./{}".format(COMPOSE_START,
+                                                                          HOST_OVERLAY), 1))
         changed = True
     return changed
 
@@ -261,11 +263,9 @@ def _set_clock(checkout, spec):
         changed = _write_if_changed(checkout / CLOCK_OVERLAY,
                                     _clock_overlay(rate, _timeouts(checkout))) or changed
         if overlay_arg not in launch_text:
-            if "COMPOSE_FILES=(-f ./docker/docker-compose.yml" not in launch_text:
+            if COMPOSE_START not in launch_text:
                 raise SystemExit("{} has no COMPOSE_FILES line to add {} to".format(launch, CLOCK_OVERLAY))
-            launch.write_text(launch_text.replace("COMPOSE_FILES=(-f ./docker/docker-compose.yml",
-                                                  "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
-                                                  + overlay_arg, 1))
+            launch.write_text(launch_text.replace(COMPOSE_START, COMPOSE_START + overlay_arg, 1))
             changed = True
         if up_arg not in up_text:
             if LOCAL_UP_LINE not in up_text:
