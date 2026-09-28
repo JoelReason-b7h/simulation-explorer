@@ -2628,6 +2628,11 @@ class Run:
     # left core unable to answer at all while the run recorded every call as a finding.
     RESTART_COOLDOWN_TRIALS = 60
 
+    def restart_waiting(self):
+        since = self.steps - self.restarted_at
+        return bool(self.restarted_at and since < self.RESTART_COOLDOWN_TRIALS) or bool(
+            self.live_fault())
+
     def restart(self, *which):
         """Stop one or more services and start them again, then wait for each to report itself healthy.
 
@@ -3418,6 +3423,11 @@ class Run:
         within_budget = [n for n in remaining if n not in actions.EXPENSIVE_FAULTS]
         if within_budget and self.fault_share() >= self.FAULT_SHARE:
             remaining = within_budget
+
+        # A restart inside the wait after the last one, or under another fault, only answers 412,
+        # and those refusals took most of the restart picks: fleets 60 to 66 restarted nothing.
+        if self.restart_waiting():
+            remaining = [n for n in remaining if n not in actions.RESTARTS] or remaining
 
         # A route that walked to the end without landing in its target followed a false edge, so
         # count that as a failure. Rejection was the only thing that set a target aside, and this

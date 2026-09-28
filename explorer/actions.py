@@ -465,6 +465,9 @@ EXPENSIVE_FAULTS = {
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
 }
 
+RESTARTS = {"RestartClearing", "RestartCore", "RestartBank", "RestartCompliance",
+            "RestartPublicApi", "RestartSeveral"}
+
 WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", "ProcessDueNotice",
          "ChangeBankRate",
          "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
