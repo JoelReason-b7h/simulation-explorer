@@ -271,6 +271,23 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     `decide_refused_groups` REJECT_FAIL at 14:17 (`refused-group-decisions.jsonl`), three dead
     letters at 14:17.
 
+31. **An internal transfer already carrying `reference: "UNABLE_TO_PROCESS"` dead-letters instead
+    of failing cleanly.** A `TransferExpectation` from `b7h.exchange.savings-core`
+    (`expectationType: INTERNAL`) is sent with its `reference` already set to the literal string
+    "UNABLE_TO_PROCESS", and whatever consumes it on the clearing side never accepts it: it fails
+    delivery until the queue's dead-letter threshold and lands in `e2e-dlq`, so the transfer is
+    neither applied nor cleanly rejected. Seen 11 times over three consecutive box cycles, always
+    under `TransitionChainSweep`: fleet29 (`5464c3fa`, 2.17 GBP, debtor `a66bca0c` to creditor
+    `9635058d`); fleet31 (`d7e4ae06`, `5036cf9e`, `b51341f8`, `6f04efa3`: 1.00, 0.50, 1.50 and 7.33
+    GBP, three from debtor `81f042d5` and one from `ba5a7505`, all to creditor `8e09fb41`); fleet32
+    (`9123ad20`, `8dd96edb`, `f44e76f6`, `28bc7682`, `b6f05c82`, `e334075c`: 3.00, 3.00, 1.00, 3.00,
+    0.01 and 7.33 GBP, from debtors `f82e72b7`, `3ec005e8`, `aeedd586` and `ff558e4b`, again to
+    creditor `8e09fb41`). Every fleet31 and fleet32 instance targets the same creditor account
+    despite different debtors, which points at something wrong with accepting transfers into that
+    one account rather than a one-off race. Not yet traced to a source line: this box run's
+    evidence is the cycle digests only. Evidence: `cycles/fleet29.json`, `cycles/fleet31.json`,
+    `cycles/fleet32.json` on the `results` branch.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
