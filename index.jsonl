@@ -28,3 +28,4 @@
 {"name": "fleet31", "at": "2026-09-28 01:25:27", "quiet": false, "trials": 1816, "violations": 23, "serviceErrors": 151, "newRules": ["a batch across three of a customer's products lands on each (JourneyMultiProduct)", "no message goes to the dead letter queue (TransitionChainSweep)"]}
 {"name": "fleet32", "at": "2026-09-28 01:41:36", "quiet": false, "trials": 1617, "violations": 16, "serviceErrors": 150, "newRules": ["no message goes to the dead letter queue (TransitionChainSweep)"]}
 {"name": "fleet33", "at": "2026-09-28 01:57:46", "quiet": false, "trials": 1388, "violations": 11, "serviceErrors": 81, "newRules": []}
+{"name": "fleet34", "at": "2026-09-28 02:14:01", "quiet": false, "trials": 1594, "violations": 10, "serviceErrors": 143, "newRules": ["a payout goes to the nominated account active when it is raised (JourneyPayeeReview)"]}
