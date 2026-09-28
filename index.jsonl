@@ -53,3 +53,4 @@
 {"name": "fleet56", "at": "2026-09-28 08:26:13", "quiet": false, "trials": 1135, "violations": 13, "serviceErrors": 195, "newRules": ["a payout goes to the nominated account active when it is raised (JourneyPayeeChange)"]}
 {"name": "fleet57", "at": "2026-09-28 08:42:24", "quiet": false, "trials": 1277, "violations": 13, "serviceErrors": 208, "newRules": []}
 {"name": "fleet58", "at": "2026-09-28 08:59:08", "quiet": false, "trials": 1150, "violations": 14, "serviceErrors": 129, "newRules": []}
+{"name": "fleet59", "at": "2026-09-28 09:18:00", "quiet": false, "trials": 914, "violations": 14, "serviceErrors": 136, "newRules": ["a payout goes to the nominated account active when it is raised (JourneyPayeeChange)"]}
