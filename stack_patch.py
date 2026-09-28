@@ -21,6 +21,7 @@ local_auth_patch, then:
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
@@ -140,10 +141,50 @@ def _arch():
     return "arm64" if machine in ("arm64", "aarch64") else "amd64"
 
 
-def _clock_overlay():
+# In LocalStack's own ready.d folder: a file bind-mounted inside that folder's bind mount fails on
+# Docker Desktop ("mountpoint is outside of rootfs") and leaves an empty file in its place.
+SQS_VISIBILITY = "docker/localstack/998_faketime_sqs_visibility.sh"
+# LocalStack's default, and the one queue 002_sqs.sh shortens.
+SQS_DEFAULT_VISIBILITY, SQS_SHORT = 30, {"eventbridge-icac-clearing": 5}
+
+
+def _timeouts(checkout):
+    """faketime/timeouts.json, rebuilt first when the checkout has the services' source."""
+    import faketime.timeouts
+    if (checkout / "apps").exists():
+        table = faketime.timeouts.build(checkout)
+        _write_if_changed(HERE / "faketime" / "timeouts.json",
+                          json.dumps(table, indent=1, sort_keys=True) + "\n")
+    return json.loads((HERE / "faketime" / "timeouts.json").read_text())
+
+
+def _sqs_visibility(rate):
+    """A LocalStack ready.d script that stretches every queue's visibility timeout by the rate.
+
+    LocalStack counts it on the fake clock, so at x10 a consumer that held a message for more than
+    three real seconds saw it delivered again; 998 runs after 002_sqs.sh makes the queues and
+    before 999_finish.sh marks LocalStack healthy."""
+    lines = ["#!/bin/sh", "# Written by simulation-explorer's stack_patch.py because SIM_CLOCK is set.",
+             "export AWS_DEFAULT_REGION=eu-west-2",
+             "for url in $(awslocal sqs list-queues --output text --query 'QueueUrls[]'); do",
+             "  awslocal sqs set-queue-attributes --queue-url \"$url\" "
+             "--attributes VisibilityTimeout={}".format(int(SQS_DEFAULT_VISIBILITY * rate)),
+             "done"]
+    for queue, seconds in SQS_SHORT.items():
+        lines.append("awslocal sqs set-queue-attributes --queue-url \"$(awslocal sqs get-queue-url "
+                     "--queue-name={} --output text --query QueueUrl)\" --attributes "
+                     "VisibilityTimeout={}".format(queue, int(seconds * rate)))
+    return "\n".join(lines) + "\n"
+
+
+def _clock_overlay(rate, timeouts):
     """The compose overlay for SIM_CLOCK. Wiremock (Ubuntu 22.04, older than the trixie build)
     and toxiproxy (a static Go binary) stay on the real clock: neither reads the time for anything
-    the services depend on."""
+    the services depend on.
+
+    Every Java service's timeouts are multiplied by the rate (faketime/timeouts.py), because
+    libfaketime runs its timers at the rate too."""
+    import faketime.timeouts
     def glibc(extra=()):
         env = ("LD_PRELOAD=/faketime/trixie/libfaketimeMT.so.1",
                "FAKETIME_TIMESTAMP_FILE=/run/faketime/clock", "FAKETIME_FMT=%s",
@@ -181,7 +222,10 @@ def _clock_overlay():
                          "    user: redis\n    entrypoint: []\n"))
     for name in CLOCK_JAVA:
         schedulers = ("B7H_ENV_ASYNC_SCHEDULING_ENABLED=true", "B7H_ASYNC_SCHEDULING_ENABLED=true")
-        parts.append(service(name, glibc(schedulers if name in CLOCK_SCHEDULERS else ())))
+        extra = schedulers if name in CLOCK_SCHEDULERS else ()
+        extra += tuple("{}={}".format(key, faketime.timeouts.scaled(value, rate))
+                       for key, value in sorted((timeouts.get(name) or {}).items()))
+        parts.append(service(name, glibc(extra)))
     return "".join(parts)
 
 
@@ -205,14 +249,17 @@ def _set_clock(checkout, spec):
     changed = False
     if spec:
         import faketime.clock
-        faketime.clock.parse(spec)
+        _, rate = faketime.clock.parse(spec)
         folder = checkout / CLOCK_DIR
         for base in ("trixie", "alpine"):
             lib = HERE / "faketime" / "{}-{}".format(base, _arch()) / "libfaketimeMT.so.1"
             changed = _write_if_changed(folder / base / lib.name, lib.read_bytes(), True) or changed
         changed = _write_if_changed(folder / "clock.py",
                                     (HERE / "faketime" / "clock.py").read_text()) or changed
-        changed = _write_if_changed(checkout / CLOCK_OVERLAY, _clock_overlay()) or changed
+        changed = _write_if_changed(checkout / SQS_VISIBILITY, _sqs_visibility(rate)) or changed
+        (checkout / SQS_VISIBILITY).chmod(0o755)
+        changed = _write_if_changed(checkout / CLOCK_OVERLAY,
+                                    _clock_overlay(rate, _timeouts(checkout))) or changed
         if overlay_arg not in launch_text:
             if "COMPOSE_FILES=(-f ./docker/docker-compose.yml" not in launch_text:
                 raise SystemExit("{} has no COMPOSE_FILES line to add {} to".format(launch, CLOCK_OVERLAY))
@@ -238,6 +285,9 @@ def _set_clock(checkout, spec):
         changed = True
     if (checkout / CLOCK_DIR).exists():
         shutil.rmtree(checkout / CLOCK_DIR)
+    if (checkout / SQS_VISIBILITY).exists():
+        (checkout / SQS_VISIBILITY).unlink()
+        changed = True
     return changed
 
 

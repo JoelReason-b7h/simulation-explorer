@@ -119,7 +119,16 @@ checkout's `docker/faketime/`. The overlay:
   shows the same time and a restarted one carries on rather than starting over
   (`faketime/clock.py` explains why);
 - turns on the schedulers of core, clearing, compliance and adapter, which the acceptance profile
-  turns off, so their crons fire on the fake clock.
+  turns off, so their crons fire on the fake clock;
+- multiplies every Java service's timeouts by the rate, because libfaketime runs their timers at
+  the rate too: at x10 a 10-second HTTP read timeout would give up after one real second. The
+  HTTP client timeouts (global and per named client), the database connection and statement
+  timeouts, the webhook outbox's and Redis's are listed in `faketime/timeouts.json`, which
+  `faketime/timeouts.py` rebuilds from the services' `application*.yml` whenever the checkout has
+  the source. The box's checkout has none and uses the committed file;
+- adds `docker/localstack/998_faketime_sqs_visibility.sh`, which multiplies every queue's SQS
+  visibility timeout by the rate, so a message a consumer holds for more than three real seconds
+  at x10 is not delivered a second time.
 
 WireMock and toxiproxy stay on the real clock.
 
