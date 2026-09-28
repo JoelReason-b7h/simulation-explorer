@@ -437,8 +437,9 @@ class Journey:
         """The interest oracle over these accounts; each finding is this journey's finding."""
         found, stats, _ = interest_oracle.check(account_uids=[a for a in account_ids if a])
         for finding in found:
-            self.expect(False, finding["rule"], finding["detail"], finding["expected"],
-                        finding["actual"])
+            # The journey's customer is whichever it made last, so the account goes in the detail.
+            self.expect(False, finding["rule"], "account {}: {}".format(
+                finding["subject"], finding["detail"]), finding["expected"], finding["actual"])
         self.step("interest oracle at " + label, "{} accruals, {} realisations, {} findings"
                   .format(stats.get("accrualsJudged"), stats.get("realisationsJudged"),
                           len(found)))

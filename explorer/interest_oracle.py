@@ -370,7 +370,12 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
                                           fee_balance)
                     if found is not None:
                         candidates.append(found)
-                if not candidates:
+                if not candidates and all(pots[p][0].compare(ZERO) == 0 for p in pots):
+                    # Core writes a zero row for a day before the product's first rate: accounts
+                    # opened on 30 December got one for 29 December when the accrual job caught
+                    # up after the holiday. No rate and no interest agree, and no money moved.
+                    stats["zeroDaysWithoutRate"] = stats.get("zeroDaysWithoutRate", 0) + 1
+                elif not candidates:
                     find("an accrued day has a rate", uid,
                          "no rate covers {} for the account's product as of {}".format(
                              value_date, created), "a rate", "none")
