@@ -300,6 +300,14 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     settlement sweep also in flight): balances 14.00, 3.00, 6.60 and 9.00, expected accruals
     0.00161096, 0.00034521, 0.00075945 and 0.00103562. Not reproduced on any other date this box
     has crossed. Evidence: `cycles/fleet55.json` on the `results` branch.
+    Reproduced on a second UK bank holiday: fleet96, six Direct accounts each accrued 0 on
+    2027-01-02 (the day after New Year's Day) instead of principal x rate / 365 (expected between
+    0.00069041 and 0.00310915), and the "one accrual per calendar day" check on the same accounts
+    found the next accrual after 2027-01-01 recorded again as 2027-01-01 rather than advancing, so
+    the schedule repeats the holiday date instead of moving past it. Accounts `86e4fb0b`,
+    `5d8af7c9`, `76c46eb2`, `a062c0b1`, `ac868060`, `3d8eb253`. Two different holidays, same shape,
+    so this looks like the accrual scheduler's date arithmetic itself, not a one-off around Boxing
+    Day. Evidence: `cycles/fleet96.json` on the `results` branch.
 
 33. **A withdrawal to a payee just verified through Confirmation of Payee is accepted and marked
     completed, but its money never leaves the account.** `JourneyPayeeReview`'s money-conservation
@@ -320,6 +328,14 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     harness read issue rather than a real misroute — a database dump from one of these cycles would
     settle it. Evidence: `cycles/fleet69.json`, `cycles/fleet71.json`, `cycles/fleet73.json` on the
     `results` branch.
+    Still reproducing after a harness reinstall, same amounts and same account tails every time:
+    fleet95, 97, 100, 101, 103, 104 and 106 all show the identical 1.11/0.75 (payee review) and
+    2.17/1.23 (payee change) pair, always "10.00 funded, 1.86 paid out" read back as 10.00 still
+    held, and the payout due's name field always carries the full digit string ending in the
+    expected account number (`73688637`, `63849203`, `66374958`, `63748472`) with the due itself
+    `FAILED`. Consistent across ten-plus cycles over several days, which weighs against a harness
+    read issue and toward the money genuinely not moving. Evidence: `cycles/fleet95.json`,
+    `cycles/fleet101.json`, `cycles/fleet104.json` on the `results` branch.
 
 ## Checked and holding
 
