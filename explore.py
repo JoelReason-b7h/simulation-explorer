@@ -3472,8 +3472,11 @@ class Run:
                 self.route_note = "next step {} is not buildable from here".format(self.route[0])
                 self.route_state = "abandoned"
             self.route = []
-            action_name = min(remaining, key=lambda n: (self.explorer.tried[(keys[n], n)],
-                                                          self.explorer.tried_anywhere[n], n))
+            # The last tie goes to an order fixed per run, not to the name: two untried actions tie
+            # on both counts, and the name kept every Restart behind the Break actions.
+            action_name = min(remaining, key=lambda n: (
+                self.explorer.tried[(keys[n], n)], self.explorer.tried_anywhere[n],
+                zlib.crc32("{}:{}".format(self.run_id, n).encode()), n))
             if not self.why:
                 self.why = "least tried"
                 self.why_detail = "no route from here, so the least-tried buildable action wins"
