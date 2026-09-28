@@ -1,0 +1,143 @@
+{
+ "name": "fleet109",
+ "progress": {
+  "name": "fleet109",
+  "at": "2026-09-28 23:07:28",
+  "seconds": 900,
+  "clock": {
+   "fake": true,
+   "spec": "@2026-12-25 21:17:37 x10",
+   "rate": 10.0,
+   "fakeStart": "2026-12-25T21:17:37+00:00",
+   "realStart": "2026-09-28T00:03:38.794625+00:00",
+   "boundary": {
+    "name": "Boxing Day",
+    "at": "2026-12-26T00:00:00+00:00",
+    "atLondon": "2026-12-26T00:00:00+00:00",
+    "offsetSeconds": 9742
+   },
+   "fakeNow": "2027-01-04T01:55:56.815719+00:00"
+  },
+  "runs": {},
+  "sanity": [
+   "no webhook reached the receiver",
+   "no cohorts file, so the standup did not finish"
+  ],
+  "serviceErrors": 0,
+  "tableGrowth": {
+   "now": {
+    "core": {
+     "rows": 731694,
+     "megabytes": 275.8,
+     "tables": {
+      "platform_webhook_event": 63635,
+      "sqs_message": 44227,
+      "platform_person_history": 10170,
+      "operations_tasks": 30155,
+      "direct_batch_instruction": 15704,
+      "interest_accrual": 21865,
+      "account_publish_outbox": 7667,
+      "interest_accrual_amount": 65598,
+      "direct_customer_instruction": 16691,
+      "account_transaction": 14797,
+      "payment_due_direct_customer_instruction": 28560,
+      "cash_transaction": 23741
+     }
+    },
+    "clearing": {
+     "rows": 787492,
+     "megabytes": 575.2,
+     "tables": {
+      "account_statement_line_history": 145834,
+      "account_statement_file": 77380,
+      "poll_response_history": 31599,
+      "partner_payment_audit": 40602,
+      "partner_payment": 41081,
+      "account_statement_line": 54857,
+      "account_statement_balance": 123504,
+      "partner_payment_due": 39594,
+      "funding_record": 41081,
+      "account_statement_file_batch": 30747,
+      "partner_payment_link": 36567,
+      "payment_initiation_file": 2867
+     }
+    },
+    "hsb": {
+     "rows": 33915,
+     "megabytes": 14.5,
+     "tables": {
+      "transaction_entry": 18462,
+      "payment_file": 2711,
+      "payment_transaction_status": 2711,
+      "virtual_account": 5000,
+      "virtual_account_numbers": 5000,
+      "profile": 3,
+      "real_account": 15,
+      "application_configuration": 9,
+      "flyway_schema_history": 4
+     }
+    }
+   },
+   "sinceLastCycle": {
+    "core": {
+     "rows": 0,
+     "megabytes": 0.0,
+     "tables": {
+      "platform_webhook_event": 0,
+      "sqs_message": 0,
+      "platform_person_history": 0,
+      "operations_tasks": 0,
+      "direct_batch_instruction": 0,
+      "interest_accrual": 0,
+      "account_publish_outbox": 0,
+      "interest_accrual_amount": 0,
+      "direct_customer_instruction": 0,
+      "account_transaction": 0,
+      "payment_due_direct_customer_instruction": 0,
+      "cash_transaction": 0
+     }
+    },
+    "clearing": {
+     "rows": 0,
+     "megabytes": 0.0,
+     "tables": {
+      "account_statement_line_history": 0,
+      "account_statement_file": 0,
+      "poll_response_history": 0,
+      "partner_payment_audit": 0,
+      "partner_payment": 0,
+      "account_statement_line": 0,
+      "account_statement_balance": 0,
+      "partner_payment_due": 0,
+      "funding_record": 0,
+      "account_statement_file_batch": 0,
+      "partner_payment_link": 0,
+      "payment_initiation_file": 0
+     }
+    },
+    "hsb": {
+     "rows": 0,
+     "megabytes": 0.0,
+     "tables": {
+      "transaction_entry": 0,
+      "payment_file": 0,
+      "payment_transaction_status": 0,
+      "virtual_account": 0,
+      "virtual_account_numbers": 0,
+      "profile": 0,
+      "real_account": 0,
+      "application_configuration": 0,
+      "flyway_schema_history": 0
+     }
+    }
+   }
+  },
+  "newRules": [],
+  "quiet": false,
+  "next": 900
+ },
+ "runs": {},
+ "clock": null,
+ "mi": null,
+ "feed": null
+}
