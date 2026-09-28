@@ -81,6 +81,7 @@ def soft_close(run):
 
 def _while_active(j, product):
     _open_holders(j, product)
+    _recheck_unsettled(j, product)
     if not product["withdrewWhileActive"] and product["holders"]:
         holder = product["holders"][0]
         product["withdrewWhileActive"] = _withdraw(j, holder, PARTIAL, "part of the balance",
@@ -160,11 +161,13 @@ def _close(j, product):
 
 def _while_closed(j, product):
     product["callsAfterClose"] += 1
+    _recheck_unsettled(j, product)
     _withdraw_round(j, product)
     _judge_first_deposit(j, product)
     _judge_interest(j, product, "{} calls after the soft closure".format(
         product["callsAfterClose"]))
-    finished = all(h["withdrawn"] for h in product["holders"]) and product["judgedAfterGrace"]
+    finished = (all(h["withdrawn"] and not h.get("unsettled") for h in product["holders"])
+                and product["judgedAfterGrace"])
     if finished or product["callsAfterClose"] >= CALLS_AFTER_CLOSE:
         j.run.soft_close = None
         j.step("leave the product", "every holder withdrew and the grace end is judged"
@@ -213,7 +216,37 @@ def _withdraw(j, holder, amount, label, product_state):
     if paid:
         holder["paidOut"] += amount
         j.conserved(holder["funded"], holder["paidOut"], "the withdrawal {}".format(when))
+    else:
+        holder["unsettled"] = {"amount": amount, "when": when, "calls": 0}
     return True
+
+
+# A payout still pending this many calls after its withdrawal is judged as stuck.
+UNSETTLED_CALLS = 2
+
+
+def _recheck_unsettled(j, product):
+    """Withdrawals that had not settled when their call ended: settled now, or still pending."""
+    for holder in product["holders"]:
+        pending = holder.get("unsettled")
+        if not pending:
+            continue
+        j.customer = holder["customer"]
+        pending["calls"] += 1
+        paid = _payouts_settled(j, holder["account"]["accountId"])
+        j.step("recheck the {} withdrawal {}".format(pending["amount"], pending["when"]),
+               "completed" if paid else "still pending after {} calls".format(pending["calls"]))
+        if paid:
+            holder["unsettled"] = None
+            holder["paidOut"] += pending["amount"]
+            j.conserved(holder["funded"], holder["paidOut"],
+                        "the withdrawal {}".format(pending["when"]))
+        elif pending["calls"] >= UNSETTLED_CALLS:
+            holder["unsettled"] = None
+            j.expect(False, "a withdrawal from a SOFT_CLOSED product settles",
+                     "the {} withdrawal {} on account {} is still pending {} journey calls later"
+                     .format(pending["amount"], pending["when"], holder["account"]["accountId"],
+                             pending["calls"]), "settled", "pending")
 
 
 def _payouts_settled(j, account_id):
