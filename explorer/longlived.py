@@ -41,7 +41,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-from explorer import fleet, interest_oracle, world
+from explorer import clock, fleet, interest_oracle, world
 
 HERE = Path(__file__).resolve().parents[1]
 ENABLED = os.environ.get("SIM_LONG_LIVED") == "1"
@@ -146,7 +146,8 @@ def unusable(saved, count, settings):
 
 
 def keeps_clock(run):
-    return ENABLED and bool(getattr(run, "bank_uid", None)) and (
+    # On a fake clock the bank's own schedules move the date and run the day's jobs.
+    return ENABLED and not clock.schedulers_run() and bool(getattr(run, "bank_uid", None)) and (
         not fleet.is_member() or os.environ.get("SIM_CLOCK_KEEPER") == "1")
 
 
@@ -485,7 +486,8 @@ class Population:
         and STUCK_WALL_MINUTES wall minutes, or a clearing due EXPECTED past STUCK_DUE_HOURS."""
         run = self.run
         seen = self.state.setdefault("seen", {})
-        now = time.time()
+        # The notice due date and the wall minutes are core's, so they are read on its clock.
+        now = clock.time()
         current = set()
         for customer, entry in self.live().items():
             j = self.journey(customer)

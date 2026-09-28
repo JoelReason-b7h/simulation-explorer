@@ -10,9 +10,9 @@ import json
 import random
 import string
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from explorer import config
+from explorer import clock, config
 from explorer.client import DirectClient
 
 RUN_ID = "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
@@ -24,7 +24,7 @@ def reference(kind, limit):
 
 
 def past_instant():
-    return (datetime.utcnow() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (clock.utcnow_naive() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def customer_body():

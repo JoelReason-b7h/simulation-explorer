@@ -46,6 +46,8 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal, Context, ROUND_HALF_EVEN, ROUND_HALF_UP
 
+from explorer import clock
+
 CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
 CALCULATION = Context(prec=34, rounding=ROUND_HALF_EVEN)
 DAYS = Decimal(365)
@@ -159,7 +161,9 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
     # The realisation and its INTEREST transaction commit together, but they are read by two
     # queries, so a realisation committing between them reads as a transaction with none behind
     # it. Both reads stop a minute back, which no realisation transaction outlasts.
-    settled_before = (_psql("SELECT now() - interval '60 seconds'")[0] or [["now()"]])[0][0]
+    # The minute is real time: under a fake clock the services' own clock covers rate times it.
+    settled_before = (_psql("SELECT now() - interval '{} seconds'".format(
+        int(clock.system_seconds(60))))[0] or [["now()"]])[0][0]
     rates, e1 = _psql("SELECT bank_product_sid, gross_rate, start_date, end_date, created_at "
                       "FROM rate_detail WHERE bank_product_sid IN ({})".format(bps))
     fees, e2 = _psql("SELECT platform_product_sid, rate, start_date, end_date, created_at "
@@ -219,8 +223,9 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
              coalesce(platform_fee_amount, 0), coalesce(fee_amount, 0), uid, created_at
       FROM account_transaction
       WHERE customer_product_account_sid IN ({sids}) AND transaction_type = 'INTEREST'
-        AND created_at < timestamptz '{before}' + interval '5 seconds'
-      """.format(sids=sids, before=settled_before), timeout=600)
+        AND created_at < timestamptz '{before}' + interval '{commit} seconds'
+      """.format(sids=sids, before=settled_before,
+                 commit=int(clock.system_seconds(5))), timeout=600)
     # A transaction booked after an accrual read the balance belongs to a later day: the adjust
     # pass moves any such row still carrying the old date on to the new business date
     # (DirectModelInterestProcessing.java:29-38, InterestProcessing.adjustValueDate:77-92). Rows
@@ -238,8 +243,9 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
       FROM acc JOIN account_transaction t ON t.customer_product_account_sid = acc.cpa
        AND t.created_at > acc.c AND (acc.nc IS NULL OR t.created_at <= acc.nc)
       WHERE t.value_date <= acc.d AND acc.sid > {since}
-        AND t.created_at < now() - interval '1 minute'
-      ORDER BY t.created_at DESC LIMIT 50""".format(sids=sids, since=int(since_sid)),
+        AND t.created_at < now() - interval '{minute} seconds'
+      ORDER BY t.created_at DESC LIMIT 50""".format(sids=sids, since=int(since_sid),
+                                                     minute=int(clock.system_seconds(60))),
         timeout=600)
     errors = [e for e in (e1, e2, e3, e4, e5, e6, e7, e8) if e]
     if errors:
@@ -445,7 +451,8 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
 # A rate row's created_at is when its INSERT ran, and the approval that inserts it commits later, so
 # an accrual that read the rates in that gap still sees the schedule without the row. Seen on the
 # stack at 0.46 s; ten seconds is the allowance, and each accepted case is counted in the stats.
-COMMIT_ALLOWANCE = timedelta(seconds=10)
+# Real seconds; a fake clock stretches the gap by its rate.
+COMMIT_ALLOWANCE = timedelta(seconds=clock.system_seconds(10))
 
 
 def candidate_moments(account, gross, platform_fee, bondsmith, moment):

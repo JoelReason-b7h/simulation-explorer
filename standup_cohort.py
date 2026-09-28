@@ -26,7 +26,7 @@ import sys
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from explorer import config, webhooks, world
+from explorer import clock, config, webhooks, world
 from explorer.client import BearerClient
 
 BANK_NAME = "Harness Direct Bank"
@@ -40,7 +40,7 @@ VIRTUAL_ACCOUNT_REDRAWS = 20
 
 
 def today():
-    return date.today().isoformat()
+    return clock.today().isoformat()
 
 
 def bank_body():
@@ -230,8 +230,14 @@ def schedule_body():
     by the London offset — 20:00 London is 19:00Z under BST and 20:00Z under GMT. It is a datetime
     rather than a date; a plain date is rejected with "Invalid value" on that field. The first
     firing is tomorrow so the schedule cannot race the manual accrual calls that drive a run today.
+    On a fake clock nothing calls the accrual by hand, so it first fires at the next 20:00.
     """
     fire_at = datetime.combine(date.today() + timedelta(days=1), time(20, 0))
+    if clock.enabled():
+        now = clock.london_now().replace(tzinfo=None)
+        fire_at = datetime.combine(now.date(), time(20, 0))
+        if fire_at <= now:
+            fire_at += timedelta(days=1)
     in_utc = fire_at.replace(tzinfo=ZoneInfo("Europe/London")).astimezone(ZoneInfo("UTC"))
     return {
         "scheduledTime": ["20:00:00"],
@@ -494,6 +500,10 @@ def stand_up_platform(ops, settings, bank_uid, product_uid, term_product_uid, sh
 
     client_id = own_client(platform_uid)
     subscribe_webhooks(ops, platform_uid)
+    # Both of these seed a fresh stack, and run on a fake clock too. There the schedulers would get
+    # to them within a minute, but a deployed pool is never empty: leaving it to
+    # InvestecAccountAutoPreloadScheduler failed the first accounts' InternalAccountRequested
+    # messages with "Internal account insert failed" until its next run.
     # adapter learns banks and platforms only from the partner file core writes every five
     # minutes, and that scheduler is off locally.
     step(ops, "refresh the partner file adapter reads", "POST",

@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import subprocess
 
-from explorer import faults
+from explorer import clock, faults
 
 CORE_DSN = os.environ.get("SIM_CORE_DSN", "postgresql://core:password@localhost:5432/core")
 
@@ -140,7 +140,7 @@ CHECKS = (
           AND a.product_account_balance <> 0
           -- An account reaches CLOSED a few seconds before its payout settles back into core,
           -- so a sweep inside that gap read two paid-out accounts as holding 3.00.
-          AND s.updated_at < now() - interval '5 minutes'
+          AND s.updated_at < now() - interval '{m5} minutes'
         ORDER BY s.sid DESC LIMIT {limit}
         """,
         "account {0} reads {1} and still holds {2} (platform fee {3}, row {4})",
@@ -186,7 +186,7 @@ CHECKS = (
             WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= pd.created_at
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) = 'FROZEN'
           AND (SELECT h.to_state FROM platform_customer_status_history h
-            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= pd.created_at - interval '2 seconds'
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= pd.created_at - interval '{s2} seconds'
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1) = 'FROZEN'
         ORDER BY at.sid DESC LIMIT {limit}
         """,
@@ -214,7 +214,7 @@ CHECKS = (
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1)
               IN ('FROZEN', 'PENDING', 'DEACTIVATED', 'CANCELLED', 'CLOSED')
           AND (SELECT h.to_state FROM platform_customer_status_history h
-            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at - interval '2 seconds'
+            WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= at.created_at - interval '{s2} seconds'
             ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1)
               IN ('FROZEN', 'PENDING', 'DEACTIVATED', 'CANCELLED', 'CLOSED')
           AND NOT (
@@ -237,7 +237,7 @@ CHECKS = (
                left(check_details::text, 600)
         FROM internal_reconciliation
         WHERE NOT check_passed AND check_type LIKE '%DIRECT%'
-          AND created_at > now() - interval '30 minutes'
+          AND created_at > now() - interval '{m30} minutes'
         ORDER BY sid DESC LIMIT {limit}
         """,
         "{0} failed in row {1}: {4}",
@@ -357,7 +357,7 @@ def payments_left_unsent(limit=LIMIT, minutes=10):
         "WHERE pg.status = 'APPROVED' "
         "AND pi.sent_at IS NULL AND pi.status IS NULL AND pi.is_return IS NOT TRUE "
         "AND pi.created_at < now() - interval '{} minutes' "
-        "ORDER BY pi.sid LIMIT {}".format(int(minutes), int(limit)))
+        "ORDER BY pi.sid LIMIT {}".format(clock.system_minutes(minutes), int(limit)))
     if error:
         return [], ["clearing payments: {}".format(error)]
     return [{
@@ -387,7 +387,8 @@ def accounts_core_and_clearing_disagree_on_closing(limit=LIMIT):
         "JOIN customer_product_account cpa ON cpa.sid = dca.customer_product_account_sid "
         "JOIN entity_internal_account eia ON eia.sid = dca.entity_internal_account_sid "
         "JOIN customer_product_account_state s ON s.customer_product_account_sid = cpa.sid AND s.live "
-        "WHERE dca.status IN ('REQUESTED', 'OPEN') AND s.updated_at < now() - interval '2 minutes' "
+        "WHERE dca.status IN ('REQUESTED', 'OPEN') "
+        "AND s.updated_at < now() - interval '" + str(clock.system_minutes(2)) + " minutes' "
         "ORDER BY dca.sid DESC LIMIT 1000")
     if error:
         return [], ["core accounts: {}".format(error)]
@@ -534,7 +535,11 @@ def sweep(limit=LIMIT):
     findings = []
     errors = []
     for rule, table, query, shape in CHECKS:
-        rows, error = _psql(query.format(limit=limit))
+        # The windows are real minutes; under a fake clock the services' clock covers rate times
+        # as many.
+        rows, error = _psql(query.format(limit=limit, m5=clock.system_minutes(5),
+                                         m30=clock.system_minutes(30),
+                                         s2=int(clock.system_seconds(2))))
         if error:
             errors.append("{}: {}".format(rule, error))
             continue
@@ -612,8 +617,8 @@ def closed_account_evidence(account_uid):
         rows, error = _psql_on(CLEARING_DSN,
             "SELECT pi.end_to_end_id, pi.status, pi.amount, left(coalesce(pi.status_desc, ''), 120), "
             "pi.created_at FROM payment_initiation pi WHERE pi.amount = {a} AND pi.created_at "
-            "BETWEEN '{t}'::timestamptz AND '{t}'::timestamptz + interval '3 minutes' "
-            "ORDER BY pi.sid".format(a=amount, t=at))
+            "BETWEEN '{t}'::timestamptz AND '{t}'::timestamptz + interval '{m} minutes' "
+            "ORDER BY pi.sid".format(a=amount, t=at, m=clock.system_minutes(3)))
         evidence["clearing payments after the last debit"] = rows or [error or "none"]
         ids = [r[0] for r in rows if r and r[0]]
         if ids:
@@ -689,7 +694,8 @@ def system_check_failures(minutes=30, limit=LIMIT):
     findings = []
     errors = []
     for service, dsn, query in SYSTEM_CHECK_TABLES:
-        rows, error = _psql_on(dsn, query.format(minutes=int(minutes), limit=int(limit)))
+        rows, error = _psql_on(dsn, query.format(minutes=clock.system_minutes(minutes),
+                                                 limit=int(limit)))
         if error:
             errors.append("{} integrity checks: {}".format(service, error))
             continue

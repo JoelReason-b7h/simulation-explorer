@@ -14,7 +14,6 @@ from __future__ import annotations
 import base64
 import json
 import threading
-import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,6 +21,8 @@ from pathlib import Path
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+
+from explorer import clock
 
 KEY_PATH = Path(__file__).resolve().parent.parent / "local-auth" / "signing-key.pem"
 KID = "simulation-explorer-local"
@@ -54,9 +55,15 @@ def public_jwk():
             "use": "sig"}
 
 
+def lifetime():
+    """An hour of real time. The services count it on the stack's clock, so under a fake clock at
+    x10 a token that lived 3600 of its seconds would expire six real minutes into a run."""
+    return int(clock.system_seconds(LIFETIME_SECONDS))
+
+
 def _mint(claims):
-    now = int(time.time())
-    body = {"iat": now, "exp": now + LIFETIME_SECONDS, "jti": str(uuid.uuid4()),
+    now = int(clock.time())
+    body = {"iat": now, "exp": now + lifetime(), "jti": str(uuid.uuid4()),
             "token_use": "access", "iss": "simulation-explorer-local"}
     body.update(claims)
     return jwt.encode(body, signing_key(), algorithm="RS256", headers={"kid": KID})
@@ -74,7 +81,13 @@ def ops_token(username=OPS_USER, roles=OPS_ROLES):
 
 
 def _read(token):
-    return jwt.decode(token, signing_key().public_key(), algorithms=["RS256"])
+    # PyJWT checks exp and iat against the host's real clock, which a fake-clock token fails, so
+    # the expiry is checked here against the stack's clock.
+    claims = jwt.decode(token, signing_key().public_key(), algorithms=["RS256"],
+                        options={"verify_exp": False, "verify_iat": False, "verify_nbf": False})
+    if claims.get("exp") is not None and claims["exp"] < clock.time():
+        raise jwt.ExpiredSignatureError("the token expired at {}".format(claims["exp"]))
+    return claims
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -112,7 +125,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._answer(200, {"access_token": client_token(client_id, form.get("scope",
                                                                            "public-api/default")
                                                         .replace("%2F", "/")),
-                           "expires_in": LIFETIME_SECONDS, "token_type": "Bearer"})
+                           "expires_in": lifetime(), "token_type": "Bearer"})
 
     def _get_user(self, raw):
         try:

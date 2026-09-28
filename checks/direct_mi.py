@@ -29,6 +29,7 @@ sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 
 import direct_feed  # noqa: E402
+from explorer import clock  # noqa: E402
 
 RECON_COLUMNS = ["Item Category", "Creation/Entry Date", "Value Date", "Amount",
                  "Account Identifier", "Payment Reference", "Payment ID", "Credit/Debit", "Reason"]
@@ -210,19 +211,33 @@ def check_onboarding(path, bank_uid, out):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("bank_uid")
-    parser.add_argument("--date", default=date.today().isoformat())
+    parser.add_argument("--date", default=None)
     parser.add_argument("--json")
     args = parser.parse_args()
     out = direct_feed.Findings()
-    statuses = generate(args.bank_uid, args.date)
+    scheduled = clock.schedulers_run()
+    # On a fake clock the bank's DIRECT_MI_REPORT_DAILY and MONTHLY schedules cut the reports, so
+    # the check reads the newest ones they archived rather than asking for them.
+    statuses = {} if scheduled else generate(args.bank_uid, args.date or clock.today().isoformat())
     young = young_open_platform_credits()
     for key, (status, body) in statuses.items():
         print("  {} generate {}".format(key, status))
         if status >= 500:
             out.add("generating an MI report succeeds", key, "{} {}".format(status, body))
-    time.sleep(10)
+    if statuses:
+        time.sleep(10)
     paths = {p.name: p for p in direct_feed.fetch(args.bank_uid, "direct-mi")}
-    day = args.date
+    day = args.date or clock.today().isoformat()
+    if scheduled and not args.date:
+        cut = sorted(n[len("MI_RECON_"):-len(".csv")] for n in paths if n.startswith("MI_RECON_"))
+        if not cut:
+            print("0 MI files: the daily MI schedule has not run on this stack yet")
+            print("0 checks failed")
+            if args.json:
+                Path(args.json).write_text(json.dumps({"files": [], "findings": [],
+                                                       "note": "no MI cut yet"}, indent=1))
+            return 0
+        day = cut[-1]
     month_end = None
     recon = paths.get("MI_RECON_{}.csv".format(day))
     recon_items = check_recon(recon, day, out) if recon else None

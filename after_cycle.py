@@ -21,6 +21,8 @@ import tarfile
 import time
 from pathlib import Path
 
+from explorer import clock
+
 HERE = Path(__file__).resolve().parent
 FINDINGS = HERE / "findings"
 PROGRESS = HERE / "fleet.progress"
@@ -149,6 +151,21 @@ def keep_service_errors(name):
 
 
 CLEARING_DSN = "postgresql://clearing:password@localhost:5440/clearing"
+
+
+def feed_has_run(bank_uid):
+    """Whether the bank's DIRECT_DATA_FEED has run. On the real clock the check asks for the feed,
+    so it always has. On a fake clock a bank made in the evening has its first run at midnight,
+    and a cycle that ends before then has no files to show for a reason that is not a fault."""
+    if not clock.schedulers_run():
+        return True
+    done = subprocess.run(
+        ["psql", "postgresql://core:password@localhost:5432/core", "-tAc",
+         "SELECT count(*) FROM bank_event_schedule s JOIN partner_bank b ON b.sid = s.bank_sid "
+         "WHERE b.uid = '{}' AND s.event_type = 'DIRECT_DATA_FEED' "
+         "AND s.last_raised IS NOT NULL".format(bank_uid)],
+        capture_output=True, text=True, timeout=60)
+    return done.returncode != 0 or done.stdout.strip() != "0"
 
 
 def exception_copies():
@@ -306,7 +323,7 @@ def main():
     cohorts_path = HERE / "{}.cohorts.json".format(name)
     cohorts = json.loads(cohorts_path.read_text()) if cohorts_path.exists() else []
     summary = {"name": name, "at": time.strftime("%Y-%m-%d %H:%M:%S"), "seconds": seconds,
-               "runs": {}}
+               "clock": clock.describe(), "runs": {}}
     new_rules = set()
     for page in sorted(HERE.glob("{}-p*.json".format(name))):
         try:
@@ -341,10 +358,14 @@ def main():
         cleared = subprocess.run([sys.executable, str(HERE / "checks" / "ignore_repeats.py")],
                                  cwd=str(HERE), capture_output=True, text=True, timeout=3000)
         summary["repeatsIgnored"] = (cleared.stdout.strip().splitlines() or ["?"])[-1]
+        # On a fake clock the bank's DIRECT_DATA_FEED and RECON schedules cut the files, so the
+        # check reads what they wrote rather than asking for more.
+        generate = [] if clock.schedulers_run() else ["--generate", "400"]
         summary["feed"] = run_check("direct_feed.py", bank, FINDINGS / "{}-feed.json".format(name),
-                                    "--generate", "400")
+                                    *generate)
         summary["mi"] = run_check("direct_mi.py", bank, FINDINGS / "{}-mi.json".format(name))
-        if summary["feed"]["files"] and summary["feed"]["files"].startswith("0 files"):
+        if summary["feed"]["files"] and summary["feed"]["files"].startswith("0 files") \
+                and feed_has_run(bank):
             summary["sanity"].append("the data feed wrote no files for bank {}".format(bank))
     summary["newRules"] = sorted(new_rules)
     file_failures = [k for k in ("feed", "mi") if summary.get(k, {}).get("exit")]

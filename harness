@@ -2,6 +2,10 @@
 # The only way to start, stop or inspect the harness and its stack.
 #
 #   ./harness start    launch the stack from sim-main, wait for every service, start the loop
+#   ./harness up       launch the stack and wait for every service, without the loop
+#   ./harness start 10 [--at "2026-12-31 18:00"]
+#                      the same on a fake clock at ten times real time, starting a little before a
+#                      boundary from faketime/boundaries.py, or at --at (London time)
 #   ./harness pause    stop the loop and leave the stack up; ./harness start resumes it
 #   ./harness stop     stop the loop, take the stack down, release the stack lease
 #   ./harness status   the containers, the loop, and the latest cycles
@@ -14,11 +18,71 @@ LOG=harness.log
 say() { echo "$(date '+%H:%M:%S') $*" | tee -a "$LOG"; }
 
 loop_pids() { pgrep -f "fleet_loop.running.sh|fleet_loop.sh" ; }
+CLOCK_DIR="$SIM_STACK_REPO/docker/faketime"
 
-start() {
-  if [ -n "$(loop_pids)" ]; then say "the loop is already running (pids $(loop_pids | tr '\n' ' '))"; exit 1; fi
+RATE="" AT=""
+parse_clock() {
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --at) AT="$2"; shift 2 ;;
+      *) if [ -z "$RATE" ]; then RATE="$1"; else AT="$1"; fi; shift ;;
+    esac
+  done
+  if [ -n "$RATE" ] && ! [[ "$RATE" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "the rate must be a plain number, for example ./harness start 10"; exit 2
+  fi
+  if [ -n "$AT" ] && [ -z "$RATE" ]; then echo "--at needs a rate, for example ./harness start 10 --at \"$AT\""; exit 2; fi
+}
+
+timeline_field() {
+  python3 -c "import json,sys; v=json.load(open(sys.argv[1])).get(sys.argv[2]); print(v if isinstance(v, str) else json.dumps(v))" \
+    "$CLOCK_DIR/timeline.json" "$1"
+}
+
+# Exports SIM_CLOCK and SIM_CLOCK_BOUNDARY for this run. A stack that is already up keeps its clock:
+# the rate is fixed for the life of a stack, so a different rate needs ./harness stop first.
+set_clock() {
+  local running=""
+  [ -f "$CLOCK_DIR/timeline.json" ] && running=$(timeline_field spec)
+  if [ "$1" = up ]; then
+    if [ -n "$RATE" ] && [ -z "$running" ]; then
+      say "the stack is up on the real clock; ./harness stop, then start again with a rate"; exit 1
+    fi
+    if [ -n "$RATE" ] && [ "${running##* x}" != "$(python3 -c "import sys; print('{:g}'.format(float(sys.argv[1])))" "$RATE")" ]; then
+      say "the stack is up on the fake clock $running; ./harness stop before changing the rate"; exit 1
+    fi
+    if [ -n "$running" ]; then
+      export SIM_CLOCK="$running"
+      export SIM_CLOCK_BOUNDARY
+      SIM_CLOCK_BOUNDARY=$(timeline_field boundary)
+    else
+      unset SIM_CLOCK SIM_CLOCK_BOUNDARY
+    fi
+    return
+  fi
+  if [ -n "$RATE" ]; then
+    local chosen
+    chosen=$(python3 faketime/boundaries.py "$RATE" ${AT:+"$AT"}) || { say "could not choose a start: $chosen"; exit 1; }
+    export SIM_CLOCK SIM_CLOCK_BOUNDARY
+    SIM_CLOCK=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['spec'])" "$chosen")
+    SIM_CLOCK_BOUNDARY=$(python3 -c "import json,sys; print(json.dumps(json.loads(sys.argv[1])['boundary']))" "$chosen")
+  elif [ -z "${SIM_CLOCK:-}" ]; then
+    unset SIM_CLOCK SIM_CLOCK_BOUNDARY
+  fi
+}
+
+launch() {
   python3 stack_check.py checkout || { say "refusing to launch: wrong stack checkout"; exit 1; }
   if [ "$(docker ps -q --filter name=docker-core-1)" = "" ]; then
+    set_clock down
+    # Here as well as in each cycle, so that the first launch already carries SIM_CLOCK's overlay.
+    python3 stack_patch.py "$SIM_STACK_REPO" >> "$LOG" 2>&1 || { say "stack_patch failed; see $LOG"; exit 1; }
+    if [ -n "${SIM_CLOCK:-}" ]; then
+      python3 faketime/clock.py anchor "$CLOCK_DIR" "$SIM_CLOCK" >> "$LOG" \
+        || { say "could not write the fake clock's timeline"; exit 1; }
+      say "the stack runs on the fake clock $SIM_CLOCK, before ${SIM_CLOCK_BOUNDARY:-no boundary}"
+    fi
     say "launching the stack from $SIM_STACK_REPO"
     python3 -c "
 import cycle, sys
@@ -26,10 +90,21 @@ up = cycle.shell('./scripts/launch_stack', timeout=1500)
 sys.stdout.write(up.stdout[-1500:]); sys.stderr.write(up.stderr[-1500:])
 sys.exit(up.returncode)" >> "$LOG" 2>&1 || { say "launch_stack failed; see $LOG"; exit 1; }
   else
-    say "the stack is already up"
+    set_clock up
+    say "the stack is already up${SIM_CLOCK:+, on the fake clock $SIM_CLOCK}"
   fi
   python3 stack_check.py up | tee -a "$LOG"
-  [ "${PIPESTATUS[0]}" -eq 0 ] || { say "the stack is not healthy; the loop was not started"; exit 1; }
+  [ "${PIPESTATUS[0]}" -eq 0 ] || { say "the stack is not healthy"; exit 1; }
+}
+
+up() {
+  launch
+  say "the stack is up; the loop was not started"
+}
+
+start() {
+  if [ -n "$(loop_pids)" ]; then say "the loop is already running (pids $(loop_pids | tr '\n' ' '))"; exit 1; fi
+  launch
   rm -f stop.fleet
   n=$(python3 -c "
 import json
@@ -60,6 +135,8 @@ stop() {
   say "the harness is stopped; taking the stack down"
   (cd "$SIM_STACK_REPO" && timeout 600 ./local-down.sh >> "$OLDPWD/$LOG" 2>&1)
   [ -z "$(docker ps -q --filter name=docker-)" ] || { say "containers are still running"; exit 1; }
+  rm -f "$CLOCK_DIR/timeline.json"
+  docker volume rm docker_faketime-clock >/dev/null 2>&1
   [ -x ~/.claude/bin/stack-lock ] && ~/.claude/bin/stack-lock release >> "$LOG" 2>&1
   say "the stack is down and the lease is released"
 }
@@ -67,6 +144,7 @@ stop() {
 status() {
   docker ps -a --filter name=docker- --format '{{.Names}}\t{{.Status}}' | sort
   echo "loop pids: $(loop_pids | tr '\n' ' ')"
+  [ -f "$CLOCK_DIR/timeline.json" ] && echo "fake clock: $(python3 faketime/clock.py now "$CLOCK_DIR") ($(timeline_field spec), before $(timeline_field boundary))"
   python3 - <<'EOF'
 import json
 lines = [json.loads(l) for l in open("fleet.progress") if l.strip()][-4:]
@@ -78,10 +156,12 @@ for d in lines:
 EOF
 }
 
+parse_clock "$@"
 case "$1" in
   start) start ;;
+  up) up ;;
   pause) pause ;;
   stop) stop ;;
   status) status ;;
-  *) echo "usage: ./harness start|pause|stop|status   (README.md describes each step)"; exit 2 ;;
+  *) echo "usage: ./harness start|up [rate] [--at \"YYYY-MM-DD HH:MM\"] | pause | stop | status   (README.md)"; exit 2 ;;
 esac

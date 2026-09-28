@@ -11,11 +11,13 @@ the spec's request shapes have drifted from the service.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from explorer import clock
 
 
 def past_instant():
-    return (datetime.utcnow() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (clock.utcnow_naive() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class Action:
@@ -477,6 +479,10 @@ CREATES = {"CreateCustomer", "CreateKycFailedCustomer"}
 # Actions that are built but not taken. Empty: ChangeBankRate is on again, conductor only through
 # fleet.STACK_FAULTS, because it moves every platform on the bank.
 DISABLED = set()
+# On a fake clock the services' own schedulers accrue, close, raise notice withdrawals and cut the
+# feed and RECON, so the actions that stood in for those crons would only record a call not made.
+if clock.schedulers_run():
+    DISABLED |= {"AdvanceBusinessDay", "ProcessClosures", "ProcessDueNotice", "RunDataFeed"}
 
 # Each of these is driven: the path and body here are placeholders, and the Run builds the real
 # request, because every one of them either reads the pool first or checks its result afterwards.

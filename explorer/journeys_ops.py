@@ -15,9 +15,9 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
-from explorer import interest_oracle, world
-from explorer.journeys import (SETTLE_PAUSE, ZERO, Journey, _money, _nominate, _payouts_since,
-                               _rows)
+from explorer import clock, interest_oracle, world
+from explorer.journeys import (POLL_WINDOW_NOTE, SETTLE_PAUSE, ZERO, Journey, _money, _nominate,
+                               _payouts_since, _rows, settle_rounds)
 
 FEE_WITHDRAWALS = "FEE_WITHDRAWALS"
 FEE_SAMPLE = 200
@@ -174,6 +174,9 @@ def platform_fee_withdrawal(run):
     j = Journey(run, "JourneyPlatformFeeWithdrawal")
     if not run.platform_uid or not run.ops or not run.bank_uid:
         return j.refuse("no platform, ops client or bank")
+    if clock.schedulers_run():
+        # Judges rows the scheduled job wrote, so it waits on no statement poll.
+        return _scheduled_fee_withdrawals(run, j)
     today = interest_oracle.business_date(run.bank_uid)
     if getattr(run, "fee_withdrawal_day", None) == today:
         if not j.next_day():
@@ -269,6 +272,25 @@ def platform_fee_withdrawal(run):
     return j.done()
 
 
+def _scheduled_fee_withdrawals(run, j):
+    """On a fake clock PlatformScheduleManager runs FEE_WITHDRAWALS itself at 04:30 London, so the
+    journey judges the FEES rows written since it last looked instead of running the job."""
+    since = getattr(run, "fee_judged_sid", 0)
+    newest = _newest_transaction_sid()
+    if newest is None:
+        return j.refuse("could not read account_transaction")
+    rows, error = fee_rows(platform_uid=run.platform_uid)
+    if rows is None:
+        return j.done(note="could not read the fee rows: {}".format(error))
+    found, stats = fee_withdrawal_findings(rows, since_sid=since)
+    for finding in found:
+        j.expect(False, finding["rule"], finding["detail"], finding["expected"],
+                 finding["actual"])
+    j.step("judge the FEES rows the scheduled withdrawal wrote after row {}".format(since), stats)
+    run.fee_judged_sid = newest
+    return j.done()
+
+
 # -- an operator's review of a payee ------------------------------------------------------------
 
 # Modulus-valid pairs from the Vocalink specification's examples, none used elsewhere in the
@@ -316,6 +338,8 @@ def payee_review(run):
 
     Every payee change is made with nothing pending, so FINDINGS.md 24 and 25 are not repeated."""
     j = Journey(run, "JourneyPayeeReview")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant = j.product("INSTANT")
     if not instant or not run.ops:
         return j.refuse("no INSTANT product or ops client")
@@ -338,7 +362,7 @@ def payee_review(run):
         return not [r for r in j.pending(account["accountId"]) if r.get("type") == "WITHDRAWAL"]
 
     def payouts_settled():
-        for _ in range(10):
+        for _ in range(settle_rounds(10)):
             if settled():
                 return True
             time.sleep(SETTLE_PAUSE)
@@ -363,7 +387,7 @@ def payee_review(run):
                  call.status, body=call.body)
 
     def withdraw_to(amount, pair):
-        started = time.time() - 2
+        started = clock.time() - clock.system_seconds(2)
         call = j.instruct(account, "WITHDRAW", amount)
         j.step("withdraw {}".format(amount), call.status)
         if not call.ok:
@@ -425,7 +449,7 @@ def payee_review(run):
         refused_cleanly(decide(REVIEW_PAYEES["B"], "accept"), "an accept after a reject")
         refused_cleanly(decide(REVIEW_PAYEES["B"], "re-check"), "a re-check after a reject")
         publish()
-        started = time.time() - 2
+        started = clock.time() - clock.system_seconds(2)
         call = j.instruct(account, "WITHDRAW", Decimal("0.50"))
         j.step("withdraw 0.50 with the payee rejected", call.status)
         j.expect(not call.ok, "a payee rejected on review cannot be paid",

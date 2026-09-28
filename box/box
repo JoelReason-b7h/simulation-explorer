@@ -5,7 +5,9 @@
 #   box sh [command]        a shell on the box, or one command
 #   box sync                copy the harness, the stack files and their inputs; check them
 #   box images              build the ten service images for amd64 and load them on the box
-#   box start|pause|stop    ./harness start|pause|stop on the box, detached from this session
+#   box start|up [rate] [--at "YYYY-MM-DD HH:MM"]
+#                           ./harness start|up on the box, detached, on a fake clock with a rate
+#   box pause|stop          ./harness pause|stop on the box, detached from this session
 #   box logs <service>      the last 100 lines of a container's log
 #   box dump <cycle> [dir]  copy a cycle's database dumps to the Mac (default ~/Downloads)
 #   box install             the dashboard's cron entry and `tailscale serve`
@@ -16,6 +18,7 @@
 set -euo pipefail
 
 HOST=${BOX_HOST:-joel@192.168.0.39}
+SEND_EXCLUDES=()
 HARNESS_SRC=${BOX_HARNESS_SRC:-$(cd "$(dirname "$0")/.." && pwd)}
 STACK_SRC=${BOX_STACK_SRC:-$HOME/IdeaProjects/exchange.worktrees/sim-main}
 PERF_SRC=${BOX_PERF_SRC:-$HOME/IdeaProjects/exchange.worktrees/sim-harness-design/tools/performance-testing}
@@ -43,7 +46,7 @@ on_box() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
 # tar <source dir> <remote dir> <paths...>: paths relative to the source dir.
 send() {
   local src=$1 dest=$2; shift 2
-  (cd "$src" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - "$@") \
+  (cd "$src" && COPYFILE_DISABLE=1 tar --no-xattrs ${SEND_EXCLUDES[@]+"${SEND_EXCLUDES[@]}"} -cf - "$@") \
     | on_box "mkdir -p $dest && tar -xf - -C $dest"
 }
 
@@ -116,7 +119,12 @@ cmd_sync() {
   echo "stack files from $STACK_SRC"
   local root; root=$(cd "$STACK_SRC" && git ls-files | grep -v / )
   # shellcheck disable=SC2086
+  # The fake-clock files are the box's own: its libraries are amd64 and a running stack's
+  # timeline must survive a sync. stack_patch below writes them from the box's clock.
+  SEND_EXCLUDES=(--exclude=docker/faketime --exclude=docker/docker-compose.faketime.yml
+                 --exclude=docker/localstack/998_faketime_sqs_visibility.sh)
   send "$STACK_SRC" sim/sim-main docker scripts $root
+  SEND_EXCLUDES=()
   echo "performance-testing lib and envs from $PERF_SRC"
   send "$PERF_SRC" sim/performance-testing lib envs
   send "$HOME" . "$SPEC" "$AUTH"
@@ -127,7 +135,9 @@ cmd_sync() {
   local absent
   absent=$(on_box "$REMOTE_ENV; for t in $TOOLS; do command -v \$t > /dev/null || echo \$t; done")
   if [ -n "$absent" ]; then echo "missing tools on the box: $absent"; exit 1; fi
-  on_box "$REMOTE_ENV && python3 stack_patch.py \$SIM_STACK_REPO && python3 stack_check.py checkout"
+  # With the running stack's clock, or the patch would take the fake-clock overlay off it and the
+  # next cycle would put it back and wipe the stack.
+  on_box "$REMOTE_ENV && export SIM_CLOCK=\"\$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"spec\"])' \$SIM_STACK_REPO/docker/faketime/timeline.json 2>/dev/null)\" && python3 stack_patch.py \$SIM_STACK_REPO && python3 stack_check.py checkout"
   stamp_sync "$files"
 }
 
@@ -153,9 +163,11 @@ cmd_images() {
 }
 
 cmd_harness() {
+  # Quoted for the remote shell, so --at "2026-12-31 18:00" arrives as one argument.
+  local args; args=$(printf ' %q' "$@")
   ssh -n -o BatchMode=yes -o ConnectTimeout=10 "$HOST" \
-    "$REMOTE_ENV && setsid nohup ./harness $1 >> harness.out 2>&1 < /dev/null & disown"
-  echo "./harness $1 started on the box; follow it with: box sh tail -f sim/simulation-explorer/harness.log"
+    "$REMOTE_ENV && setsid nohup ./harness$args >> harness.out 2>&1 < /dev/null & disown"
+  echo "./harness$args started on the box; follow it with: box sh tail -f sim/simulation-explorer/harness.log"
 }
 
 cmd_status() {
@@ -194,9 +206,9 @@ case "${1:-}" in
   sh) shift; if [ $# -eq 0 ]; then ssh "$HOST"; else on_box "$@"; fi ;;
   sync) cmd_sync ;;
   images) cmd_images ;;
-  start|pause|stop) cmd_harness "$1" ;;
+  start|up|pause|stop) cmd_harness "$@" ;;
   logs) on_box "docker logs --tail 100 docker-${2:?usage: box logs <service>}-1 2>&1" ;;
   dump) shift; cmd_dump "$@" ;;
   install) cmd_install ;;
-  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
