@@ -53,7 +53,62 @@ check_files() {
   if [ -n "$missing" ]; then echo "missing on the box:"; echo "$missing"; exit 1; fi
 }
 
+# The box keeps a record of the last sync: branch, commit, source and a checksum of the files it
+# was sent. A sync from another checkout once replaced the box's harness with an older branch and
+# its amd64 fake-clock library with the Mac's arm64 one, and redis went unhealthy. So a sync has to
+# come from a clean, pushed commit on the branch the box runs, at or after the commit it runs.
+DEPLOYED=sim/deployed.json
+MANIFEST=sim/deployed.manifest
+
+guard_sync() {
+  local branch sha record was_branch was_sha was_from
+  branch=$(git -C "$HARNESS_SRC" rev-parse --abbrev-ref HEAD)
+  sha=$(git -C "$HARNESS_SRC" rev-parse HEAD)
+  if [ -n "$(git -C "$HARNESS_SRC" status --porcelain --untracked-files=no)" ]; then
+    echo "refusing: $HARNESS_SRC has uncommitted changes, and a sync would send them"; exit 1
+  fi
+  git -C "$HARNESS_SRC" fetch -q origin
+  if [ -z "$(git -C "$HARNESS_SRC" branch -r --contains "$sha")" ]; then
+    echo "refusing: $branch@${sha:0:7} is not on origin, so push it first"; exit 1
+  fi
+  record=$(on_box "cat ~/$DEPLOYED 2>/dev/null" || true)
+  read -r was_branch was_sha was_from < <(python3 -c '
+import json, sys
+r = json.loads(sys.argv[1] or "{}")
+print(r.get("branch", "-"), r.get("sha", "-"), r.get("from", "-"))' "$record")
+  if [ "$was_sha" = "-" ] || [ "$was_branch" != "$branch" ]; then
+    if [ "${BOX_SYNC_SWITCH:-}" != "$branch" ]; then
+      echo "refusing: the box runs $was_branch@${was_sha:0:7} from $was_from, and this checkout is $branch."
+      echo "To put $branch on the box on purpose: BOX_SYNC_SWITCH=$branch box/box sync"
+      exit 1
+    fi
+  elif ! git -C "$HARNESS_SRC" merge-base --is-ancestor "$was_sha" "$sha" 2>/dev/null; then
+    echo "refusing: the box runs $branch@${was_sha:0:7}, and $branch@${sha:0:7} here does not contain it, so pull first"
+    exit 1
+  fi
+  SYNC_BRANCH=$branch SYNC_SHA=$sha
+}
+
+# Written after stack_patch, which puts the box's own fake-clock libraries in place.
+stamp_sync() {
+  local files=$1 record
+  record=$(python3 -c '
+import json, sys, time
+print(json.dumps({"branch": sys.argv[1], "sha": sys.argv[2], "from": sys.argv[3],
+                  "mac": sys.argv[4], "at": time.strftime("%Y-%m-%d %H:%M:%S")}))' \
+    "$SYNC_BRANCH" "$SYNC_SHA" "$HARNESS_SRC" "$(hostname -s)")
+  # shellcheck disable=SC2086
+  printf '%s\n' $files | on_box "cd ~/sim/simulation-explorer && xargs -d '\n' sha256sum > ~/$MANIFEST \
+    && find ~/sim/sim-main/docker/faketime -name '*.so*' -type f -exec sha256sum {} + >> ~/$MANIFEST; \
+    printf '%s\n' '$record' > ~/$DEPLOYED"
+  # The dashboard reads its code once, and cron starts it again within a minute. The bracket keeps
+  # the pattern from matching this ssh command's own line.
+  on_box "pkill -f '[d]ashboard/dash.py' || true"
+  echo "the box now runs $SYNC_BRANCH@${SYNC_SHA:0:7}"
+}
+
 cmd_sync() {
+  guard_sync
   echo "harness from $HARNESS_SRC"
   local files; files=$(git -C "$HARNESS_SRC" ls-files)
   # shellcheck disable=SC2086
@@ -73,6 +128,7 @@ cmd_sync() {
   absent=$(on_box "$REMOTE_ENV; for t in $TOOLS; do command -v \$t > /dev/null || echo \$t; done")
   if [ -n "$absent" ]; then echo "missing tools on the box: $absent"; exit 1; fi
   on_box "$REMOTE_ENV && python3 stack_patch.py \$SIM_STACK_REPO && python3 stack_check.py checkout"
+  stamp_sync "$files"
 }
 
 cmd_images() {
