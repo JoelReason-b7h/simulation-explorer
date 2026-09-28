@@ -29,3 +29,4 @@
 {"name": "fleet32", "at": "2026-09-28 01:41:36", "quiet": false, "trials": 1617, "violations": 16, "serviceErrors": 150, "newRules": ["no message goes to the dead letter queue (TransitionChainSweep)"]}
 {"name": "fleet33", "at": "2026-09-28 01:57:46", "quiet": false, "trials": 1388, "violations": 11, "serviceErrors": 81, "newRules": []}
 {"name": "fleet34", "at": "2026-09-28 02:14:01", "quiet": false, "trials": 1594, "violations": 10, "serviceErrors": 143, "newRules": ["a payout goes to the nominated account active when it is raised (JourneyPayeeReview)"]}
+{"name": "fleet35", "at": "2026-09-28 02:30:14", "quiet": false, "trials": 1374, "violations": 7, "serviceErrors": 72, "newRules": []}
