@@ -1821,6 +1821,12 @@ class Run:
         last = getattr(self, "journey_at", None)
         if last is not None and self.steps - last < self.JOURNEY_SPACING:
             return None
+        # A soft-close product lives across calls of its journey and must fill, close and see its
+        # holders withdraw inside one cycle. In the rotation it got one call in fleet 67, so while
+        # a product is in progress every other forced journey is the soft closure.
+        if (getattr(self, "soft_close", None) is not None
+                and getattr(self, "last_journey", None) != "JourneySoftClose"):
+            return "JourneySoftClose"
         names = list(journeys.ALL)
         if not hasattr(self, "journey_turn"):
             # Each run starts the rotation somewhere else: starting every run at the first name
@@ -1843,6 +1849,7 @@ class Run:
                 "message": "journeys have used more than {:.0%} of the run".format(
                     self.JOURNEY_SHARE)}, 0)
         self.journey_at = self.steps
+        self.last_journey = name
         names = list(journeys.ALL)
         if names[getattr(self, "journey_turn", 0) % len(names)] == name:
             self.journey_turn = getattr(self, "journey_turn", 0) + 1

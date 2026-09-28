@@ -36,7 +36,7 @@ from explorer.journeys import (SETTLE_PAUSE, ZERO, Journey, _money, _payouts_sin
 # The run's product list leaves out every product whose Direct `name` (the fee alias) starts
 # with this, so no other action opens an account on a product this journey closes.
 ALIAS_PREFIX = "Harness soft close"
-MIN_AGE = timedelta(minutes=float(os.environ.get("SIM_SOFTCLOSE_MIN_AGE_MINUTES", "30")))
+MIN_AGE = timedelta(minutes=float(os.environ.get("SIM_SOFTCLOSE_MIN_AGE_MINUTES", "20")))
 MIN_ACCOUNTS = int(os.environ.get("SIM_SOFTCLOSE_MIN_ACCOUNTS", "6"))
 MIN_BALANCE = Decimal(os.environ.get("SIM_SOFTCLOSE_MIN_BALANCE", "1000"))
 # Customers a call opens on an ACTIVE product, and holders a call withdraws for once it is closed.
