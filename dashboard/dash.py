@@ -10,6 +10,7 @@ GET /api/status the same data as JSON
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import os
@@ -185,6 +186,30 @@ def harness():
     }
 
 
+def deployment():
+    """The last box/box sync's record, and every file it sent that has changed since.
+
+    A sync from an older box/box writes no record, so a checksum that no longer matches is the one
+    sign that the box's harness or fake-clock libraries were replaced outside the guarded sync.
+    """
+    home = Path.home()
+    try:
+        record = json.loads((home / "sim" / "deployed.json").read_text())
+        lines = (home / "sim" / "deployed.manifest").read_text().splitlines()
+    except (OSError, ValueError):
+        return {"record": None, "changed": []}
+    changed = []
+    for line in lines:
+        digest, _, name = line.partition("  ")
+        path = Path(name) if name.startswith("/") else HARNESS_DIR / name
+        try:
+            if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                changed.append(name)
+        except OSError:
+            changed.append(name)
+    return {"record": record, "changed": changed}
+
+
 def cycle_exit(name):
     for line in reversed(tail(HARNESS_DIR / f"{name}.cycle.log", 400)):
         if line.startswith("CYCLE_EXIT "):
@@ -208,6 +233,13 @@ def verdict(s):
                 red.append(f"{n} is unhealthy")
             if c.get("restarts"):
                 amber.append(f"{n} restarted {c['restarts']}x")
+    d = s["deployment"]
+    if d["record"] is None:
+        amber.append("no record of the last box/box sync on the box")
+    elif d["changed"]:
+        red.append("{} files differ from the {}@{} sync, so something replaced them outside box/box: {}"
+                   .format(len(d["changed"]), d["record"]["branch"], d["record"]["sha"][:7],
+                           ", ".join(d["changed"][:5])))
     if s["opsHealth"] != 200:
         red.append(f"ops-api /health answered {s['opsHealth']}")
     if not h["installed"]:
@@ -247,7 +279,7 @@ def status():
             s = {"host": os.uname().nodename,
                  "checkedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                  "system": system(), "containers": containers(),
-                 "opsHealth": ops_health(), "harness": harness()}
+                 "opsHealth": ops_health(), "harness": harness(), "deployment": deployment()}
             s["verdict"], s["problems"] = verdict(s)
             _cache.update(at=time.time(), data=s)
         return _cache["data"]
