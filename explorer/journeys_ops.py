@@ -16,8 +16,8 @@ import time
 from decimal import Decimal
 
 from explorer import clock, interest_oracle, world
-from explorer.journeys import (SETTLE_PAUSE, ZERO, Journey, _money, _nominate, _payouts_since,
-                               _rows)
+from explorer.journeys import (POLL_WINDOW_NOTE, SETTLE_PAUSE, ZERO, Journey, _money, _nominate,
+                               _payouts_since, _rows, settle_rounds)
 
 FEE_WITHDRAWALS = "FEE_WITHDRAWALS"
 FEE_SAMPLE = 200
@@ -175,6 +175,7 @@ def platform_fee_withdrawal(run):
     if not run.platform_uid or not run.ops or not run.bank_uid:
         return j.refuse("no platform, ops client or bank")
     if clock.schedulers_run():
+        # Judges rows the scheduled job wrote, so it waits on no statement poll.
         return _scheduled_fee_withdrawals(run, j)
     today = interest_oracle.business_date(run.bank_uid)
     if getattr(run, "fee_withdrawal_day", None) == today:
@@ -337,6 +338,8 @@ def payee_review(run):
 
     Every payee change is made with nothing pending, so FINDINGS.md 24 and 25 are not repeated."""
     j = Journey(run, "JourneyPayeeReview")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant = j.product("INSTANT")
     if not instant or not run.ops:
         return j.refuse("no INSTANT product or ops client")
@@ -359,7 +362,7 @@ def payee_review(run):
         return not [r for r in j.pending(account["accountId"]) if r.get("type") == "WITHDRAWAL"]
 
     def payouts_settled():
-        for _ in range(10):
+        for _ in range(settle_rounds(10)):
             if settled():
                 return True
             time.sleep(SETTLE_PAUSE)

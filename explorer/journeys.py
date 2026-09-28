@@ -37,6 +37,45 @@ ACCRUAL_WAIT_CAP_SECONDS = 300
 ACCRUAL_AT_LONDON = (20, 0)
 
 
+# clearing's HsbcAccountStatementPollingScheduler.pollForTransactions, cron "*/5 6-23 * * *" in
+# Europe/London: the first poll of a day is at 06:00 and the last at 23:55. A deposit or a payout
+# settles only when a poll reads the bank's statement, so between 23:55 and 06:00 nothing lands.
+POLL_FIRST, POLL_LAST, POLL_EVERY_SECONDS = (6, 0), (23, 55), 300
+# A journey that settles runs for up to this long, and waits at most POLL_WAIT_CAP_SECONDS for the
+# window to open. Both are real seconds.
+JOURNEY_REAL_SECONDS = 240
+POLL_WAIT_CAP_SECONDS = 300
+POLL_WINDOW_NOTE = "not waited: outside the statement poll window"
+
+
+def poll_window_wait(real_budget=JOURNEY_REAL_SECONDS):
+    """On a fake clock, the real seconds to wait before a journey that needs statement polls can
+    run: 0 when the window stays open for `real_budget`, the wait until a minute after 06:00 when
+    that is under POLL_WAIT_CAP_SECONDS, or None. Always 0 on the real clock, where the harness
+    polls the statement itself."""
+    if not clock.schedulers_run():
+        return 0
+    now = clock.london_now()
+    first = now.replace(hour=POLL_FIRST[0], minute=POLL_FIRST[1], second=0, microsecond=0)
+    last = now.replace(hour=POLL_LAST[0], minute=POLL_LAST[1], second=0, microsecond=0)
+    ends = now + timedelta(seconds=clock.system_seconds(real_budget))
+    if first <= now and ends <= last:
+        return 0
+    opens = first if now < first else first + timedelta(days=1)
+    wait = clock.real_seconds((opens - now).total_seconds() + 60)
+    return wait if wait <= POLL_WAIT_CAP_SECONDS else None
+
+
+def settle_rounds(rounds):
+    """Settle rounds of SETTLE_PAUSE real seconds. On a fake clock enough of them for a statement
+    poll and the minute crons after it: the scheduler polls every five fake minutes, where on the
+    real clock the harness polls on each round."""
+    if not clock.schedulers_run():
+        return rounds
+    needed = clock.real_seconds(POLL_EVERY_SECONDS + 120) / SETTLE_PAUSE
+    return max(rounds, int(needed) + 1)
+
+
 def accrual_wait_seconds():
     """Real seconds until a minute after the next 20:00 London on the fake clock, or None when
     that is further off than ACCRUAL_WAIT_CAP_SECONDS."""
@@ -281,10 +320,24 @@ class Journey:
         return [r for r in rows if r.get("status") == "PENDING"
                 and (account_id is None or r.get("accountId") == account_id)]
 
+    def statements_reachable(self):
+        """Whether this journey's deposits and payouts can settle: on a fake clock, the statement
+        poll window is open or opens soon enough to wait for. The step says which."""
+        wait = poll_window_wait()
+        if wait is None:
+            self.step("wait for the statement poll window", "{} (06:00 to 23:55 London); it is "
+                      "{} London".format(POLL_WINDOW_NOTE, clock.london_now().strftime("%H:%M")))
+            return False
+        if wait:
+            self.step("wait for the statement poll window",
+                      "{:.0f} real seconds until 06:00 London".format(wait))
+            time.sleep(wait)
+        return True
+
     def settle_until(self, done, rounds=SETTLE_ROUNDS):
         """Settle and re-read until `done()` answers true, and answer its last value."""
         value = done()
-        for _ in range(rounds):
+        for _ in range(settle_rounds(rounds)):
             if value:
                 return value
             time.sleep(SETTLE_PAUSE)
@@ -420,6 +473,8 @@ def multi_product(run):
     cancelled and the INSTANT account closed once nothing is in flight. Money is conserved across
     the customer's accounts at every settled point."""
     j = Journey(run, "JourneyMultiProduct")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant, notice, term = (j.product("INSTANT"), j.product("NOTICE"), j.product("TERM 1 month"))
     if not (instant and notice and term):
         return j.refuse("the platform lacks one of INSTANT, NOTICE and the one-month TERM")
@@ -569,6 +624,8 @@ def term_before_maturity(run):
     refunded, a withdrawal and a close are refused, a NOTICE maturity destination reads back, and a
     day on it accrues without realising (AT_MATURITY)."""
     j = Journey(run, "JourneyTermBeforeMaturity")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     term, notice = j.product("TERM 1 month"), j.product("NOTICE")
     if not (term and notice):
         return j.refuse("the platform lacks the one-month TERM or the NOTICE product")
@@ -707,6 +764,8 @@ def payee_change(run):
 
     A change made while a withdrawal is pending is FINDINGS.md 24 and 25, so it is not repeated."""
     j = Journey(run, "JourneyPayeeChange")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant = j.product("INSTANT")
     if not instant or not j.new_customer():
         return j.refuse("no INSTANT product, or the customer did not become ACTIVATED")
@@ -723,7 +782,7 @@ def payee_change(run):
         return not [r for r in j.pending(account["accountId"]) if r.get("type") == "WITHDRAWAL"]
 
     def payouts_settled():
-        for _ in range(10):
+        for _ in range(settle_rounds(10)):
             if settled():
                 return True
             time.sleep(SETTLE_PAUSE)
@@ -789,6 +848,8 @@ def frozen_lifecycle(run):
     """Fund, freeze, try everything CustomerActionPolicy refuses or holds for a FROZEN customer,
     let a day accrue, unfreeze, and check the held deposit lands exactly once."""
     j = Journey(run, "JourneyFrozenLifecycle")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant, notice = j.product("INSTANT"), j.product("NOTICE")
     if not instant or not run.compliance or not j.new_customer():
         return j.refuse("no INSTANT product or compliance client, or no ACTIVATED customer")
@@ -888,6 +949,8 @@ def fee_mid_period(run):
     """An INSTANT account earning at one platform fee, the fee changed, and each day's customer
     interest and platform fee held against the interest oracle on both sides of the change."""
     j = Journey(run, "JourneyFeeMidPeriod")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant = j.product("INSTANT")
     if not instant or not j.new_customer():
         return j.refuse("no INSTANT product, or the customer did not become ACTIVATED")
@@ -942,6 +1005,8 @@ def date_flip_under_load(run):
     dated after that day, the balance matches its transactions, and the accrual used the balance
     its cutoff saw. Members of a fleet run it at the same time on their own platforms."""
     j = Journey(run, "JourneyDateFlipUnderLoad")
+    if not j.statements_reachable():
+        return j.refuse(POLL_WINDOW_NOTE)
     instant = j.product("INSTANT")
     if not instant or not j.new_customer():
         return j.refuse("no INSTANT product, or the customer did not become ACTIVATED")
