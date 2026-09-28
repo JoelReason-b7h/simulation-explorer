@@ -25,3 +25,4 @@
 {"name": "fleet26", "at": "2026-09-27 23:38:43", "quiet": false, "trials": 472, "violations": 39, "serviceErrors": 73, "newRules": []}
 {"name": "fleet27", "at": "2026-09-28 00:10:02", "quiet": false, "trials": 405, "violations": 23, "serviceErrors": 80, "newRules": []}
 {"name": "fleet29", "at": "2026-09-28 00:49:19", "quiet": false, "trials": 1271, "violations": 20, "serviceErrors": 217, "newRules": ["account balance == sum of its transactions (FundAccount)", "no message goes to the dead letter queue (TransitionChainSweep)"]}
+{"name": "fleet31", "at": "2026-09-28 01:25:27", "quiet": false, "trials": 1816, "violations": 23, "serviceErrors": 151, "newRules": ["a batch across three of a customer's products lands on each (JourneyMultiProduct)", "no message goes to the dead letter queue (TransitionChainSweep)"]}
