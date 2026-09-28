@@ -44,6 +44,9 @@ class Explorer:
         # fault stays on the frontier for ever and the planner keeps routing to it. One run had
         # fault actions as the untried work at fourteen of nineteen frontier states.
         self.budgeted = budgeted or set()
+        # How often each action ran in any state. Ties on the per-state count fell to the name, so
+        # the alphabet chose: BreakBankForClearing ran 33 times in fleets 60 to 66 and no Restart ran.
+        self.tried_anywhere = Counter()
         # How often an action was refused from a state, and whether it ever succeeded there.
         self.refused = defaultdict(int)
         self.refused_at = {}
@@ -115,6 +118,7 @@ class Explorer:
         if changes and not attributed:
             self.unattributed += 1
         self.tried[(key, action)] += 1
+        self.tried_anywhere[action] += 1
         if call.ok:
             self.succeeded.add((key, action))
             self.refused.pop((key, action), None)

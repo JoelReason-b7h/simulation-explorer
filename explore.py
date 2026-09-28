@@ -3472,7 +3472,8 @@ class Run:
                 self.route_note = "next step {} is not buildable from here".format(self.route[0])
                 self.route_state = "abandoned"
             self.route = []
-            action_name = min(remaining, key=lambda n: (self.explorer.tried[(keys[n], n)], n))
+            action_name = min(remaining, key=lambda n: (self.explorer.tried[(keys[n], n)],
+                                                          self.explorer.tried_anywhere[n], n))
             if not self.why:
                 self.why = "least tried"
                 self.why_detail = "no route from here, so the least-tried buildable action wins"
