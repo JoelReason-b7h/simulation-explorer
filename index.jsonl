@@ -55,3 +55,4 @@
 {"name": "fleet58", "at": "2026-09-28 08:59:08", "quiet": false, "trials": 1150, "violations": 14, "serviceErrors": 129, "newRules": []}
 {"name": "fleet59", "at": "2026-09-28 09:18:00", "quiet": false, "trials": 914, "violations": 14, "serviceErrors": 136, "newRules": ["a payout goes to the nominated account active when it is raised (JourneyPayeeChange)"]}
 {"name": "fleet60", "at": "2026-09-28 09:36:40", "quiet": false, "trials": 1258, "violations": 14, "serviceErrors": 130, "newRules": ["a customer's money is conserved across its accounts (JourneyPayeeReview)", "a payout goes to the nominated account active when it is raised (JourneyPayeeReview)"]}
+{"name": "fleet61", "at": "2026-09-28 09:53:14", "quiet": false, "trials": 1241, "violations": 14, "serviceErrors": 277, "newRules": ["a payout goes to the nominated account active when it is raised (JourneyPayeeChange)", "a payout goes to the nominated account active when it is raised (JourneyPayeeReview)"]}
