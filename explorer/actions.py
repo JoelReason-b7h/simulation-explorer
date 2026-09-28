@@ -364,6 +364,11 @@ CORE_SIDE = [
     Action("RestartClearing", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     Action("RestartCore", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     Action("RestartBank", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
+    Action("RestartCompliance", "POST", "/direct/v1/batches", needs=["accountId"],
+           entity="account"),
+    Action("RestartPublicApi", "POST", "/direct/v1/batches", needs=["accountId"],
+           entity="account"),
+    Action("RestartSeveral", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     # Delivering the same request twice, which is what a retry after an unclear answer looks like
     # from the service's side.
     Action("ReplayLastCall", "POST", "/direct/v1/batches", needs=["customerId"],
@@ -455,6 +460,7 @@ EXPENSIVE_FAULTS = {
     "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
     "SlowBankForClearing", "BreakBankForClearing",
     "RestartClearing", "RestartCore", "RestartBank",
+    "RestartCompliance", "RestartPublicApi", "RestartSeveral",
     "FundAccountInterrupted", "FundAccountDuplicated", "DuplicateMessages",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
 }
@@ -464,6 +470,7 @@ WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", 
          "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
          "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
          "RestartClearing", "RestartCore", "RestartBank",
+         "RestartCompliance", "RestartPublicApi", "RestartSeveral",
          "DuplicateMessages", "StopDuplicating"}
 
 # Actions whose after-read looks at a DIFFERENT object than the before-read. Only the two customer
@@ -528,7 +535,8 @@ WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 # called. Never raced: a journey is a sequence, and racing one would interleave two of them.
 JOURNEYS = ("JourneyMultiProduct", "JourneyTermBeforeMaturity", "JourneyPayeeChange",
             "JourneyFrozenLifecycle", "JourneyFeeMidPeriod", "JourneyDateFlipUnderLoad",
-            "JourneyPlatformFeeWithdrawal", "JourneyPayeeReview", "JourneyReadModels")
+            "JourneyPlatformFeeWithdrawal", "JourneyPayeeReview", "JourneyReadModels",
+            "JourneySoftClose")
 CORE_SIDE += [Action(name, "POST", "/direct/v1/customers", needs=["customerId"], entity="customer")
               for name in JOURNEYS]
 NEVER_RACED |= set(JOURNEYS)

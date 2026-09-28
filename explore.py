@@ -21,7 +21,7 @@ import sys
 
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
                       preflight, projector, race, triallog, webhooks, weird, world)
-from explorer import clock, interest_oracle, journeys, longlived
+from explorer import clock, interest_oracle, journeys, journeys_softclose, longlived
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -1773,6 +1773,9 @@ class Run:
             "RestartClearing": type(self).restart_clearing,
             "RestartCore": type(self).restart_core,
             "RestartBank": type(self).restart_bank,
+            "RestartCompliance": type(self).restart_compliance,
+            "RestartPublicApi": type(self).restart_public_api,
+            "RestartSeveral": type(self).restart_several,
             "ReplayLastCall": type(self).replay_last_call,
             "FundAccountDuplicated": type(self).fund_account_duplicated,
             "RejectClosurePayment": type(self).reject_closure_payment,
@@ -2594,42 +2597,74 @@ class Run:
     def restart_bank(self):
         return self.restart("bank")
 
+    def restart_compliance(self):
+        return self.restart("compliance")
+
+    def restart_public_api(self):
+        return self.restart("public-api")
+
+    # The sets RestartSeveral takes in turn. Two services down at once is a case no single restart
+    # reaches: core coming back to find clearing gone, or public-api forwarding to a core that is
+    # still starting.
+    RESTART_SETS = (
+        ("core", "clearing"),
+        ("core", "compliance"),
+        ("clearing", "compliance"),
+        ("core", "public-api"),
+        ("core", "clearing", "compliance", "public-api"),
+    )
+
+    def restart_several(self):
+        if not hasattr(self, "restart_turn"):
+            self.restart_turn = zlib.crc32(str(self.run_id).encode()) % len(self.RESTART_SETS)
+        which = self.RESTART_SETS[self.restart_turn % len(self.RESTART_SETS)]
+        call = self.restart(*which)
+        if call.status == 200:
+            self.restart_turn += 1
+        return call
+
     # Core takes about ninety seconds to come back, so a restart is expensive and must be rare:
     # three of them eat half a ten-minute run, and restarting again before the last one finished
     # left core unable to answer at all while the run recorded every call as a finding.
     RESTART_COOLDOWN_TRIALS = 60
 
-    def restart(self, which):
-        """Stop a service and start it again, then wait for it to report itself healthy.
+    def restart(self, *which):
+        """Stop one or more services and start them again, then wait for each to report itself healthy.
 
         Waiting matters: without it every following trial reports a connection failure that says
         nothing about the service and everything about the restart not having finished.
         """
+        label = "restart-" + "-".join(which)
+        named = " and ".join(which)
         since = self.steps - self.restarted_at
         if self.restarted_at and since < self.RESTART_COOLDOWN_TRIALS:
-            return Call("POST", "restart-" + which, 412, {
+            return Call("POST", label, 412, {
                 "message": "a service was restarted {} trials ago, and the run waits {} between "
                            "restarts".format(since, self.RESTART_COOLDOWN_TRIALS)}, 0)
         if self.live_fault():
-            return Call("POST", "restart-" + which, 412, {
+            return Call("POST", label, 412, {
                 "message": "a fault is already injected, and two at once cannot be told apart"}, 0)
         self.restarted_at = self.steps
-        self.note_in_flight("restart", "a restart of {}".format(which))
-        done, note = faults.restart_service(which)
+        self.note_in_flight("restart", "a restart of {}".format(named))
+        if len(which) == 1:
+            done, note = faults.restart_service(which[0])
+        else:
+            done, note = faults.restart_services(which)
         if not done:
-            return Call("POST", "restart-" + which, 412, {"message": note}, 0)
+            return Call("POST", label, 412, {"message": note}, 0)
         # The restart counts as an injected fault for a few trials afterwards, because a service
         # that has just come back is still warming its caches and reconnecting, and a 5xx in that
         # window says nothing about the code.
-        self.faulted_boundary = "a restart of " + which
-        healthy = faults.wait_until_healthy(which)
-        # The window is counted from the moment the service says it is up, not from the restart,
-        # so the trials that follow are judged against a stack that has actually come back.
+        self.faulted_boundary = "a restart of " + named
+        unhealthy = [one for one in which if not faults.wait_until_healthy(one)]
+        # The window is counted from the moment the services say they are up, not from the
+        # restart, so the trials that follow are judged against a stack that has actually come back.
         self.faulted_at = self.steps
         self.wait_for_stack()
-        return Call("POST", "restart-" + which, 200, {
-            "message": "{}{}".format(note, "" if healthy else
-                                     ", and it did not report itself healthy again")}, 0)
+        return Call("POST", label, 200, {
+            "message": "{}{}".format(note, "" if not unhealthy else
+                                     ", and {} did not report healthy again".format(
+                                         " and ".join(unhealthy)))}, 0)
 
     RESTART_WAIT_SECONDS = float(os.environ.get("SIM_RESTART_WAIT", "120"))
 
@@ -4360,6 +4395,8 @@ def main():
     # one-year term cannot mature inside a run, so losing the one-month one loses maturity.
     offered = {}
     for row in rows:
+        if journeys_softclose.is_soft_close_product(row):
+            continue
         kind = row.get("productType")
         months = (row.get("periodFeature") or {}).get("termPeriod")
         label = "{} {} month".format(kind, months) if months else kind

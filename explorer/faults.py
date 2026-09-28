@@ -26,6 +26,7 @@ import signal
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
@@ -47,6 +48,8 @@ RESTARTABLE = {
     "clearing": "docker-clearing-1",
     "core": "docker-core-1",
     "bank": "docker-hot-sauce-bank-1",
+    "compliance": "docker-compliance-1",
+    "public-api": "docker-public-api-1",
 }
 
 # Where each service says it is healthy again. Waiting on the Direct API instead was not enough:
@@ -57,6 +60,8 @@ HEALTH = {
     "clearing": "http://localhost:8050/health",
     "core": "http://localhost:4000/health",
     "bank": "http://localhost:10002/health",
+    "compliance": "http://localhost:8075/health",
+    "public-api": "http://localhost:5300/health",
 }
 
 
@@ -330,6 +335,18 @@ def restart_service(which, timeout=90):
     if done.returncode != 0:
         return False, done.stderr.strip()[:200]
     return True, "{} was stopped and started again".format(container)
+
+
+def restart_services(names, timeout=90):
+    """Restart several services at the same moment, so each one comes back to find the others gone.
+
+    One after the other would let each service reconnect before the next went down, which is only
+    a series of single restarts.
+    """
+    with ThreadPoolExecutor(max_workers=len(names)) as pool:
+        results = list(pool.map(lambda which: restart_service(which, timeout), names))
+    notes = [note for _, note in results]
+    return all(done for done, _ in results), "; ".join(notes)
 
 
 def clear_every_toxic():

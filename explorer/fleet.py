@@ -40,6 +40,7 @@ STACK_FAULTS = {
     "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
     "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
     "RestartClearing", "RestartCore", "RestartBank",
+    "RestartCompliance", "RestartPublicApi", "RestartSeveral",
     "FundAccountInterrupted", "FundAccountDuplicated",
     "DuplicateMessages", "StopDuplicating",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
