@@ -322,8 +322,9 @@ def clear_nameless_groups(ops_client, minutes=2):
     find = ("SELECT pg.uid, pg.sid, string_agg(pi.end_to_end_id, ',') FROM payment_group pg "
             "JOIN payment_initiation pi ON pi.payment_group_sid = pg.sid "
             "WHERE pg.status = 'APPROVED' AND pi.is_return IS NOT TRUE GROUP BY pg.uid, pg.sid "
-            "HAVING bool_or(pi.creditor_name IS NULL) AND bool_and(pi.sent_at IS NULL) "
-            "AND min(pi.created_at) < now() - interval '{} minutes'").format(int(minutes))
+            "HAVING bool_or(pi.creditor_name IS NULL AND pi.sent_at IS NULL) "
+            "AND min(pi.created_at) FILTER (WHERE pi.sent_at IS NULL) "
+            "< now() - interval '{} minutes'").format(int(minutes))
     rows = _clearing_rows(find)
     cleared = []
     for group, group_sid, end_to_end in rows:
