@@ -301,6 +301,26 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     0.00161096, 0.00034521, 0.00075945 and 0.00103562. Not reproduced on any other date this box
     has crossed. Evidence: `cycles/fleet55.json` on the `results` branch.
 
+33. **A withdrawal to a payee just verified through Confirmation of Payee is accepted and marked
+    completed, but its money never leaves the account.** `JourneyPayeeReview`'s money-conservation
+    check found the full funded balance still sitting on the account after withdrawals the API had
+    already answered 201 and completed: fleet73, customer `8b0cf407`, "10.00 = 10.00 funded - 1.86
+    paid out + 0 interest" held at 10.00, where the 1.86 is the exact sum of two withdrawals (1.11,
+    0.75) raised straight after their payees passed review. Both withdrawals' own payout dues never
+    read back as the plain account number the journey expects (`73688637`, `63849203`); each due's
+    name field holds a longer digit string ending in that account number, which may just be a
+    sort-code prefix rather than a different account, but no due for either withdrawal is ever seen
+    resolving to a clean paid state. The same shape, one nominated account raised as
+    `JourneyPayeeChange` instead of reviewed (`Payee A`, `Payee C`), shows the underlying due itself
+    recorded `FAILED` while the withdrawal it belongs to reads `completed` (fleet73, customer
+    `fb5a4d32`, dues `5793e634` 2.17 GBP and `dfe145c2` 1.23 GBP, both `FAILED`). Reproduced with the
+    same amounts and accounts across box fleets 67 through 73 over more than two hours, so it is not
+    a one-off race. Not yet traced to a source line: this box run's evidence is the cycle digests
+    only, and it is not certain whether the money is stuck, delayed, or the due's naming is a
+    harness read issue rather than a real misroute — a database dump from one of these cycles would
+    settle it. Evidence: `cycles/fleet69.json`, `cycles/fleet71.json`, `cycles/fleet73.json` on the
+    `results` branch.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
