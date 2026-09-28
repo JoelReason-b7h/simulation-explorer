@@ -243,7 +243,7 @@ def _recheck_unsettled(j, product):
                         "the withdrawal {}".format(pending["when"]))
         elif pending["calls"] >= UNSETTLED_CALLS:
             holder["unsettled"] = None
-            j.expect(False, "a withdrawal from a SOFT_CLOSED product settles",
+            j.expect(False, "a withdrawal on a soft-close product settles",
                      "the {} withdrawal {} on account {} is still pending {} journey calls later"
                      .format(pending["amount"], pending["when"], holder["account"]["accountId"],
                              pending["calls"]), "settled", "pending")
