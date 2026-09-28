@@ -42,7 +42,7 @@ MIN_BALANCE = Decimal(os.environ.get("SIM_SOFTCLOSE_MIN_BALANCE", "1000"))
 # Customers a call opens on an ACTIVE product, and holders a call withdraws for once it is closed.
 # Each new customer waits up to 30 s for Confirmation of Payee, so a call keeps to a few of each.
 OPEN_PER_CALL = 3
-WITHDRAW_PER_CALL = 2
+WITHDRAW_PER_CALL = 3
 AMOUNTS = [Decimal(a) for a in ("150.00", "275.00", "400.00", "90.00", "520.00", "60.00")]
 PARTIAL = Decimal("25.00")
 TOP_UP = Decimal("25.00")
