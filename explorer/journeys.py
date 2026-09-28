@@ -254,7 +254,7 @@ class Journey:
             "paymentReference": run.mint("p", 16),
             "totalPaymentRequired": "{:.2f}".format(total),
             "allocations": [{
-                "customerId": customer or self.customer,
+                "customerId": account.get("customerId") or customer or self.customer,
                 "accountReference": account["accountReference"],
                 "instructionReference": run.mint("i", 36),
                 "instructionType": "DEPOSIT",
