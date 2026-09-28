@@ -288,6 +288,19 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     evidence is the cycle digests only. Evidence: `cycles/fleet29.json`, `cycles/fleet31.json`,
     `cycles/fleet32.json` on the `results` branch.
 
+32. **A Direct account accrues nothing on the UK's substitute bank holiday for Boxing Day.**
+    `InterestOracle` expects a non-zero accrual every calendar day; on 2026-12-28 (the substitute
+    holiday, since 2026-12-26 Boxing Day falls on a Saturday and 2026-12-25 Christmas Day already
+    holds the Friday) four different Direct accounts on the same bank each accrued exactly 0
+    instead of principal x rate / 365, with three of the four violations attributed to
+    `InterestOracle` alone, no other activity in flight. Not yet traced to a source line: this
+    box run's evidence is the cycle digest only. Same shape as finding 8's date-choice logic
+    (a UK bank-holiday date change), but here it is the accrual, not the feed, that is skipped.
+    Fleet55, accounts `4368aa0a`, `acccb21e`, `63b716d6` (clean attribution) and `e8d04735` (a
+    settlement sweep also in flight): balances 14.00, 3.00, 6.60 and 9.00, expected accruals
+    0.00161096, 0.00034521, 0.00075945 and 0.00103562. Not reproduced on any other date this box
+    has crossed. Evidence: `cycles/fleet55.json` on the `results` branch.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
