@@ -271,6 +271,23 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     `decide_refused_groups` REJECT_FAIL at 14:17 (`refused-group-decisions.jsonl`), three dead
     letters at 14:17.
 
+31. **A top-up into a SOFT_CLOSED product's account is accepted but never credited, and a later
+    withdrawal against the phantom balance answers 500.** The new `JourneySoftClose` journey funds
+    a holder's SOFT_CLOSED account for 25.00; the account read back still holds 0 after settling,
+    so the deposit was silently lost rather than booked or refused. The journey then withdraws part
+    of the (believed) balance, which the service answers with a bare `INTERNAL_SERVER_ERROR` and
+    `logref: null` instead of a 2xx or a clean 4xx for insufficient funds. Box fleet113, run
+    fleet113-p3, account `17c57067-df42-438c-9848-d4c5e9478b59` (customer link
+    `f7f192ab-bd60-4393-8749-023c8f73ba7d`). Seen once so far; the journey is new to the harness.
+    A database dump of fleet113 would confirm whether the deposit's instruction was rejected,
+    dropped, or booked somewhere the Direct read model does not show.
+
+32. **AddNominatedAccount answers 500 instead of a 4xx on non-ASCII text in the account name.**
+    `WeirdCall`'s text mutation put non-ASCII characters into `nominatedAccount.accountName` and
+    the call answered `INTERNAL_SERVER_ERROR` rather than a validation error, the same shape as
+    finding 17 (no length limit on the same field) but for character set instead of length. Box
+    fleet113, run fleet113-p2. Seen once so far.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
