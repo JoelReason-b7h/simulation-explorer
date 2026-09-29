@@ -288,6 +288,23 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     finding 17 (no length limit on the same field) but for character set instead of length. Box
     fleet113, run fleet113-p2. Seen once so far.
 
+33. **A batch-funded account's own deposit reaches the Direct feed before any ACCOUNT row names
+    it, and the account never catches up.** The feed history check reads every ACCOUNT file before
+    trusting a TRANSACTION file for the same account (`checks/direct_feed.py:210-231` ranks ACCOUNT
+    ahead of TRANSACTION on a tie, so this is not a same-poll ordering artefact); when it still
+    fires, no earlier ACCOUNT file has ever named the account. First seen box fleet 121: TRANSACTION
+    file `TRANSACTION_20270105T090002Z.csv` carries INSERT deposits for accounts `91c6137a-cd1c-
+    4356-a822-2a51540a4cf7`, `5bd9b092-ba96-4560-986f-20cc56b1b2c9` and `733eec47-40f2-47d2-8244-
+    29f74dae7637`, all under payment batch reference `dmcyj3p100`, value-dated 2027-01-04; the same
+    three rows are still the check's first three examples at fleet 129, and the rule's total keeps
+    climbing every cycle in between (37 at fleet 121, 1158 by fleet 129), so the accounts are not
+    merely late, they are still absent from the ACCOUNT feed. Fleet 126's RECON for 2027-01-04 shows
+    `TotalBalanceAtEndOfDay` 147146.45 against 161550.45 summed from that day's TRANSACTION files, a
+    round 14404.00 short, consistent with a handful of accounts' balances missing from the ACCOUNT
+    snapshot the RECON total is drawn from. Not yet traced to a code path: needs the feed generator's
+    account-selection query checked against a database dump (`box dump fleet129`) to see whether an
+    as-of cutoff excludes accounts opened close to the same batch that funds them.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
