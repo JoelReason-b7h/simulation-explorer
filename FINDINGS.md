@@ -305,6 +305,47 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     account-selection query checked against a database dump (`box dump fleet129`) to see whether an
     as-of cutoff excludes accounts opened close to the same batch that funds them.
 
+34. **A restart of public-api or of core/clearing/compliance is not survived cleanly on most of the
+    action surface, not just the two actions already accepted.** `after_cycle.py`'s KNOWN list
+    exempts "a fault is survived without a server error" only for `CancelAccountOpening` and
+    `CloseAccount`, on the basis that a 500 from those two is acceptable while core's call to
+    clearing is mid-transaction. Box fleets 130-138 show the identical two failure shapes on both
+    of those actions and on about two dozen others: a restart of public-api leaves an in-flight call
+    with a raw connection reset (harness code 598) and body `{"message": "ReadError: [Errno 104]
+    Connection reset by peer"}` (e.g. fleet131-p1, `AddNominatedAccount`, subject `e5ee3256-cef5-
+    447a-9b1e-19d8512f6219`), while a restart of core, clearing or compliance leaves it with a bare
+    `INTERNAL_SERVER_ERROR`/`logref: null` (e.g. fleet132-p1, `OfficerCloseCustomer`, "answered 500
+    while a restart of core and compliance ... was injected"). Actions seen with the 598/public-api
+    shape: AddNominatedAccount, AddUnverifiableNominatedAccount, CancelAccountOpening,
+    CancelAllocation, CancelWithdrawal, ClearMaturityDestination, CloseAccount, CloseCustomer,
+    CreateCustomer, FreezeCustomer, FundAccount, OpenAccount, PlaceBatchPayment, PlaceWithdrawal,
+    ReadAccount, ReadBalances, ReadCustomer, ReadInstructions, ReplayLastCall, SetKycStatus,
+    SetMaturityDestination, SettleWorld, UnfreezeCustomer, WeirdCall. Actions seen with the 500/
+    core-or-compliance-restart shape: the same list plus ChangeBankRate, ChangePlatformFee,
+    OfficerCancelCustomer, OfficerCloseCustomer, OfficerRejectCustomer, UpdateCustomer. Neither
+    shape is scoped to core-calling-clearing the way the accepted exemption describes; public-api's
+    598 in particular means the caller gets no HTTP response at all, on reads as well as writes.
+    Likely the fault injector (or the set of actions run under it) has grown well past the two
+    actions the KNOWN list and the "Checked and holding" note below were written against; worth
+    deciding whether the exemption should simply cover the whole surface or whether public-api's
+    failure to drain in-flight connections on restart is worth its own ticket.
+
+35. **PlaceWithdrawal answers 500 instead of 4xx on SQL-shaped text in instructionReference.**
+    Same shape as finding 32 (WeirdCall's text mutation causing a 500 instead of a validation
+    error) but on a different field and action: `instructionReference` set to `x'; DROP TABLE
+    customer; --` on `POST /direct/v1/customers/{id}/accounts/{id}/instruction` answered
+    `INTERNAL_SERVER_ERROR`/`logref: null`. Box fleet132-p2, subject `24005635-6945-4aa3-bfa8-
+    0ca949d45dd0`. Seen once so far; no other input caused it to reproduce in this window.
+
+36. **A Direct account's interest oracle can judge two accruals on the same calendar day as
+    consecutive instead of advancing a day.** `InterestOracle` (the harness's independent interest
+    model, not a live check against production code) found "an accrual for 2027-01-05 follows the
+    one for 2027-01-05" where the next accrual should have been dated 2027-01-06. Box fleet133-p3,
+    subject `3cd55cac-851d-49e7-ac29-573b9655570d`, seen 6 times in that one run with no concurrent
+    fault or sweep in flight (clean attribution to `InterestOracle` alone). Only seen in this one
+    cycle so far; worth checking whether it is the oracle's own date arithmetic or a genuine
+    duplicate-day accrual reaching the account.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
