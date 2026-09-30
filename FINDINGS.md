@@ -271,6 +271,23 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     `decide_refused_groups` REJECT_FAIL at 14:17 (`refused-group-decisions.jsonl`), three dead
     letters at 14:17.
 
+31. **NOMINATED_ACCOUNT_SYNC_CHECK reports every customer whose payee is still under review.** Core's
+    integrity check lists ACTIVATED individual customers with an active nominated account link last
+    updated more than 30 minutes ago, and expects clearing to hold an active external account for
+    each one (`DbIntegrityCheckReplicaRepository.findActiveCustomersWithNominatedAccounts`,
+    `DbIntegrityCheckReplicaRepository.java:780-789`). Its query has no condition on
+    `verification_state`. The publisher sends a nominated account to clearing only once it is
+    VERIFIED (`CustomerNominatedAccountRepository.PENDING_EXTERNAL_ACCOUNT_PUBLISH`), so a link in
+    AWAITING_REVIEW never reaches clearing on purpose, and the check fails for it from 30 minutes
+    after the last change until ops decide the review. In production a review can stay open for
+    days while ops contact the customer, so the check fails on every run in that time. The fix
+    belongs in the check: leave out links that are not VERIFIED. Box fleets 150 to 229: the check
+    failed in all 77 conductor runs with the same 23 customers, each with one link in
+    AWAITING_REVIEW and `external_account_published_at` NULL, for example `dd55b124` (updated
+    2026-12-31 08:40), `240771fa` (2026-12-31 08:46) and `482a3adc` (2027-01-03 19:49), fake
+    time. `b7h.integrity.disabled-checks` can switch the check off per environment; no environment
+    in the repo sets it.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
