@@ -33,6 +33,15 @@ def _psql(sql, timeout=60, dsn=CLEARING_DSN):
     return [line.split("|") for line in done.stdout.splitlines() if line.strip()]
 
 
+def available_preloaded_accounts():
+    """How many preloaded internal accounts clearing can still hand out, or None if unreadable."""
+    rows = _psql("SELECT count(*) FROM preloaded_internal_account WHERE status = 'AVAILABLE'")
+    try:
+        return int(rows[0][0])
+    except (IndexError, ValueError):
+        return None
+
+
 def newest_payment_sid():
     """The highest payment initiation row clearing holds, or 0 when it holds none."""
     rows = _psql("SELECT COALESCE(MAX(sid), 0) FROM payment_initiation")

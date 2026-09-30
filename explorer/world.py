@@ -462,11 +462,11 @@ def top_up_preloaded_accounts(ops_client):
     Every account opening takes one preloaded account, and the scheduler that refills the pool is
     off locally, so a long run emptied it and each opening then failed. The top-up adds at least
     100 accounts only when fewer than 50 are left, so calling it often is cheap.
+
+    It runs on the fake clock too: InvestecAccountAutoPreloadScheduler loads only when
+    b7h.clearing.investec.auto-preload.enabled is true, which no local profile sets, so leaving the
+    pool to it emptied the pool at fleet121 and stopped every payout for 106 cycles.
     """
-    if clock.schedulers_run():
-        # InvestecAccountAutoPreloadScheduler tops up every 10 minutes, and
-        # PreloadedAccountActivationScheduler activates at 05:00 London.
-        return []
     return [ops_client.call("POST", path).status for path in (PRELOAD_TOP_UP, PRELOAD_ACTIVATE)]
 
 

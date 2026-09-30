@@ -21,7 +21,7 @@ import tarfile
 import time
 from pathlib import Path
 
-from explorer import clock
+from explorer import clock, ledger
 
 HERE = Path(__file__).resolve().parent
 FINDINGS = HERE / "findings"
@@ -84,6 +84,9 @@ def is_known(violation):
 # Fewest trials a minute a run should manage. A conductor spends time inside fault windows and
 # restarts, so it is allowed fewer.
 MIN_RATE = {"conductor": 1.0, "member": 3.0}
+# Every account opening takes one preloaded account. Below this, the next cycles fail to open
+# accounts in clearing and their payouts never get a due, which hid fleets 121-227 for a day.
+MIN_PRELOADED = 50
 
 
 def run_check(script, bank_uid, out, *extra):
@@ -344,6 +347,10 @@ def main():
             "rules": rules,
         }
     summary["sanity"] = sanity(name, seconds, summary["runs"])
+    available = ledger.available_preloaded_accounts()
+    if available is not None and available < MIN_PRELOADED:
+        summary["sanity"].append("clearing has {} preloaded accounts left, under {}".format(
+            available, MIN_PRELOADED))
     summary["serviceErrors"] = keep_service_errors(name)
     try:
         summary["tableGrowth"] = table_growth()
