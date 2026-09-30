@@ -191,6 +191,9 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     it retries until the DLQ. The first delivery already booked the transfer, so no money moves
     twice; each redelivery in production ends in the DLQ and its alarm. Fleet 187, seven failures,
     from the harness's duplicate delivery. Low.
+    Not every `partner_payment_due_uid_key` dead letter is a redelivery: finding 32 sends a new
+    transfer under an old uid, and none of its deliveries books it. Read the message's direction
+    before counting a dead letter here.
     Seen (review 2026-09-30): 40 duplicate-key failures in fleet229's clearing log; other fleets not counted. Last fleet229.
 
 24. **SAV-11699. One payment with no creditor name stops every outbound payment.** Clearing's
@@ -293,6 +296,24 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     time. `b7h.integrity.disabled-checks` can switch the check off per environment; no environment
     in the repo sets it.
     Seen (review 2026-09-30): the same 23 customers in all 77 conductor runs of fleets 150 to 229, and in every conductor run to fleet235. Last fleet235.
+
+32. **A failed Direct withdrawal payout never returns to savings in clearing, so both Direct
+    reconciliations fail.** No ticket: #12160 (SAV-11198) removes it for every withdrawal made after
+    it is released. On main, `InstructionFailureService.handleDirectPaymentFailure` cancels the
+    instruction and sends the cash-to-bank-VA transfer under `internalPaymentDueFor`, which is the
+    withdrawal's own INTERNAL due. Clearing already holds that due as PRODUCED (the earlier
+    bank-VA-to-cash move), so `insertInternalPaymentDue` throws `partner_payment_due_uid_key` on
+    every delivery and the message dead-letters with reference `UNABLE_TO_PROCESS`. Core counts the
+    money back in savings; clearing still holds it in the cash account.
+    `INVESTEC_GBP_DIRECT_PRODUCT_RECONCILIATION` and `INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION`
+    then fail by the same amount on every run. Evidence, box 2026-09-30: every core payment due
+    exists in clearing; 16 cancelled withdrawals leave 48.83 in eight cash accounts, for example
+    `04967d07`, whose four cancelled withdrawals (15.17) match its four dead letters (0.5, 7.33,
+    0.01, 7.33). The rest of the reconciliation gap moves between runs with withdrawals in flight.
+    On #12160, stage 3 debits savings before the payout, so a failed payout goes through
+    `transferCashToSavingsAccount`, whose new DEPOSIT instruction gets a new INTERNAL due, or leaves
+    the money in the cash account, where core and clearing agree.
+    Seen (review 2026-09-30): the Direct reconciliation rule failed in fleet238, with 9 of these dead letters, and fleet239 had 2 more. The rule also failed in fleets 1, 10, 29 and 31, whose cause is not checked. Last fleet239.
 
 ## Checked and holding
 
