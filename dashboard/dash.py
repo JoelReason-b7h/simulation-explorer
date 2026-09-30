@@ -29,6 +29,7 @@ OPS_HEALTH = os.environ.get("OPS_HEALTH", "http://localhost:5200/health")
 PORT = int(os.environ.get("DASH_PORT", "8440"))
 CACHE_SECONDS = 10
 CYCLE_GRACE_SECONDS = 600
+STALL_SECONDS = 120
 CLEARING_DSN = os.environ.get(
     "SIM_CLEARING_DSN", "postgresql://clearing:password@localhost:5440/clearing")
 # The same floor as MIN_PRELOADED in after_cycle.py. Each account opening takes one preloaded
@@ -149,6 +150,48 @@ def preloaded_available():
         return None
 
 
+def run_rows(name):
+    """One row per run log of the cycle in progress, read from `<name>-pN.log`."""
+    rows = []
+    paths = sorted(HARNESS_DIR.glob(f"{name}-p*.log"),
+                   key=lambda p: int(re.search(r"-p(\d+)\.log$", p.name).group(1))
+                   if re.search(r"-p(\d+)\.log$", p.name) else 0)
+    for path in paths:
+        try:
+            text = path.read_text(errors="replace")
+            age = int(time.time() - path.stat().st_mtime)
+        except OSError:
+            continue
+        trial_lines = re.findall(r"^\s+(?:ok|REJ)\s.*$", text, re.M)
+        rows.append({
+            "run": path.stem,
+            "role": "conductor" if path.stem.endswith("-p0") else "member",
+            "trials": len(trial_lines),
+            "refused": len(re.findall(r"^\s+REJ\s", text, re.M)),
+            "violations": len(re.findall(r"^\s+!! ORACLE\s", text, re.M)),
+            "ageSeconds": age,
+            "lastTrial": trial_lines[-1].strip()[:140] if trial_lines else "",
+            "traceback": "Traceback (most recent call last)" in text,
+            "stalled": age > STALL_SECONDS,
+        })
+    return rows
+
+
+def last_cycle_review(e):
+    if not e:
+        return None
+    runs = e.get("runs") or {}
+    return {
+        "name": e["name"], "at": e["at"],
+        "sanity": e.get("sanity") or [],
+        "newRules": e.get("newRules") or [],
+        "violationRules": {n: {"violations": r.get("violations", 0), "rules": r.get("rules") or []}
+                           for n, r in runs.items() if r.get("violations")},
+        "feed": e.get("feed"),
+        "mi": e.get("mi"),
+    }
+
+
 def harness():
     if not HARNESS_DIR.is_dir():
         return {"installed": False, "dir": str(HARNESS_DIR)}
@@ -186,7 +229,6 @@ def harness():
             "mi": (e.get("mi") or {}).get("result"),
             "exit": cycle_exit(e["name"]),
         })
-    name = current["name"] if current else (recent[0]["name"] if recent else None)
     return {
         "installed": True,
         "dir": str(HARNESS_DIR),
@@ -196,8 +238,8 @@ def harness():
         "recent": recent,
         "openFindings": open_findings(),
         "preloadedAvailable": preloaded_available(),
-        "cycleLog": tail(HARNESS_DIR / f"{name}.cycle.log") if name else [],
-        "harnessLog": tail(HARNESS_DIR / "harness.log", 10),
+        "currentRuns": run_rows(current["name"]) if current else [],
+        "lastCycle": last_cycle_review(ends[-1] if ends else None),
     }
 
 
@@ -346,12 +388,40 @@ def page(s):
             f"<td>{r['trials']}</td><td>{r['violations']}</td><td>{esc(r['serviceErrors'])}</td>"
             f"<td>{esc(r['feed'])}</td><td>{esc(r['mi'])}</td>"
             f"<td>{esc('; '.join(r['newRules']))}</td></tr>" for r in h["recent"])
+        if cur:
+            run_rows_html = "".join(
+                f"<tr class='{'bad' if r['stalled'] or r['traceback'] else ''}'><td>{esc(r['run'])}</td>"
+                f"<td>{esc(r['role'])}</td><td>{r['trials']}</td><td>{r['refused']}</td>"
+                f"<td>{r['violations']}</td><td>{r['ageSeconds']}s ago</td>"
+                f"<td>{esc(r['lastTrial'])}{' (traceback in log)' if r['traceback'] else ''}</td></tr>"
+                for r in h["currentRuns"])
+            runs_html = ("<div class='scroll'><table><tr><th>run</th><th>role</th><th>trials</th>"
+                         "<th>refused</th><th>violations</th><th>last activity</th><th>last trial</th></tr>"
+                         f"{run_rows_html or '<tr><td colspan=7>no run logs yet</td></tr>'}</table></div>")
+        else:
+            runs_html = "<p>No cycle in progress.</p>"
+        lc = h["lastCycle"]
+        if lc:
+            def items(xs):
+                return "".join(f"<li>{esc(x)}</li>" for x in xs) or "<li>nothing</li>"
+            def result_line(x):
+                return [f"{x.get('result')} ({x.get('files')})"] if x else []
+            per_run = [f"{n}: {v['violations']} ({'; '.join(v['rules']) or 'no rule names'})"
+                       for n, v in lc["violationRules"].items()]
+            review_html = (f"<p class='muted'>{esc(lc['name'])}, ended {esc(lc['at'])}</p>"
+                           f"<b>Sanity notes</b><ul>{items(lc['sanity'])}</ul>"
+                           f"<b>New rules</b><ul>{items(lc['newRules'])}</ul>"
+                           f"<b>Violations per run</b><ul>{items(per_run)}</ul>"
+                           f"<b>Feed</b><ul>{items(result_line(lc['feed']))}</ul>"
+                           f"<b>MI</b><ul>{items(result_line(lc['mi']))}</ul>")
+        else:
+            review_html = "<p>No finished cycle yet.</p>"
         harness_html = f"""
 <p>Loop: <b>{esc(loop)}</b> · Current cycle: {cur_html} · Open findings: <b>{esc(h['openFindings'])}</b> · Preloaded accounts free: <b>{esc(h['preloadedAvailable'])}</b></p>
 <table><tr><th>cycle</th><th>ended</th><th>took</th><th>exit</th><th>trials</th><th>violations</th>
 <th>service errors</th><th>feed</th><th>MI</th><th>new rules</th></tr>{cycles}</table>
-<h3>Cycle log (last 15 lines)</h3><pre>{esc(chr(10).join(h['cycleLog']))}</pre>
-<h3>harness.log (last 10 lines)</h3><pre>{esc(chr(10).join(h['harnessLog']))}</pre>"""
+<h3>Current cycle, run by run</h3>{runs_html}
+<h3>Last finished cycle: what needs a look</h3>{review_html}"""
     else:
         harness_html = f"<p>No harness directory at <code>{esc(h['dir'])}</code>.</p>"
     temp = f"{sysd['tempC']:.0f}°C" if sysd["tempC"] else "–"
