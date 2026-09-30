@@ -242,3 +242,4 @@
 {"name": "fleet247", "at": "2026-09-30 17:26:17", "quiet": false, "trials": 1303, "violations": 16, "serviceErrors": 158, "newRules": []}
 {"name": "fleet248", "at": "2026-09-30 17:42:38", "quiet": false, "trials": 1209, "violations": 19, "serviceErrors": 181, "newRules": ["account balance == sum of its transactions (FundAccount)"]}
 {"name": "fleet249", "at": "2026-09-30 17:58:56", "quiet": false, "trials": 953, "violations": 12, "serviceErrors": 68, "newRules": []}
+{"name": "fleet250", "at": "2026-09-30 18:15:09", "quiet": false, "trials": 1019, "violations": 16, "serviceErrors": 181, "newRules": ["a customer's money is conserved across its accounts (JourneySoftClose)"]}
