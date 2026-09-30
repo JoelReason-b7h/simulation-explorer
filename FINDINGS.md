@@ -26,6 +26,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    again at 14:17:12, and payout `d25becd6` was rejected at 14:20:22 with "availableAmount = 0.0".
    Joel: a payout that stays stuck after a failed balance check is already known, so it needs no
    ticket of its own. SAV-11344 comment 79776 records the harness evidence.
+   Seen (review 2026-09-30): `PAYMENT_ACCOUNT_NEGATIVE_BALANCE` failed in every conductor run of fleets 150 to 235, on the same accounts each time, and "clearing and the bank agree on how a payment ended" fired once, fleet229 (`PEC00000010017F5`). Last fleet235.
 2. **On hold until it happens again: a PaymentSettled fails with "Could not find instruction for
    payment due".** The account being CLOSING is not the cause. `completeInstructionForPaymentDue`
    (`DirectCustomerInstructionService.java:200-202`) updates only a PENDING instruction linked to
@@ -42,6 +43,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    (SAV-11694); the box has reproduced it in fleets 3, 5, 6 and 9.
 6. **A CLOSED customer moves back to ACTIVATED through a KYC status change.** SAV-11534 part 2.
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
+   Seen (review 2026-09-30): 64 violations in 56 runs of fleets 150 to 226, and 3 more in fleets 233 and 234. Last fleet234.
 
 7. **Clearing inserts a bank entry again on every poll that reads it, and never deduplicates the
    copies it cannot allocate.** PROD-3976, whose fix is tracked in SAV-11009 (In Development).
@@ -153,6 +155,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     acting while a KYC provider retry is pending (`ProviderFailureScheduler`, every 10 minutes).
     No existing ticket found. Deterministic reproduction: a WireMock W2 stub with a delay on one
     surname, then the override during the delay.
+    Seen (review 2026-09-30): 14 violations on ACTIVATED customers in fleets 150 to 226, and 1 in fleet231 (`927c7890`). Last fleet231.
 
 17. **The Direct nominated account update accepts an account name of any length.** SAV-11695.
     `ExternalDirectBankAccount.accountName` has no `@Size`, so a 5000-character name answered 200
@@ -188,6 +191,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     it retries until the DLQ. The first delivery already booked the transfer, so no money moves
     twice; each redelivery in production ends in the DLQ and its alarm. Fleet 187, seven failures,
     from the harness's duplicate delivery. Low.
+    Seen (review 2026-09-30): 40 duplicate-key failures in fleet229's clearing log; other fleets not counted. Last fleet229.
 
 24. **SAV-11699. One payment with no creditor name stops every outbound payment.** Clearing's
     `BatchedFileSender.sendFiles` (`:56`) sends the oldest ten files in order with no per-file
@@ -207,6 +211,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     `/operations/processor/nominated-account/publish/drain`), which made the window unbounded; the
     harness now calls it on every settle. Databases kept in `archive/finding24-send-loop-db` and
     `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments. No ops endpoint can clear it: `REJECT_FAIL` answers 400 "Payment group must be pending approval" for an APPROVED group, and `PaymentFileRepository.SELECT_FILES_TO_SEND` ignores the group status, so a rejected group's unsent file would still be picked first. Only a database change moves the file. The harness now fails such a group on every settle: it marks the payments sent and RJCT, moves the group to PENDING_APPROVAL, and sends the operator's REJECT_FAIL (log in `cleared-groups.jsonl`). It failed all 47 at 21:05 London on 2026-09-26, and sending resumed at once.
+    Seen (review 2026-09-30): 24 payout violations with FAILED dues and 5 money-conservation violations on the same journeys, fleets 229 to 233. Before fleet229 the empty preloaded pool stopped every payout, so it could not show. Last fleet233.
 
 25. **SAV-11111. A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
     `resolveCounterpart` takes the current nominated account with no verification check, unlike
@@ -287,6 +292,7 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     2026-12-31 08:40), `240771fa` (2026-12-31 08:46) and `482a3adc` (2027-01-03 19:49), fake
     time. `b7h.integrity.disabled-checks` can switch the check off per environment; no environment
     in the repo sets it.
+    Seen (review 2026-09-30): the same 23 customers in all 77 conductor runs of fleets 150 to 229, and in every conductor run to fleet235. Last fleet235.
 
 ## Checked and holding
 
