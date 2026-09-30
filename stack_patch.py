@@ -57,6 +57,9 @@ HOST_OVERLAY = "docker/docker-compose.linux-host.yml"
 HOST_SERVICES = ("adapter", "clearing", "compliance", "compliance-api", "core", "core-ro",
                  "hot-sauce-bank", "notification", "ops-api", "public-api", "simulator-api")
 COMPOSE_START = "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
+# The kernel killed LocalStack at 640m on 2026-09-30 after hours of feed and MI files in S3, and
+# its exit status was 0, so only a restart on any exit brings it back without the harness.
+LOCALSTACK_ON_HOST = "  localstack:\n    mem_limit: 1536m\n    restart: unless-stopped\n"
 
 HERE = Path(__file__).resolve().parent
 CLOCK_OVERLAY = "docker/docker-compose.faketime.yml"
@@ -64,7 +67,7 @@ CLOCK_DIR = "docker/faketime"
 LOCAL_UP = "local-up.sh"
 # local-up.sh starts postgres, redis and LocalStack with the base file alone, so the clock overlay
 # has to be named there too, or those three run on the real clock.
-LOCAL_UP_LINE = "docker compose -f docker/docker-compose.yml up -d --remove-orphans"
+LOCAL_UP_BASE = "docker compose -f docker/docker-compose.yml"
 # Every Java service the stack starts, and the ones whose acceptance profile turns their schedulers
 # off. application-acceptance.yml sets b7h.async.scheduling.enabled to false outright, so
 # B7H_ENV_ASYNC_SCHEDULING_ENABLED alone (read only by application.yml's default) does not win.
@@ -120,10 +123,21 @@ def _add_host_overlay(checkout):
     overlay = checkout / HOST_OVERLAY
     wanted = "services:\n" + "".join(
         "  {}:\n    extra_hosts:\n      - \"host.docker.internal:host-gateway\"\n".format(s)
-        for s in HOST_SERVICES)
+        for s in HOST_SERVICES) + LOCALSTACK_ON_HOST
     changed = False
     if not overlay.exists() or overlay.read_text() != wanted:
         overlay.write_text(wanted)
+        changed = True
+    local_up = checkout / LOCAL_UP
+    up_text = local_up.read_text()
+    if HOST_OVERLAY not in up_text:
+        # Last on the line, so its LocalStack limit overrides the base file's.
+        if LOCAL_UP_BASE not in up_text:
+            raise SystemExit("{} has no compose line to add {} to".format(local_up, HOST_OVERLAY))
+        local_up.write_text("\n".join(
+            line.replace(" up -d", " -f {} up -d".format(HOST_OVERLAY), 1)
+            if line.lstrip().startswith(LOCAL_UP_BASE) else line
+            for line in up_text.split("\n")))
         changed = True
     launch = checkout / LAUNCH
     text = launch.read_text()
@@ -268,10 +282,9 @@ def _set_clock(checkout, spec):
             launch.write_text(launch_text.replace(COMPOSE_START, COMPOSE_START + overlay_arg, 1))
             changed = True
         if up_arg not in up_text:
-            if LOCAL_UP_LINE not in up_text:
+            if LOCAL_UP_BASE not in up_text:
                 raise SystemExit("{} has no compose line to add {} to".format(local_up, CLOCK_OVERLAY))
-            local_up.write_text(up_text.replace(
-                LOCAL_UP_LINE, LOCAL_UP_LINE.replace(" up -d", up_arg + " up -d")))
+            local_up.write_text(up_text.replace(LOCAL_UP_BASE, LOCAL_UP_BASE + up_arg))
             changed = True
         return changed
     if overlay_arg in launch_text:

@@ -403,7 +403,7 @@ def payee_review(run):
         j.expect(len(live) <= 1, "a withdrawal pays out once",
                  "the {} withdrawal has {} live payout dues".format(amount, len(live)), 1,
                  len(live), body=dues)
-        return call, done
+        return call, done and bool(live)
 
     # Accept.
     if not _nominate(j, "Review A CLOSEMATCH {}".format(tag), REVIEW_PAYEES["A"]).ok:
