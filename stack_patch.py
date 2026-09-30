@@ -59,7 +59,10 @@ HOST_SERVICES = ("adapter", "clearing", "compliance", "compliance-api", "core", 
 COMPOSE_START = "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
 # The kernel killed LocalStack at 640m on 2026-09-30 after hours of feed and MI files in S3, and
 # its exit status was 0, so only a restart on any exit brings it back without the harness.
-LOCALSTACK_ON_HOST = "  localstack:\n    mem_limit: 1536m\n    restart: unless-stopped\n"
+# The base file sets memswap_limit to the old limit too, and Docker refuses a swap limit below
+# the memory limit, so both move together.
+LOCALSTACK_ON_HOST = ("  localstack:\n    mem_limit: 1536m\n    memswap_limit: 1536m\n"
+                      "    restart: unless-stopped\n")
 
 HERE = Path(__file__).resolve().parent
 CLOCK_OVERLAY = "docker/docker-compose.faketime.yml"
