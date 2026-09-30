@@ -29,6 +29,11 @@ OPS_HEALTH = os.environ.get("OPS_HEALTH", "http://localhost:5200/health")
 PORT = int(os.environ.get("DASH_PORT", "8440"))
 CACHE_SECONDS = 10
 CYCLE_GRACE_SECONDS = 600
+CLEARING_DSN = os.environ.get(
+    "SIM_CLEARING_DSN", "postgresql://clearing:password@localhost:5440/clearing")
+# The same floor as MIN_PRELOADED in after_cycle.py. Each account opening takes one preloaded
+# account, so at none left every opening fails in clearing and no payout gets a due.
+MIN_PRELOADED = 50
 
 STACK = ("adapter", "clearing", "compliance", "compliance-api", "core", "core-ro",
          "hot-sauce-bank", "localstack", "ops-api", "postgres", "public-api",
@@ -135,6 +140,15 @@ def open_findings():
     return len(re.findall(r"^\d+\. ", section, re.M))
 
 
+def preloaded_available():
+    code, out = run(["psql", CLEARING_DSN, "-tA", "-c",
+                     "SELECT count(*) FROM preloaded_internal_account WHERE status = 'AVAILABLE'"])
+    try:
+        return int(out.strip()) if code == 0 else None
+    except ValueError:
+        return None
+
+
 def harness():
     if not HARNESS_DIR.is_dir():
         return {"installed": False, "dir": str(HARNESS_DIR)}
@@ -181,6 +195,7 @@ def harness():
         "current": current,
         "recent": recent,
         "openFindings": open_findings(),
+        "preloadedAvailable": preloaded_available(),
         "cycleLog": tail(HARNESS_DIR / f"{name}.cycle.log") if name else [],
         "harnessLog": tail(HARNESS_DIR / "harness.log", 10),
     }
@@ -251,6 +266,11 @@ def verdict(s):
             red.append("the fleet loop is not running")
         if h["current"] and h["current"]["overdue"]:
             red.append(f"{h['current']['name']} is past its {h['current']['seconds']}s budget")
+        pool = h.get("preloadedAvailable")
+        if pool == 0:
+            red.append("clearing has no preloaded accounts left, so every account opening fails")
+        elif pool is not None and pool < MIN_PRELOADED:
+            amber.append(f"clearing has {pool} preloaded accounts left, under {MIN_PRELOADED}")
         if h["recent"] and h["recent"][0]["exit"] not in (0, None):
             amber.append(f"{h['recent'][0]['name']} exited {h['recent'][0]['exit']}")
     disk = sysd["diskUsed"] / sysd["diskTotal"]
@@ -327,7 +347,7 @@ def page(s):
             f"<td>{esc(r['feed'])}</td><td>{esc(r['mi'])}</td>"
             f"<td>{esc('; '.join(r['newRules']))}</td></tr>" for r in h["recent"])
         harness_html = f"""
-<p>Loop: <b>{esc(loop)}</b> · Current cycle: {cur_html} · Open findings: <b>{esc(h['openFindings'])}</b></p>
+<p>Loop: <b>{esc(loop)}</b> · Current cycle: {cur_html} · Open findings: <b>{esc(h['openFindings'])}</b> · Preloaded accounts free: <b>{esc(h['preloadedAvailable'])}</b></p>
 <table><tr><th>cycle</th><th>ended</th><th>took</th><th>exit</th><th>trials</th><th>violations</th>
 <th>service errors</th><th>feed</th><th>MI</th><th>new rules</th></tr>{cycles}</table>
 <h3>Cycle log (last 15 lines)</h3><pre>{esc(chr(10).join(h['cycleLog']))}</pre>
