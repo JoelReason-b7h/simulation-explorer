@@ -318,6 +318,25 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     the money in the cash account, where core and clearing agree.
     Seen (review 2026-10-01): the harness reported the reconciliation in fleets 237 and 238 only, because its baseline drops a check that already failed; core logged 84 failed runs of 86 by fleet246, the gap still growing. Fleet250's two money-conservation breaks are the same cause. Last fleet250.
 
+33. **A Direct feed ACCOUNT file can count a transaction that its own TRANSACTION file leaves
+    out.** No ticket yet. `DirectDataFeedService.execute` (`:141-185`) takes `now` once as the
+    run's `windowEnd`, and the collectors read the database after it. `fetchTransactionCandidates`
+    bounds rows by `at.created_at <= ?:windowEndAt` (`OPEN_UNSEALED_NON_FEES_PREDICATE`,
+    `InvestecFileRepository.java:138-151`), but the ACCOUNT balance lateral in
+    `fetchAccountCandidates` (`:372-380`, and again at `:514-520`) takes the latest
+    `account_transaction` by value date with no `created_at` bound. A transaction created between
+    `windowEnd` and the ACCOUNT read is in that run's ACCOUNT balance and in the next run's
+    TRANSACTION file, so a platform holding one file pair sees a balance no transaction it holds
+    produces. Box 2026-10-01, bank `0b405234`: 40 ACCOUNT rows, for example `d4a1d5d3` in
+    `ACCOUNT_20280229T180000Z` reads 6.00 while its last transaction sent reads 3.00; sid 1347 was
+    created at 18:00:03.92, after the 18:00:00 window end, and went in `TRANSACTION_20280229T190000Z`.
+    The gap is 1 to 17 s on the box's x10 clock and milliseconds in production. The ACCOUNT balance
+    also counts FEES rows, which the TRANSACTION file leaves out (`transaction_type <> 'FEES'`); no
+    case of that was seen. Fix: bound the lateral by `created_at <= windowEnd`, which
+    `DirectAccountCollector` already has.
+    Seen (review 2026-10-01): 47 ACCOUNT rows on bank `0b405234`, files of 2028-02-28 to 2028-03-08; both
+    ACCOUNT rules in `checks/direct_feed.py` report the same 47, and the core-balance rule labels them.
+
 ## Checked and holding
 
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter

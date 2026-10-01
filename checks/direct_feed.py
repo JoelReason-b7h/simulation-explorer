@@ -325,26 +325,28 @@ def check_recons(recons, delivered, daily_transactions, accrued_by_date, files, 
 
 
 def check_account_against_transactions(files, out):
-    """An ACCOUNT row's balance is the latest UpdatedBalance sent for it up to that date."""
-    latest = {}
-    events = []
-    for f in files:
-        if f.entity == "TRANSACTION":
-            for t in f.rows:
-                events.append((day(t.get("ValueDate")), 0, t.get("BookingDateTime", ""), "T", t,
-                               f))
-        elif f.entity == "ACCOUNT":
-            for a in f.rows:
-                events.append((day(f.business_date), 1, "", "A", a, f))
-    for _, _, _, kind, row, f in sorted(events, key=lambda e: e[:3]):
-        if kind == "T":
-            latest[row["AccountId"]] = money(row.get("UpdatedBalance"))
-        elif row["AccountId"] in latest and money(row.get("AccountBalance")) != latest[
-                row["AccountId"]]:
-            out.add("an ACCOUNT balance is the latest UpdatedBalance sent for it", f.name,
-                    "account {} reads {}, its last transaction left {}".format(
-                        row["AccountId"], row.get("AccountBalance"), latest[row["AccountId"]]),
-                    row)
+    """An ACCOUNT row's balance is the latest UpdatedBalance, by value date up to its business date,
+    among the transactions sent so far. The product picks the latest by value date from every row
+    the platform holds, and a run's TRANSACTION file reaches the platform with its ACCOUNT file."""
+    sent = defaultdict(list)
+    for stamp in sorted({f.name.split("_", 1)[-1] for f in files}):
+        run = [f for f in files if f.name.split("_", 1)[-1] == stamp]
+        for f in run:
+            if f.entity == "TRANSACTION":
+                for t in f.rows:
+                    sent[t["AccountId"]].append((day(t.get("ValueDate")), t.get("BookingDateTime", ""),
+                                                 money(t.get("UpdatedBalance"))))
+        for f in run:
+            for a in (f.rows if f.entity == "ACCOUNT" else []):
+                due = [t for t in sent[a["AccountId"]] if t[0] <= day(f.business_date)]
+                top = max((t[:2] for t in due), default=None)
+                # Rows booked in the same second have no order, so any of them may be the latest.
+                left = {t[2] for t in due if t[:2] == top} or {Decimal(0)}
+                if money(a.get("AccountBalance")) not in left:
+                    out.add("an ACCOUNT balance is the latest UpdatedBalance sent for it", f.name,
+                            "account {} reads {}, its last transaction sent left {}".format(
+                                a["AccountId"], a.get("AccountBalance"),
+                                "/".join(str(x) for x in sorted(left))), a)
 
 
 CORE_DSN = "postgresql://core:password@localhost:5432/core"
@@ -478,16 +480,16 @@ def check_account_balance_against_core(files, bank_uid, out):
         for row in f.rows:
             rows = by_account.get(row["AccountId"], [])
             at = extract_at[f.name]
-            # The collector stamps the extract time when it starts and reads the balance a moment
-            # later, and the stack's clock runs ten times real time, so a transaction booked in
-            # that gap is in the file though created after the stamp. Any state inside the gap counts.
-            cutoffs = [at] + [c for _, c, _ in rows if at < c <= at + EXTRACT_GAP]
-            held_at = {held(rows, day(f.business_date), c) for c in cutoffs}
-            if money(row.get("AccountBalance")) not in held_at:
-                out.add("an ACCOUNT file's balance equals core's at its extract", f.name,
-                        "account {} reads {}, core held {} at the extract".format(
-                            row["AccountId"], row.get("AccountBalance"),
-                            "/".join(str(h) for h in sorted(held_at))), row)
+            core = held(rows, day(f.business_date), at)
+            if money(row.get("AccountBalance")) == core:
+                continue
+            # The collector reads after the stamp, and the stack's clock runs ten times real time.
+            later = {held(rows, day(f.business_date), c) for _, c, _ in rows if at < c <= at + EXTRACT_GAP}
+            note = (" - counts a transaction created after the extract, finding 33"
+                    if money(row.get("AccountBalance")) in later else "")
+            out.add("an ACCOUNT file's balance equals core's at its extract", f.name,
+                    "account {} reads {}, core held {} at the extract{}".format(
+                        row["AccountId"], row.get("AccountBalance"), core, note), row)
 
 
 def feed_position(bank_uid):
