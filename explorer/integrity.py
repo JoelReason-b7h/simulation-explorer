@@ -245,6 +245,23 @@ CHECKS = (
         "{1} failed in row {0}: {4}",
     ),
     (
+        # The other types core reconciles: the HSBC and HSBC_INTL hub, e-money and platform cash
+        # accounts. A row whose details are {"error": ...} is a check that could not run, because
+        # clearing dropped the call, so it is not a mismatch.
+        "core's internal reconciliation with clearing passes",
+        "internal_reconciliation",
+        """
+        SELECT sid, check_type, bondsmith_account_balance, bank_account_balance,
+               left(check_details::text, 600)
+        FROM internal_reconciliation
+        WHERE NOT check_passed AND check_type NOT LIKE '%DIRECT%'
+          AND check_details::text NOT LIKE '{{"error"%'
+          AND created_at > now() - interval '{m30} minutes'
+        ORDER BY sid DESC LIMIT {limit}
+        """,
+        "{1} failed in row {0}: {4}",
+    ),
+    (
         "the order status equals its newest state row",
         "customer_product_order",
         """
@@ -708,6 +725,33 @@ def run_system_checks(ops_client):
         call = ops_client.call("POST", path)
         if not getattr(call, "ok", False):
             refused.append("{} answered {}".format(path, getattr(call, "status", "nothing")))
+    refused.extend(run_bank_reconciliations(ops_client))
+    return refused
+
+
+# Clearing's bank reconciliations run from prod-only schedulers, so the harness asks for them: the
+# per-batch one for every batch the statement polls have completed, and the end-of-day one for the
+# last statement date before today. The date is read from the statements clearing holds, because
+# the route refuses today and later.
+BANK_RECONCILIATION_PATHS = "/operations/processor/reconciliation/external/"
+
+
+def run_bank_reconciliations(ops_client):
+    refused = []
+    path = BANK_RECONCILIATION_PATHS + "per-batch"
+    call = ops_client.call("POST", path)
+    if not getattr(call, "ok", False):
+        refused.append("{} answered {}".format(path, getattr(call, "status", "nothing")))
+    rows, error = _psql_on(CLEARING_DSN,
+        "SELECT max(coalesce(from_date, to_date)) FROM account_statement_file "
+        "WHERE coalesce(from_date, to_date) < (now() AT TIME ZONE 'Europe/London')::date")
+    if error:
+        return refused + ["last statement date: {}".format(error)]
+    if rows and rows[0][0]:
+        path = BANK_RECONCILIATION_PATHS + "date/" + rows[0][0]
+        call = ops_client.call("POST", path)
+        if not getattr(call, "ok", False):
+            refused.append("{} answered {}".format(path, getattr(call, "status", "nothing")))
     return refused
 
 
@@ -758,6 +802,67 @@ def system_check_failures(minutes=30, limit=LIMIT):
                 "detail": "{} failed its own check {}".format(service, name),
                 "expected": "{} passes".format(name),
                 "actual": details,
+                "row": row,
+            })
+    found, unread = bank_reconciliation_failures(minutes, limit)
+    findings.extend(found)
+    errors.extend(unread)
+    return findings, errors
+
+
+# A per-batch or fallback row fails on its own check_passed. An end-of-day row has no such column:
+# the service counts it failed when no statement was found (run_id null) or any difference is not
+# zero, as ExternalBankAccountReconciliationRepository.isReconciliationFailure does. Its key is the
+# account and statement date, which each run overwrites, so updated_at carries the window.
+BANK_RECONCILIATION_QUERIES = (
+    ("per-batch or fallback", """
+        SELECT 'external-' || sid, connector_type || ' ' || type || ' ' || currency,
+               bondsmith_account_balance, bank_account_balance,
+               bondsmith_account_balance - bank_account_balance, left(coalesce(comment, ''), 200)
+        FROM external_reconciliation
+        WHERE NOT check_passed AND created_at > now() - interval '{minutes} minutes'
+        ORDER BY sid DESC LIMIT {limit}
+        """),
+    ("end-of-day", """
+        SELECT 'eod-' || e.primary_internal_account_sid || '-' || e.statement_date,
+               a.connector || ' ' || a.account_type || ' ' || a.currency || ' ' || e.statement_date,
+               e.bondsmith_total_credit_sum - e.bondsmith_total_debit_sum,
+               e.bank_total_credit_sum - e.bank_total_debit_sum,
+               coalesce(e.total_credit_sum_diff, 0) - coalesce(e.total_debit_sum_diff, 0),
+               CASE WHEN e.run_id IS NULL THEN 'no statement found' ELSE
+                 'entries diff ' || coalesce(e.total_credit_entries_diff, 0) || ' credit, '
+                 || coalesce(e.total_debit_entries_diff, 0) || ' debit' END
+        FROM external_bank_account_reconciliation e
+        JOIN internal_account a ON a.sid = e.primary_internal_account_sid
+        WHERE e.updated_at > now() - interval '{minutes} minutes'
+          AND (e.run_id IS NULL OR e.total_credit_entries_diff <> 0 OR e.total_credit_sum_diff <> 0
+               OR e.total_debit_entries_diff <> 0 OR e.total_debit_sum_diff <> 0)
+        ORDER BY e.updated_at DESC LIMIT {limit}
+        """),
+)
+
+
+def bank_reconciliation_failures(minutes=30, limit=LIMIT):
+    findings = []
+    errors = []
+    for kind, query in BANK_RECONCILIATION_QUERIES:
+        rows, error = _psql_on(CLEARING_DSN, query.format(minutes=clock.system_minutes(minutes),
+                                                          limit=int(limit)))
+        if error:
+            errors.append("clearing {} bank reconciliation: {}".format(kind, error))
+            continue
+        for row in rows:
+            filled = list(row) + [""] * 6
+            subject, account, bondsmith, bank, difference, note = filled[:6]
+            findings.append({
+                "rule": "clearing's bank reconciliation passes",
+                "table": "clearing {} reconciliation".format(kind),
+                "subject": subject,
+                "detail": "{} reconciliation of {} failed: clearing holds {}, the bank holds {}, "
+                          "difference {} ({})".format(kind, account, bondsmith, bank, difference,
+                                                      note),
+                "expected": "clearing and the bank agree",
+                "actual": "difference {}".format(difference),
                 "row": row,
             })
     return findings, errors

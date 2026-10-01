@@ -49,9 +49,9 @@ KNOWN = {
     ("no unexplained 5xx", "CancelAccountOpening"),
     ("a fault is survived without a server error", "CancelAccountOpening"),
     ("a fault is survived without a server error", "CloseAccount"),
-    # Local artefact: each cycle makes a new Direct bank, and core keeps a DIRECT account per bank
-    # while clearing holds one Investec DIRECT nostro for all of them, so the second bank's
-    # accounts have nothing to match in clearing.
+    # Finding 32: a failed Direct payout's transfer back to savings dead-letters in clearing, so
+    # both Direct reconciliations fail by the stranded amount until SAV-11198 (#12160) ships. Each
+    # cycle's new Direct bank may add unmatched accounts as well, which the box has not confirmed.
     ("core's Direct reconciliation with clearing passes", None),
 }
 

@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 from collections import defaultdict
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
@@ -42,6 +43,7 @@ STAT_SUMS = {"ACCOUNT": ("AccountBalanceTotal", "AccountBalance"),
 STAT_DISTINCT = {"CUSTOMER": ("DistinctCustomerIdCount", "CustomerId"),
                  "PRODUCT": ("DistinctProductIdCount", "ProductId")}
 PENNY = Decimal("0.01")
+EXTRACT_GAP = Decimal(60)
 
 
 def aws(*args, timeout=120):
@@ -404,6 +406,90 @@ def check_against_core(files, bank_uid, out):
             out.add("every sealed file is archived", name, "sealed in core, not in S3")
 
 
+def check_feed_keeps_up(bank_uid, out):
+    """RECON is sealed for every date up to the bank's last completed one, once each."""
+    rows = core_rows("SELECT f.business_effective_date, count(*) FROM investec_file f "
+                     "JOIN partner_bank b ON b.sid = f.bank_sid WHERE b.uid = '{}' "
+                     "AND f.file_type = 'RECON' AND f.control_total_sha256 IS NOT NULL "
+                     "GROUP BY 1 ORDER BY 1".format(bank_uid))
+    position = feed_position(bank_uid)
+    if rows is None or position is None:
+        out.add("core's RECON rows and bank business date can be read", "investec_file", "psql failed")
+        return
+    sealed = {date.fromisoformat(r[0]): int(r[1]) for r in rows}
+    for d, count in sealed.items():
+        if count > 1:
+            out.add("every business day has one sealed RECON", "RECON " + d.isoformat(),
+                    "{} sealed RECON files".format(count))
+    if sealed:
+        d = min(sealed)
+        while d < max(sealed):
+            d += timedelta(days=1)
+            if d not in sealed:
+                out.add("every business day has one sealed RECON", "RECON " + d.isoformat(),
+                        "no sealed RECON between {} and {}".format(min(sealed), max(sealed)))
+    # The feed and RECON both skip while accruals-and-realisations is RUNNING or FAILED, so a
+    # lag then is the product holding, not the feed falling behind.
+    accruals = core_rows("SELECT bes.status FROM bank_event_scheduling bes JOIN partner_bank b ON "
+                         "b.sid = bes.bank_sid WHERE b.uid = '{}' AND bes.event_type = "
+                         "'ACCRUALS_AND_REALISATIONS'".format(bank_uid))
+    if accruals and accruals[0][0] in ("RUNNING", "FAILED"):
+        return
+    last_completed = date.fromisoformat(position[1]) - timedelta(days=1)
+    if sealed and (last_completed - max(sealed)).days > 1:
+        out.add("the feed's RECON keeps up with the bank's business date", "RECON " + max(sealed).isoformat(),
+                "latest sealed RECON {}, bank's last completed business date {}".format(
+                    max(sealed), last_completed))
+
+
+def check_account_balance_against_core(files, bank_uid, out):
+    """An ACCOUNT balance is core's product account balance as the collector reads it: the latest
+    account_transaction by value date up to the file's date."""
+    extracts = core_rows("SELECT f.file_name, extract(epoch FROM f.extract_window_end_at) "
+                         "FROM investec_file f JOIN partner_bank b ON b.sid = f.bank_sid "
+                         "WHERE b.uid = '{}' AND f.file_type = 'ACCOUNT' AND "
+                         "f.control_total_sha256 IS NOT NULL".format(bank_uid))
+    history = core_rows("SELECT cpa.uid, at.value_date, extract(epoch FROM at.created_at), "
+                        "at.updated_product_account_balance FROM account_transaction at "
+                        "JOIN customer_product_account cpa ON cpa.sid = at.customer_product_account_sid "
+                        "JOIN direct_customer_account dca ON dca.customer_product_account_sid = cpa.sid "
+                        "JOIN platform_product pp ON pp.sid = cpa.platform_product_sid "
+                        "JOIN bank_product bp ON bp.sid = pp.product_sid "
+                        "JOIN partner_bank b ON b.sid = bp.bank_sid WHERE b.uid = '{}' "
+                        "ORDER BY at.value_date, at.created_at, at.sid".format(bank_uid))
+    if extracts is None or history is None:
+        out.add("core's account transactions can be read", "account_transaction", "psql failed")
+        return
+    extract_at = {r[0]: Decimal(r[1]) for r in extracts}
+    by_account = defaultdict(list)
+    for uid, value_date, created_at, balance in history:
+        by_account[uid].append((value_date, Decimal(created_at), money(balance)))
+
+    def held(rows, value_date, cutoff):
+        core = Decimal(0)
+        for vd, created_at, balance in rows:
+            if vd <= value_date and created_at <= cutoff:
+                core = balance
+        return core
+
+    for f in files:
+        if f.entity != "ACCOUNT" or f.name not in extract_at:
+            continue
+        for row in f.rows:
+            rows = by_account.get(row["AccountId"], [])
+            at = extract_at[f.name]
+            # The collector stamps the extract time when it starts and reads the balance a moment
+            # later, and the stack's clock runs ten times real time, so a transaction booked in
+            # that gap is in the file though created after the stamp. Any state inside the gap counts.
+            cutoffs = [at] + [c for _, c, _ in rows if at < c <= at + EXTRACT_GAP]
+            held_at = {held(rows, day(f.business_date), c) for c in cutoffs}
+            if money(row.get("AccountBalance")) not in held_at:
+                out.add("an ACCOUNT file's balance equals core's at its extract", f.name,
+                        "account {} reads {}, core held {} at the extract".format(
+                            row["AccountId"], row.get("AccountBalance"),
+                            "/".join(str(h) for h in sorted(held_at))), row)
+
+
 def feed_position(bank_uid):
     """The newest TRANSACTION file's business date and the bank's business date, as text."""
     rows = core_rows("SELECT (SELECT max(f.business_effective_date) FROM investec_file f "
@@ -481,6 +567,8 @@ def main():
     check_history(files, out)
     check_account_against_transactions(files, out)
     check_against_core(files, args.bank_uid, out)
+    check_feed_keeps_up(args.bank_uid, out)
+    check_account_balance_against_core(files, args.bank_uid, out)
     by_entity = defaultdict(int)
     for f in files:
         by_entity[f.entity] += 1

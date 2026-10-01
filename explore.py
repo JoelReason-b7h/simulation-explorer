@@ -2392,10 +2392,10 @@ class Run:
 
     REEMIT_PATH = "/operations/processor/direct/feed/reemit/bank/{}/{}/{}/{}"
     REEMIT_FILE_TYPES = ("CUSTOMER", "ACCOUNT", "PRODUCT")
-    # UPDATE only. An INSERT re-emit of an entity the feed already sent makes the next file carry a
-    # second INSERT for it, which the feed checker rightly flags: fleet 190 reported ACCOUNT
-    # 2c40bb8d "appears again as INSERT" after this action asked for exactly that.
-    REEMIT_MODES = ("UPDATE",)
+    # Alternates per round of file types. INSERT marks the latest sealed entry with a null content
+    # hash, so the next file must carry the entity again with ChangeType INSERT. The feed checker
+    # may flag that second INSERT (fleet 190 did), which is a finding to read, not a reason to skip.
+    REEMIT_MODES = ("UPDATE", "INSERT")
     REEMIT_ENTRY = {
         "CUSTOMER": ("investec_file_customer_entry", "customer_sid", "platform_customer"),
         "ACCOUNT": ("investec_file_account_entry", "account_sid", "customer_product_account"),
@@ -2423,7 +2423,8 @@ class Run:
         for entry in getattr(self, "reemits", []):
             table, column, owner = self.REEMIT_ENTRY[entry["fileType"]]
             rows, error = integrity._psql(
-                "SELECT count(DISTINCT f.sid), count(e.file_sid) FROM investec_file f "
+                "SELECT count(DISTINCT f.sid), count(e.file_sid), "
+                "count(e.file_sid) FILTER (WHERE e.change_type::text = 'INSERT') FROM investec_file f "
                 "JOIN partner_bank b ON b.sid = f.bank_sid "
                 "LEFT JOIN {table} e ON e.file_sid = f.sid AND e.{column} = "
                 "(SELECT sid FROM {owner} WHERE uid = '{entity}') "
@@ -2436,7 +2437,7 @@ class Run:
             if error or not rows:
                 waiting.append(entry)
                 continue
-            files, entries = int(rows[0][0]), int(rows[0][1])
+            files, entries, inserts = int(rows[0][0]), int(rows[0][1]), int(rows[0][2])
             if files == 0:
                 waiting.append(entry)
             elif entries == 0:
@@ -2448,6 +2449,15 @@ class Run:
                                          entry["fileType"]),
                     expected="a row in the next {} file".format(entry["fileType"]),
                     actual="no row in {} files".format(files), body=entry)
+            elif entry["mode"] == "INSERT" and inserts == 0:
+                self.note_violation(
+                    "ReemitFeedEntity", "an INSERT re-emit is sent as an INSERT",
+                    entry["entity"], "{} {} was re-emitted with INSERT and its {} rows in the {} "
+                                     "sealed files cut since are all other change types".format(
+                                         entry["fileType"], entry["entity"], entries, files),
+                    expected="a row with change_type INSERT in the next {} file".format(
+                        entry["fileType"]),
+                    actual="{} rows, none INSERT".format(entries), body=entry)
             else:
                 print("  -- re-emitted {} {} is in the {} file cut since".format(
                     entry["fileType"], entry["entity"][:8], entry["fileType"]))
