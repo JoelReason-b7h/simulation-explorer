@@ -19,6 +19,8 @@ import uuid
 from decimal import Decimal
 import sys
 
+import httpx
+
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
                       preflight, projector, race, triallog, webhooks, weird, world)
 from explorer import clock, interest_oracle, journeys, journeys_softclose, longlived
@@ -1077,6 +1079,12 @@ class Run:
         the moment it takes it. With clearing stopped the messages pile up, the copy goes on
         beside the original, and clearing sees both when it comes back.
         """
+        # One fault at a time: this action overwrites the record of the fault in force, so a cut
+        # wire left behind would stay on with nothing to take it off.
+        live = self.live_fault()
+        if live:
+            return Call("POST", "fund-duplicated", 412,
+                        {"message": "{} is already injected".format(live)}, 0)
         since = self.steps - self.restarted_at
         if self.restarted_at and since < self.RESTART_COOLDOWN_TRIALS:
             return Call("POST", "fund-duplicated", 412, {
@@ -2200,6 +2208,7 @@ class Run:
             call.elapsed_ms)
 
     OFFICER_WAIT_SECONDS = 30
+    OFFICER_FAULT_EXTRA_SECONDS = 120
     OFFICER_MIN_AGE_SECONDS = 60
     # The statuses from which compliance-api refuses each action outright, and CLOSED, which
     # every action leaves alone.
@@ -2273,11 +2282,19 @@ class Run:
         self.note_in_flight("compliance", "an officer {} of {}".format(action, status), customer)
         expected = self.OFFICER_LANDS[action]
         deadline = time.monotonic() + self.OFFICER_WAIT_SECONDS
+        # A restart or cut in force delays the queue message to core (fleet 255: 36s after the
+        # accept), so the wait runs on while one is, up to a cap because a fault's window is
+        # counted in trials and never ends while this loop runs.
+        hard_deadline = deadline + self.OFFICER_FAULT_EXTRA_SECONDS
         while True:
             read = self.client.call("GET", "/direct/v1/customers/{}".format(customer))
             landed = read.body.get("customerStatus") if read.ok and isinstance(read.body, dict) \
                 else None
-            if landed == expected or time.monotonic() >= deadline:
+            if landed == expected:
+                break
+            now = time.monotonic()
+            if now >= hard_deadline or (now >= deadline
+                                        and not (self.live_fault() or fleet.peer_fault())):
                 break
             time.sleep(2)
         if landed != expected:
@@ -2411,9 +2428,11 @@ class Run:
                 "LEFT JOIN {table} e ON e.file_sid = f.sid AND e.{column} = "
                 "(SELECT sid FROM {owner} WHERE uid = '{entity}') "
                 "WHERE b.uid = '{bank}' AND f.file_type = '{kind}' AND f.sid > {after} "
+                "AND f.extract_window_end_at > to_timestamp({at}) "
                 "AND f.control_total_sha256 IS NOT NULL".format(
                     table=table, column=column, owner=owner, entity=entry["entity"],
-                    bank=self.bank_uid, kind=entry["fileType"], after=entry["after"]))
+                    bank=self.bank_uid, kind=entry["fileType"], after=entry["after"],
+                    at=entry["at"]))
             if error or not rows:
                 waiting.append(entry)
                 continue
@@ -2469,9 +2488,12 @@ class Run:
             return call
         outcome = call.body.get("outcome") if isinstance(call.body, dict) else None
         if outcome == "REEMIT_QUEUED" and after is not None:
+            # A file whose run began before the re-emit committed was cut from rows that lack it,
+            # even when its sid is newer than `after`. The feed stamps each file with the instant
+            # its run began on the system's clock, which clock.time() reads.
             self.reemits = getattr(self, "reemits", []) + [
                 {"fileType": file_type, "entity": entity, "mode": mode, "after": after,
-                 "trial": self.steps}]
+                 "at": clock.time(), "trial": self.steps}]
         self.note_in_flight("feed", "a feed re-emit of {} {}".format(file_type, entity[:8]))
         return Call("POST", "ReemitFeedEntity", call.status, {
             "message": "{} {} {}: {}".format(mode, file_type, entity[:8], call.body),
@@ -2561,6 +2583,12 @@ class Run:
     def live_fault(self):
         """The fault in force right now, or None. Also takes an expired fault off."""
         if not self.faulted_boundary:
+            # A toxic with no record of it would fail every later call as an unexplained 5xx.
+            # Only the conductor injects, and members share its toxiproxy, so a member that
+            # cleared here would take the conductor's live fault off.
+            if not fleet.is_member() and self.toxics_on_wire():
+                self.faults.clear()
+                print("  -- a network fault with no record was found on the wire and taken off")
             return None
         if self.steps - self.faulted_at >= self.FAULT_WINDOW_TRIALS:
             self.faults.clear()
@@ -2573,6 +2601,20 @@ class Run:
             print("  -- the injected fault on {} expired and was taken off".format(healed))
             return None
         return self.faulted_boundary
+
+    def toxics_on_wire(self):
+        """True when any boundary still carries a toxic."""
+        if not self.faults.ready:
+            return False
+        for name in self.faults.proxies():
+            try:
+                listed = self.faults.http.get("{}/proxies/{}/toxics".format(
+                    self.faults.admin, name))
+                if listed.status_code == 200 and listed.json():
+                    return True
+            except (httpx.HTTPError, ValueError):
+                continue
+        return False
 
     def network_fault(self, boundary, name, kind, attributes, note):
         """Inject one network fault on one boundary, replacing whatever was in force.
@@ -3217,6 +3259,7 @@ class Run:
             batch.setdefault("payments", []).append({"shape": shape, "amount": str(amount)})
             if batch["paid"] >= batch["required"] and "paid_at_sweep" not in batch:
                 batch["paid_at_sweep"] = self.sweeps
+                batch["paid_at"] = clock.time()
         call.own_wire = True
         return call
 
@@ -3272,9 +3315,12 @@ class Run:
             sweeps = self.sweeps - batch.get("paid_at_sweep", self.sweeps)
             rejected = any(line.get("status") in ("REJECTED", "CANCELLED")
                            for line in batch.get("lines", []))
+            paid_at = batch.get("paid_at")
             violation = oracles.paid_batch_settles(
                 batch["batchId"], batch["required"], batch["paid"],
-                batch.get("status") or "unknown", sweeps, shared, rejected)
+                batch.get("status") or "unknown", sweeps, shared, rejected,
+                paid_age_seconds=None if paid_at is None else clock.time() - paid_at,
+                amended=batch.get("amended", False))
             if violation is None:
                 continue
             row = violation.as_row()
@@ -3331,6 +3377,7 @@ class Run:
             json_body={"cancelAll": False, "instructionIds": [line["reference"]]})
         if getattr(call, "ok", False):
             line["status"] = "CANCELLED"
+            batch["amended"] = True
         return call
 
     def step(self):

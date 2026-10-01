@@ -230,17 +230,19 @@ CHECKS = (
     (
         # core's own reconciliation of the Direct accounts against clearing. It writes to
         # internal_reconciliation, not db_integrity_check, so the service-check reader missed it.
+        # The subject is the row, not the check type: the baseline drops every subject already
+        # failing before a run, so a check that failed once was never reported again.
         "core's Direct reconciliation with clearing passes",
         "internal_reconciliation",
         """
-        SELECT check_type, sid, bondsmith_account_balance, bank_account_balance,
+        SELECT sid, check_type, bondsmith_account_balance, bank_account_balance,
                left(check_details::text, 600)
         FROM internal_reconciliation
         WHERE NOT check_passed AND check_type LIKE '%DIRECT%'
           AND created_at > now() - interval '{m30} minutes'
         ORDER BY sid DESC LIMIT {limit}
         """,
-        "{0} failed in row {1}: {4}",
+        "{1} failed in row {0}: {4}",
     ),
     (
         "the order status equals its newest state row",
@@ -429,12 +431,17 @@ def cancelled_withdrawals_that_pay_out(limit=LIMIT):
     close cancels it on status alone, and the close then drains the cash account. Clearing never
     stores core's PLATFORM due in that case, so the INTERNAL due is the one that shows it. The two
     databases share only the due uid.
+
+    A withdrawal that core held for a frozen customer before cancelling it has a
+    direct_customer_instruction_hold row and is exempt.
     """
     rows, error = _psql_on(CORE_DSN,
         "SELECT p.payment_due_uid, p.payment_due_type, i.uid, i.amount, i.full_balance_withdrawal "
         "FROM direct_customer_instruction i "
         "JOIN payment_due_direct_customer_instruction p ON p.direct_instruction_sid = i.sid "
         "WHERE i.status = 'CANCELLED' AND i.instruction_type = 'WITHDRAWAL' "
+        "AND NOT EXISTS (SELECT 1 FROM direct_customer_instruction_hold h "
+        "WHERE h.direct_instruction_sid = i.sid) "
         "ORDER BY i.sid DESC LIMIT 1000")
     if error:
         return [], ["cancelled withdrawals: {}".format(error)]
@@ -526,6 +533,35 @@ SWEEP_RULES = [rule for rule, _, _, _ in CHECKS] + [
 ]
 
 
+def accounts_refunded_by_failed_payout(account_uids):
+    """The CLOSED accounts whose money went back because the bank refused the closure payout.
+
+    A refused payout that an operator sends REJECT_FAIL cancels the withdrawal and
+    leaves its PLATFORM due FAILED, and core credits the money back to the account, which is the
+    intended outcome. The harness's own settlement loop makes these decisions, so the data is read
+    rather than the harness's record of them. An unreadable database exempts nothing.
+    """
+    if not account_uids:
+        return set()
+    rows, error = _psql(
+        "SELECT a.uid, p.payment_due_uid FROM direct_customer_instruction i "
+        "JOIN direct_customer_account d ON d.sid = i.direct_customer_account_sid "
+        "JOIN customer_product_account a ON a.sid = d.customer_product_account_sid "
+        "JOIN payment_due_direct_customer_instruction p ON p.direct_instruction_sid = i.sid "
+        "WHERE i.instruction_type = 'WITHDRAWAL' AND i.status = 'CANCELLED' "
+        "AND p.payment_due_type = 'PLATFORM' AND a.uid IN ({})".format(
+            ", ".join("'{}'".format(u) for u in account_uids)))
+    if error or not rows:
+        return set()
+    owner = {r[1]: r[0] for r in rows if len(r) > 1}
+    failed, error = _psql_on(CLEARING_DSN,
+        "SELECT uid FROM partner_payment_due WHERE payment_status = 'FAILED' AND uid IN ({})"
+        .format(", ".join("'{}'".format(u) for u in owner)))
+    if error:
+        return set()
+    return {owner[r[0]] for r in failed if r and r[0] in owner}
+
+
 def sweep(limit=LIMIT):
     """Run every chain check once, and return what broke and what could not be read.
 
@@ -552,6 +588,11 @@ def sweep(limit=LIMIT):
                 "detail": shape.format(*filled[:5]),
                 "row": row,
             })
+    refunded = accounts_refunded_by_failed_payout(
+        [f["subject"] for f in findings if f["rule"] == "a closed account holds no money"])
+    findings = [f for f in findings
+                if not (f["rule"] == "a closed account holds no money"
+                        and f["subject"] in refunded)]
     unsent, unread = payments_left_unsent(limit)
     findings.extend(unsent)
     errors.extend(unread)

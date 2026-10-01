@@ -196,9 +196,12 @@ def _withdraw_round(j, product):
 def _withdraw(j, holder, amount, label, product_state):
     """One withdrawal: accepted, paid out once, and the holder's money conserved after it."""
     j.customer = holder["customer"]
+    when = "of {} from {}".format(label, product_state)
+    if not j.payee_usable():
+        j.step("withdraw {} {}".format(amount, when), "the payee is not verified yet, so no call")
+        return False
     started = clock.time() - clock.system_seconds(2)
     call = j.instruct(holder["account"], "WITHDRAW", amount)
-    when = "of {} from {}".format(label, product_state)
     j.step("withdraw {} {}".format(amount, when), call.status)
     j.expect(call.ok, "a holder can withdraw from {}".format(product_state),
              "a {} withdrawal {} answered {}".format(amount, when, call.status), "2xx",
@@ -213,11 +216,11 @@ def _withdraw(j, holder, amount, label, product_state):
     j.expect(len(live) == 1, "a withdrawal from {} pays out once".format(product_state),
              "the {} withdrawal {} has {} live payout dues".format(amount, when, len(live)), 1,
              len(live), body=dues)
-    if paid:
+    if paid and live:
         holder["paidOut"] += amount
         j.conserved(holder["funded"], holder["paidOut"], "the withdrawal {}".format(when))
-    else:
-        holder["unsettled"] = {"amount": amount, "when": when, "calls": 0}
+    elif not paid:
+        holder["unsettled"] = {"amount": amount, "when": when, "calls": 0, "live": bool(live)}
     return True
 
 
@@ -238,9 +241,10 @@ def _recheck_unsettled(j, product):
                "completed" if paid else "still pending after {} calls".format(pending["calls"]))
         if paid:
             holder["unsettled"] = None
-            holder["paidOut"] += pending["amount"]
-            j.conserved(holder["funded"], holder["paidOut"],
-                        "the withdrawal {}".format(pending["when"]))
+            if pending["live"]:
+                holder["paidOut"] += pending["amount"]
+                j.conserved(holder["funded"], holder["paidOut"],
+                            "the withdrawal {}".format(pending["when"]))
         elif pending["calls"] >= UNSETTLED_CALLS:
             holder["unsettled"] = None
             j.expect(False, "a withdrawal on a soft-close product settles",

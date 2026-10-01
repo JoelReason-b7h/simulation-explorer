@@ -15,7 +15,7 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
-from explorer import clock, interest_oracle, world
+from explorer import clock, fleet, interest_oracle, world
 from explorer.journeys import (POLL_WINDOW_NOTE, SETTLE_PAUSE, ZERO, Journey, _money, _nominate,
                                _payouts_since, _rows, settle_rounds)
 
@@ -470,6 +470,11 @@ def payee_review(run):
 
     # Recover with a payee that passes.
     third = _nominate(j, "Review C {}".format(tag), REVIEW_PAYEES["C"])
+    if third.status >= 500 and (j.run.live_fault() or fleet.peer_fault()):
+        # A 5xx while a restart or cut is in force is the fault working; no_server_error files it
+        # under its own rule, so this expectation does not judge it.
+        return j.refuse("the payee change answered {} while {} was in force".format(
+            third.status, j.run.live_fault() or fleet.peer_fault()))
     if not j.expect(third.ok, "a customer whose payee was rejected can nominate another",
                     "the payee change after the rejection answered {}".format(third.status),
                     "2xx", third.status, body=third.body):

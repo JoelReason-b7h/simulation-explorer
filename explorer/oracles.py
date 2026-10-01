@@ -111,7 +111,8 @@ def batch_total(batch, lines):
     return None
 
 
-def paid_batch_settles(batch_id, required, paid, status, sweeps, shared, any_rejected=False):
+def paid_batch_settles(batch_id, required, paid, status, sweeps, shared, any_rejected=False,
+                       paid_age_seconds=None, amended=False):
     """A batch paid what it asked for has to stop being outstanding once the sweep has run.
 
     This is the check that says whether money actually moved. Every other batch oracle compares a
@@ -121,6 +122,10 @@ def paid_batch_settles(batch_id, required, paid, status, sweeps, shared, any_rej
     `shared` suppresses it: the request record states that batches sharing a paymentReference only
     advance when one payment covers their combined total, so a batch of a shared reference sitting
     unsettled is the documented behaviour rather than a fault.
+
+    `paid_age_seconds` is how long ago, on the system's clock, the payment that made the batch paid
+    in full arrived; None when the caller does not know. `amended` is true when an allocation of the
+    batch was cancelled or its due changed after that payment.
     """
     if shared or paid < required or required <= 0:
         return None
@@ -130,6 +135,14 @@ def paid_batch_settles(batch_id, required, paid, status, sweeps, shared, any_rej
     # full" becomes arithmetic that does not mean what it says. One run reported twelve findings
     # that way, every one of them a batch holding three rejected lines and one still waiting.
     if any_rejected:
+        return None
+    # A bank credit is matched to its due only once its statement line is published, which trails
+    # the credit by minutes of system time (fleet 277: about 100 s), so sweeps run inside that gap
+    # have nothing to match. A due amended after the credit arrived (101.50, 101.00, 1.01) never
+    # equals what was paid, so "paid in full" is arithmetic against a due that no longer exists.
+    if amended:
+        return None
+    if paid_age_seconds is not None and paid_age_seconds < PUBLICATION_GRACE_SECONDS:
         return None
     if sweeps < SWEEPS_BEFORE_SETTLEMENT_IS_OWED:
         return None
@@ -146,6 +159,10 @@ def paid_batch_settles(batch_id, required, paid, status, sweeps, shared, any_rej
 # One sweep can be in flight when the payment lands, so the batch is given a second before the
 # harness calls it stuck.
 SWEEPS_BEFORE_SETTLEMENT_IS_OWED = 2
+
+# System seconds a bank credit is given to have its statement line published, about three times
+# the longest delay read so far.
+PUBLICATION_GRACE_SECONDS = 300
 
 
 def terminal_not_left(entity, before_status, after_status, subject):
