@@ -63,6 +63,9 @@ COMPOSE_START = "COMPOSE_FILES=(-f ./docker/docker-compose.yml"
 # the memory limit, so both move together.
 LOCALSTACK_ON_HOST = ("  localstack:\n    mem_limit: 1536m\n    memswap_limit: 1536m\n"
                       "    restart: unless-stopped\n")
+# The kernel killed ops-api at its 768m limit three times on 2026-10-01, at about 780 MB resident,
+# and the next cycle's standup then failed on its 598s.
+HOST_SERVICE_EXTRA = {"ops-api": "    mem_limit: 1024m\n    memswap_limit: 1024m\n"}
 
 HERE = Path(__file__).resolve().parent
 CLOCK_OVERLAY = "docker/docker-compose.faketime.yml"
@@ -125,7 +128,8 @@ def _add_proxies(path):
 def _add_host_overlay(checkout):
     overlay = checkout / HOST_OVERLAY
     wanted = "services:\n" + "".join(
-        "  {}:\n    extra_hosts:\n      - \"host.docker.internal:host-gateway\"\n".format(s)
+        "  {}:\n    extra_hosts:\n      - \"host.docker.internal:host-gateway\"\n{}".format(
+            s, HOST_SERVICE_EXTRA.get(s, ""))
         for s in HOST_SERVICES) + LOCALSTACK_ON_HOST
     changed = False
     if not overlay.exists() or overlay.read_text() != wanted:
