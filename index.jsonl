@@ -349,3 +349,4 @@
 {"name": "fleet354", "at": "2026-10-01 22:39:08", "quiet": false, "trials": 1096, "violations": 16, "serviceErrors": 65, "newRules": ["clearing's bank reconciliation passes (TransitionChainSweep)"]}
 {"name": "fleet355", "at": "2026-10-01 22:57:21", "quiet": false, "trials": 1001, "violations": 23, "serviceErrors": 132, "newRules": ["clearing's bank reconciliation passes (TransitionChainSweep)"]}
 {"name": "fleet356", "at": "2026-10-01 23:17:15", "quiet": false, "trials": 513, "violations": 19, "serviceErrors": 98, "newRules": ["clearing's bank reconciliation passes (TransitionChainSweep)"]}
+{"name": "fleet357", "at": "2026-10-01 23:34:07", "quiet": false, "trials": 1186, "violations": 22, "serviceErrors": 182, "newRules": ["clearing's bank reconciliation passes (TransitionChainSweep)"]}
