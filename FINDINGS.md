@@ -319,7 +319,7 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     Seen (review 2026-10-01): the harness reported the reconciliation in fleets 237 and 238 only, because its baseline drops a check that already failed; core logged 84 failed runs of 86 by fleet246, the gap still growing. Fleet250's two money-conservation breaks are the same cause. Last fleet250.
 
 33. **A Direct feed ACCOUNT file can count a transaction that its own TRANSACTION file leaves
-    out.** No ticket yet. `DirectDataFeedService.execute` (`:141-185`) takes `now` once as the
+    out.** SAV-11770. `DirectDataFeedService.execute` (`:141-185`) takes `now` once as the
     run's `windowEnd`, and the collectors read the database after it. `fetchTransactionCandidates`
     bounds rows by `at.created_at <= ?:windowEndAt` (`OPEN_UNSEALED_NON_FEES_PREDICATE`,
     `InvestecFileRepository.java:138-151`), but the ACCOUNT balance lateral in
@@ -339,6 +339,15 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
 
 ## Checked and holding
 
+- Clearing's bank reconciliations fail on the box because hot-sauce-bank does not retry a refused
+  camt.054 push. During an injected clearing restart `CreditNotificationWebhookSender.send` (`:85`)
+  fails with "Connection refused ... clearing:8050" and never sends again, so clearing gets the
+  entry only from the camt.052 and camt.053 statements, cannot allocate it, and holds it as an
+  EXCEPTION line with no `partner_payment`. Box 2026-10-01: all 74 credits (279.56) missing from
+  the 2028-03-08 end-of-day reconciliation were refused pushes, and the per-batch gap of 2334.71
+  is 500 refused pushes (2003.32) plus 98 older EXCEPTION credits (331.39). No PUBLISHED line lacks
+  a `partner_payment`, so SAV-11745 plays no part. The harness replays refused pushes through
+  hot-sauce-bank's resend hook, so a gap that remains is a product break.
 - Candidate from code reading, not yet driven: the Direct transaction list's amount filter
   compares the signed `customer_amount` (`DirectCustomerTransactionService`), while `MoneyString`
   refuses a negative bound, so no `valueAmountFrom`/`valueAmountTo` pair can select withdrawals by

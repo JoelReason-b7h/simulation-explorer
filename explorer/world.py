@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 import fcntl
 from datetime import datetime, timedelta
@@ -414,9 +415,68 @@ def decide_refused_groups(ops_client, minutes=10):
     return decided
 
 
+RESEND_CREDIT = "/hsb/credit-notifications/{}/resend"
+CREDIT_REPLAYS_LOG = Path(__file__).resolve().parent.parent / "credit-replays.jsonl"
+HSB_DSN = os.environ.get("SIM_HSB_DSN", "postgresql://hsb:password@localhost:5444/hsb")
+
+
+def replay_refused_credits(hsb_client, grace_minutes=2, limit=50, attempts=3, spacing=300):
+    """Ask the bank to push again each credit whose camt.054 clearing never received.
+
+    CreditNotificationWebhookSender.send logs a refused push and never retries, and hsb records
+    nothing about it, so the refused credits are found from clearing's side: an EXCEPTION credit
+    line whose account_servicer_ref has no line with a partner_payment. The same ref is the bank's
+    entry (transaction_entry.account_servicer_ref), and its uid is what the resend hook takes. The
+    hook answers 204 whether or not the push got through, so a credit is asked for at most
+    `attempts` times, `spacing` seconds apart, and drops out of the query once clearing allocates it.
+    """
+    refs = [row[0] for row in _clearing_rows(
+        "SELECT DISTINCT quote_literal(e.account_servicer_ref) FROM account_statement_line e "
+        "WHERE e.status = 'EXCEPTION' AND e.debit_credit_mark = 'CREDIT' "
+        "AND e.account_servicer_ref IS NOT NULL "
+        "AND e.created_at < now() - interval '{} minutes' "
+        "AND NOT EXISTS (SELECT 1 FROM account_statement_line o "
+        "JOIN partner_payment pp ON pp.statement_line_sid = o.sid "
+        "WHERE o.account_servicer_ref = e.account_servicer_ref)".format(int(grace_minutes)))]
+    if not refs:
+        return []
+    asked, now = {}, time.time()
+    if CREDIT_REPLAYS_LOG.exists():
+        for raw in CREDIT_REPLAYS_LOG.read_text().splitlines():
+            row = json.loads(raw)
+            count, last = asked.get(row["uid"], (0, 0.0))
+            asked[row["uid"]] = (count + 1, max(last, row["ts"]))
+    credits = _rows(HSB_DSN,
+                    "SELECT uid, account_servicer_ref, amount FROM transaction_entry "
+                    "WHERE debit_credit_code = 'CRDT' AND account_servicer_ref IN ({}) "
+                    "ORDER BY sid".format(",".join(refs)))
+    replayed = []
+    for uid, ref, amount in credits:
+        count, last = asked.get(uid, (0, 0.0))
+        if count >= attempts or now - last < spacing:
+            continue
+        if len(replayed) >= limit:
+            break
+        call = hsb_client.call("POST", RESEND_CREDIT.format(uid))
+        replayed.append({"uid": uid, "accountServicerRef": ref, "amount": amount,
+                         "attempt": count + 1, "status": getattr(call, "status", None),
+                         "at": clock.local_naive().isoformat(timespec="seconds"), "ts": now})
+    if replayed:
+        with open(CREDIT_REPLAYS_LOG, "a") as handle:
+            for row in replayed:
+                handle.write(json.dumps(row) + "\n")
+        print("  replayed {} refused credit notification(s), statuses {}".format(
+            len(replayed), sorted({r["status"] for r in replayed}, key=str)))
+    return replayed
+
+
 def _clearing_rows(sql):
+    return _rows(CLEARING_DSN, sql)
+
+
+def _rows(dsn, sql):
     try:
-        done = subprocess.run(["psql", CLEARING_DSN, "-tA", "-F", "\t", "-v", "ON_ERROR_STOP=1",
+        done = subprocess.run(["psql", dsn, "-tA", "-F", "\t", "-v", "ON_ERROR_STOP=1",
                                "-c", sql], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return []

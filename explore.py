@@ -406,6 +406,24 @@ class Run:
         if result and result[1]:
             print("  -- ignored {} repeated exception lines of {}".format(result[1], result[0]))
 
+    REPLAY_CREDITS_SECONDS = 60
+
+    def replay_refused_credits_now(self):
+        """Have the bank push again the credits clearing refused while down. One run in a fleet does it.
+
+        The bank sends each credit's camt.054 once, so a push that met a stopped clearing is lost
+        and the entry reaches clearing only as an unallocatable statement line. Waits out a live
+        fault, whose window the replay would only run into; live_fault clears the throttle when
+        the window ends so the first replay follows it.
+        """
+        if fleet.is_member() or not self.hsb or self.live_fault():
+            return
+        now = time.time()
+        if now - getattr(self, "_credits_replayed_at", 0.0) < self.REPLAY_CREDITS_SECONDS:
+            return
+        self._credits_replayed_at = now
+        world.replay_refused_credits(self.hsb)
+
     TOP_UP_SECONDS = 60
 
     def top_up_accounts_now(self):
@@ -2608,6 +2626,7 @@ class Run:
                 self.duplicating = None
             healed = self.faulted_boundary
             self.faulted_boundary = None
+            self._credits_replayed_at = 0.0
             print("  -- the injected fault on {} expired and was taken off".format(healed))
             return None
         return self.faulted_boundary
@@ -3397,6 +3416,7 @@ class Run:
         self.account_webhooks()
         self.ignore_repeats_now()
         self.top_up_accounts_now()
+        self.replay_refused_credits_now()
         self.long_life_tick()
         self.interest_sweep()
         self.rotate_batch()
