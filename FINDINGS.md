@@ -26,7 +26,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    again at 14:17:12, and payout `d25becd6` was rejected at 14:20:22 with "availableAmount = 0.0".
    Joel: a payout that stays stuck after a failed balance check is already known, so it needs no
    ticket of its own. SAV-11344 comment 79776 records the harness evidence.
-   Seen (review 2026-09-30): `PAYMENT_ACCOUNT_NEGATIVE_BALANCE` failed in every conductor run of fleets 150 to 235, on the same accounts each time, and "clearing and the bank agree on how a payment ended" fired once, fleet229 (`PEC00000010017F5`). Last fleet235.
+   Seen (review 2026-10-01): `PAYMENT_ACCOUNT_NEGATIVE_BALANCE` failed in all 75 conductor runs of fleets 236 to 316, and "clearing and the bank agree on how a payment ended" fired 28 times in fleets 238 to 313. Last fleet316.
 2. **On hold until it happens again: a PaymentSettled fails with "Could not find instruction for
    payment due".** The account being CLOSING is not the cause. `completeInstructionForPaymentDue`
    (`DirectCustomerInstructionService.java:200-202`) updates only a PENDING instruction linked to
@@ -43,7 +43,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
    (SAV-11694); the box has reproduced it in fleets 3, 5, 6 and 9.
 6. **A CLOSED customer moves back to ACTIVATED through a KYC status change.** SAV-11534 part 2.
    Again in fleet 1 (`fleet1-p0.json`, `fleet1-p1.json`, `fleet1-p2.json`).
-   Seen (review 2026-09-30): 64 violations in 56 runs of fleets 150 to 226, and 3 more in fleets 233 and 234. Last fleet234.
+   Seen (review 2026-10-01): 92 violations in 70 runs of fleets 236 to 314, one of them CLOSED to FROZEN (fleet303, `5d8af591`, reopened to ACTIVATED 0.35 s before an officer freeze). Last fleet314.
 
 7. **Clearing inserts a bank entry again on every poll that reads it, and never deduplicates the
    copies it cannot allocate.** PROD-3976, whose fix is tracked in SAV-11009 (In Development).
@@ -162,6 +162,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     (fleet 175, twice), while core stores the name in `payee_account.account_name varchar(255)`
     and no row with that name exists afterwards. The harness labelled it "reference", because
     its text mutation replaces the first text field it finds, which here was `accountName`.
+    Seen (review 2026-10-01): 23 violations in 20 fleets, 238 to 313. Last fleet313.
 
 18. **A redelivered PaymentExpectation re-aggregates a due already stored, and the trigger
     stops it with an ERROR.** SAV-11684. `PaymentExpectationAction.process` (`:78-82`) calls
@@ -182,6 +183,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
 
 20. **SAV-11697. PlaceWithdrawal accepts an empty instructionReference.** `ExternalDirectInstructionRequest`
     has `@NotNull @Size(max=36)` and no `@NotBlank`, so "" answers 201 (fleet 185 p3). Low.
+    Seen (review 2026-10-01): 4 violations, fleets 244 to 295. Last fleet295.
 
 22. **A redelivered TransferExpectation fails on the payment due's unique key and retries to the
     dead-letter queue.** SAV-11684. `PartnerPaymentDueRepository.insertInternalPaymentDue` (`:129-212`) has no
@@ -194,7 +196,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     Not every `partner_payment_due_uid_key` dead letter is a redelivery: finding 32 sends a new
     transfer under an old uid, and none of its deliveries books it. Read the message's direction
     before counting a dead letter here.
-    Seen (review 2026-09-30): 40 duplicate-key failures in fleet229's clearing log; other fleets not counted. Last fleet229.
+    Seen (review 2026-10-01): the 11 dead letters of fleets 238 and 239 are finding 32, not redeliveries. Last fleet229.
 
 24. **SAV-11699. One payment with no creditor name stops every outbound payment.** Clearing's
     `BatchedFileSender.sendFiles` (`:56`) sends the oldest ten files in order with no per-file
@@ -214,7 +216,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     `/operations/processor/nominated-account/publish/drain`), which made the window unbounded; the
     harness now calls it on every settle. Databases kept in `archive/finding24-send-loop-db` and
     `archive/finding24-before-reject-db`. The same NPE makes ops `POST /operations/processor/payment/groups/process` answer a bare 500 after 2 to 6 s, which is every FundAccount and SettleWorld 500 since fleet 190. By 19:30 London there were 39 nameless initiations and 242 unsent APPROVED payments. No ops endpoint can clear it: `REJECT_FAIL` answers 400 "Payment group must be pending approval" for an APPROVED group, and `PaymentFileRepository.SELECT_FILES_TO_SEND` ignores the group status, so a rejected group's unsent file would still be picked first. Only a database change moves the file. The harness now fails such a group on every settle: it marks the payments sent and RJCT, moves the group to PENDING_APPROVAL, and sends the operator's REJECT_FAIL (log in `cleared-groups.jsonl`). It failed all 47 at 21:05 London on 2026-09-26, and sending resumed at once.
-    Seen (review 2026-09-30): 24 payout violations with FAILED dues and 5 money-conservation violations on the same journeys, fleets 229 to 233. Before fleet229 the empty preloaded pool stopped every payout, so it could not show. Last fleet233.
+    Seen (review 2026-10-01): 3 payout violations, fleets 236 and 243; the harness's REJECT_FAIL of each nameless group is what triggers finding 32 on the box. Last fleet243.
 
 25. **SAV-11111. A withdrawal pays out to a nominated account that failed Confirmation of Payee.** The same
     `resolveCounterpart` takes the current nominated account with no verification check, unlike
@@ -246,6 +248,7 @@ trials, and `<run>.json` holds each violation with its lead-up and the service's
     withdrawal transaction, clearing holds the 3.00 on a soft-closed cash account, and nothing pays
     it out. The hold withholds only the payout, so a held withdrawal has already moved money that
     the cancel does not put back or book.
+    Seen (review 2026-10-01): once, fleet313 (`18bcded5`, 0.01, held for a frozen customer and then cancelled, so the money stays in the cash account). Last fleet313.
 
 29. **SAV-11702. A TERM funded between midnight and 01:00 London in summer matures a day early.**
     `DirectTransactionDepositHandler.processOpeningPayment` (`:321`) sets the maturity date when the
@@ -295,7 +298,7 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     2026-12-31 08:40), `240771fa` (2026-12-31 08:46) and `482a3adc` (2027-01-03 19:49), fake
     time. `b7h.integrity.disabled-checks` can switch the check off per environment; no environment
     in the repo sets it.
-    Seen (review 2026-09-30): the same 23 customers in all 77 conductor runs of fleets 150 to 229, and in every conductor run to fleet235. Last fleet235.
+    Seen (review 2026-10-01): 39 conductor runs of fleets 236 to 316. Last fleet316.
 
 32. **A failed Direct withdrawal payout never returns to savings in clearing, so both Direct
     reconciliations fail.** No ticket: #12160 (SAV-11198) removes it for every withdrawal made after
@@ -313,7 +316,7 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     On #12160, stage 3 debits savings before the payout, so a failed payout goes through
     `transferCashToSavingsAccount`, whose new DEPOSIT instruction gets a new INTERNAL due, or leaves
     the money in the cash account, where core and clearing agree.
-    Seen (review 2026-09-30): the Direct reconciliation rule failed in fleet238, with 9 of these dead letters, and fleet239 had 2 more. The rule also failed in fleets 1, 10, 29 and 31, whose cause is not checked. Last fleet239.
+    Seen (review 2026-10-01): the harness reported the reconciliation in fleets 237 and 238 only, because its baseline drops a check that already failed; core logged 84 failed runs of 86 by fleet246, the gap still growing. Fleet250's two money-conservation breaks are the same cause. Last fleet250.
 
 ## Checked and holding
 
