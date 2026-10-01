@@ -22,7 +22,8 @@ import sys
 import httpx
 
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
-                      preflight, projector, race, triallog, webhooks, weird, world)
+                      preflight, projector, race, triallog, webhook_oracle, webhooks, weird,
+                      world)
 from explorer import clock, interest_oracle, journeys, journeys_softclose, longlived
 from explorer.client import BearerClient, Call, DirectClient
 
@@ -162,6 +163,9 @@ class Run:
         self.webhook_seen_before = set()
         self.webhook_subscribed = None
         self.webhook_stats = None
+        self.completed_seen = {}
+        # Payouts an operator REJECT_FAIL failed on this run's own refused closure payments.
+        self.failed_payouts = []
 
     @property
     def held(self):
@@ -603,6 +607,10 @@ class Run:
                                          outstanding=outstanding)
         if stats is not None:
             stats = dict(stats, outstandingTransactions=len(outstanding))
+            judged, judged_stats = webhook_oracle.check(
+                records, world_now, self.platform_uid, webhook_oracle.intents(self.client.calls),
+                self.failed_payouts, self.completed_seen, grace)
+            findings, stats = findings + judged, dict(stats, **judged_stats)
         return findings, stats
 
     CONFIRM_PAUSE_SECONDS = float(os.environ.get("SIM_CONFIRM_PAUSE", "2.0"))
@@ -1402,6 +1410,10 @@ class Run:
             "balanceAfter": account.get("balance"),
         }
         self.operator_decisions.append(observation)
+        for step in steps:
+            if step["decision"] == "REJECT_FAIL" and 200 <= (step.get("decisionStatus") or 0) < 300:
+                self.failed_payouts.append({"customerId": held.get("customerId"),
+                                            "amount": payment.get("amount"), "at": time.time()})
         for step in steps:
             self.record_decision_violation(step.pop("violation"), observation)
         # Core can settle a re-sent payout minutes after the decision: in cycles 26 and 32 it came

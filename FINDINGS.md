@@ -333,12 +333,26 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     The gap is 1 to 17 s on the box's x10 clock and milliseconds in production. The ACCOUNT balance
     also counts FEES rows, which the TRANSACTION file leaves out (`transaction_type <> 'FEES'`); no
     case of that was seen. Fix: bound the lateral by `created_at <= windowEnd`, which
-    `DirectAccountCollector` already has.
+    `DirectAccountCollector` already has. Joel: the run keeps READ COMMITTED, so a booking stamped
+    before `windowEnd` that commits between the ACCOUNT read (collected first) and the TRANSACTION
+    read stays possible, the other way round, for the booking's commit lag; it is accepted, because
+    the next run sends the account again.
     Seen (review 2026-10-01): 47 ACCOUNT rows on bank `0b405234`, files of 2028-02-28 to 2028-03-08; both
     ACCOUNT rules in `checks/direct_feed.py` report the same 47, and the core-balance rule labels them.
 
 ## Checked and holding
 
+- A Direct batch whose allocation the platform cancels after paying, but before clearing matches
+  the credit, never settles: clearing matches a credit to a due by exact amount
+  (`MatchCandidateAssembler.settlesByAmount`, `:63`), and the amended due no longer equals it.
+  Box fleet277, batch `59d55a32`: 101.50 paid, due amended to 101.00 and then 1.01, due stays
+  EXPECTED. Joel: core cannot know of the credit until clearing has matched it, so it cannot
+  refuse the cancel; the credit stays an unmatched platform funding record, which MI_RECON lists
+  for ops to resolve by hand. Ops route: split the record (`POST .../payment/management/funding/split`,
+  four-eyes) so one part equals the due, then match it (`POST .../matching/partner/PLATFORM/paymentDue`,
+  strict equal amounts). No endpoint returns part of a credit: `.../payment/management/return` sends
+  the whole payment back, so the clean fallback is to return all 101.50 and have the platform pay the
+  amended amount again.
 - Clearing's bank reconciliations fail on the box because hot-sauce-bank does not retry a refused
   camt.054 push. During an injected clearing restart `CreditNotificationWebhookSender.send` (`:85`)
   fails with "Connection refused ... clearing:8050" and never sends again, so clearing gets the

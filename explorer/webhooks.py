@@ -350,6 +350,12 @@ def _events(records, platform_uid):
     return events, redelivered
 
 
+def where_delivered(event):
+    return "delivered {} X-Request-ID {}".format(
+        time.strftime("%H:%M:%S", time.localtime(event.get("receivedAt", 0))),
+        (event.get("headers") or {}).get("X-Request-ID"))
+
+
 def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None,
           outstanding=frozenset()):
     """Hold the platform's deliveries up against the API's reads.
