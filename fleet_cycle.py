@@ -108,13 +108,21 @@ def main():
     webhooks.ensure_serving(capture)
     wiped = False
     # The stack is wiped only when a patch changed what it reads at start, or when asked with
-    # SIM_FORCE_WIPE=1. A wipe on a timer destroyed the rows behind fleet 10's findings before
-    # they were traced, and a stack that carries on also ages its banks across cycles.
+    # SIM_FORCE_WIPE=1 or a `wipe.next` file. A wipe on a timer destroyed the rows behind fleet
+    # 10's findings before they were traced, and a stack that carries on also ages its banks
+    # across cycles. The file asks the running loop for one wipe, which is how newly loaded
+    # images get launched, and the cycle that uses it removes it.
+    wipe_asked = os.environ.get("SIM_FORCE_WIPE") == "1"
+    request = HERE / "wipe.next"
+    if request.exists():
+        request.unlink()
+        print("  wipe.next asks for a wipe")
+        wipe_asked = True
     healed = cycle.heal_stack()
     if healed is None or cycle.standup_keeps_failing():
         print("  the stack is broken, so it is relaunched after a dump")
     if os.environ.get("SKIP_RESTART") != "1" and (
-            patched or os.environ.get("SIM_FORCE_WIPE") == "1" or healed is None
+            patched or wipe_asked or healed is None
             or cycle.standup_keeps_failing()):
         cycle.restart_stack()
         wiped = True
