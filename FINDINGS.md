@@ -340,6 +340,42 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     Seen (review 2026-10-01): 47 ACCOUNT rows on bank `0b405234`, files of 2028-02-28 to 2028-03-08; both
     ACCOUNT rules in `checks/direct_feed.py` report the same 47, and the core-balance rule labels them.
 
+34. **A nominated account sent again with the same account number but a new name is reported
+    APPROVED with that name, but the name is never checked or stored.** No ticket yet. The harness
+    `AddNominatedAccount` PATCHes the sort code and account number `CreateCustomer` used, with a new
+    `accountName`. `upsertCustomerNominatedAccount` matches on the identifier only
+    (`CustomerNominatedAccountRepository.java:122-127`, ignoring name, BIC and address), so the link
+    is updated in place and stays VERIFIED, and `payee_account.account_name` keeps the old name.
+    `CustomerUpdateServiceDefault.updateCustomerNominatedAccount` (`:214`) then dispatches CoP
+    again: `NominatedAccountVerificationDispatcher.dispatch` (`:72-79`) skips only an attempt that
+    is pending and under 5 minutes old, and never reads the link state. `ConfirmationOfPayeeExecutor`
+    makes the paid CoP call with the new name, and `applyCopOutcome` (`:112-117`) throws on a
+    VERIFIED link, so the outcome, a NOTMATCH included, is discarded and the attempt row keeps
+    `responded_at` NULL. The dispatcher logs ERROR "CoP dispatch failed ... the account stays
+    UNVERIFIED", which is wrong for a VERIFIED link. The platform still gets `NOMINATED_ACCOUNT_ADDED`
+    APPROVED with the new name (`CustomerNominatedAccountAssignmentService:182-190`). Payouts go to
+    the old, verified details. `DirectNominatedAccountClearingStrategy` (`:44-55`) publishes the
+    request's account to clearing, whose `updateNominatedAccount` writes `account_name`; the dumps
+    show no new name in clearing, so whether it reaches clearing is unproven.
+    The orphan attempt then blocks CoP on that link for good: `selectPendingAttemptForActiveLink`
+    treats it as pending for 5 minutes, and after that `insertAttempt` conflicts on the partial index
+    `cop_attempt_pending_link_unique` (`WHERE responded_at IS NULL`, no time bound) and inserts
+    nothing, so the executor exits without a call and the ops re-check only records "triggered".
+    No sweep clears it. Withdrawal gating reads only the link state, never `cop_attempt`.
+    Intent (SAV-10052, SAV-10129, SAV-11459, PRs #11280 and #12285): keeping a re-nominated account
+    VERIFIED is intended ("the desired behaviour for previously-`VERIFIED` accounts", SAV-10052).
+    A changed name on the same identifier, and the dispatch on a VERIFIED link, are not considered
+    anywhere. The permanent block contradicts the #12285 review, where Kodiak added the 5-minute
+    ageing so that "a stale orphan now ages out and recheck can recover it", before the index
+    replaced that check the same day.
+    Fix: treat a changed name, BIC or address on the same identifier as a new verification (store
+    the details and return the link to UNVERIFIED), or refuse the change; skip the dispatch when
+    nothing changed; and never leave an attempt unanswered when the apply throws.
+    Seen (review 2026-10-02): 1,365 "CoP dispatch failed" ERRORs in all 53 fleets 336 to 388, and in
+    fleets 320 and 335. Fleet336's dump holds 2,544 orphan attempts, one per link, all on VERIFIED
+    links; its 13 errors fall 1 to 2 s after a `NOMINATED_ACCOUNT_ADDED` for the same customer.
+    Last fleet388.
+
 ## Checked and holding
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
