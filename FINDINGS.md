@@ -399,6 +399,20 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     stays REQUESTED. Box fleet558: message `43c102b8`, two PLATFORM_SAFEGUARD payments (5.00 and
     13.33) for batches `0godl4batch122` and `0godl4batch141`, both funding `0godl4acct44`; 8 ERRORs
     in `service-errors.log`. Fix: open each distinct account once.
+    How it is reached, with documented API behaviour only: the platform places two batches with the
+    same `paymentReference` ("Multiple batches may share a paymentReference",
+    `ExternalDirectBatchPaymentRequest.java:31`; only `batchReference` is unique), each with a
+    deposit for the same REQUESTED account. Core raises one due per batch, both carrying the
+    reference. With `matchByReference` on, `ReferencePaymentMatcher` (`:80-124`) groups every due
+    of that reference and links them to the credits that sum to their total in one match, so
+    `PartnerPaymentLinkCreationService` publishes one `PaymentSettled` for both, and
+    `DirectPlatformAccountHandler` (`:106-183`) adds each due's instructions without removing a
+    repeated account. Fleet558 placed `0godl4batch122` and `0godl4batch141` at 06:05:01 and
+    06:06:24, both quoting `0godl4p117`; clearing matched seven p117 credits to the combined 18.33
+    at 09:35:40. A shorter route, read from the code but not run: one batch with two deposit lines
+    for the same new account, which validation allows (only a repeated `instructionReference` is
+    refused, `DirectBatchOrderHandler.java:161`), gives one due whose two instruction rows reach
+    the same plan.
 
 37. **An ACCOUNT feed row is sent for a customer the CUSTOMER feed never sends.** No ticket yet.
     A customer that was ACTIVATED and then moved back to PENDING is dropped from the CUSTOMER file:
@@ -413,6 +427,21 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     The same rule also caught a separate burst (176 + 40 customers) when the CUSTOMER files were
     empty from 2028-03-31T19:11 to 04-02T02:00 under the known RECON hold and then sent 1,579
     INSERTs at once; that part is the hold, not this defect.
+
+38. **The Direct feed sends every closed account's close date as the date it opened.** No ticket
+    yet. `InvestecFileRepository` (`:492`, `:495`) takes the ACCOUNT row's `StatusEffectiveDate`,
+    and `AccountCloseDate` for CLOSING and CLOSED, from `dca.updated_at::date`, but no status
+    change writes `updated_at`: the three `UPDATE direct_customer_account SET status = ...`
+    statements in `DirectCustomerAccountRepository` (`:133`, `:147`, `:162`) leave it alone, and only
+    the account-identifier link (`:214`) sets it. So `updated_at` stays the creation instant.
+    Box 2026-10-04, bank `a21c95b8`: `updated_at = created_at` on all 12,000
+    `direct_customer_account` rows; every feed row has `StatusEffectiveDate = AccountOpenDate`,
+    including all 9,809 CLOSED rows; 736 of core's 875 CLOSED accounts were closed on a later
+    London day than they opened. Example: `57ed6044` in `ACCOUNT_20280407T090000Z.csv` sends a
+    close date of 2028-04-06, its open date, against a close request on 2028-04-07. Found by
+    `checks/direct_feed_values.py`, which compares every column of the newest feed rows with
+    core and compliance. Fix: set `updated_at = now()` on each status change, or read the close
+    date from a dated source.
 
 ## Checked and holding
 
