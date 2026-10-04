@@ -482,6 +482,16 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     use the platform override first, and an account's embedded `periodFeature.topUpWindowDays` is
     hard-coded null in `DirectModelResponseMapper` while the product read returns the real value.
 
+43. **A NUL byte in a Direct API text value answers 500.** No ticket yet. Postgres refuses 0x00 in
+    any text parameter (`invalid byte sequence for encoding "UTF8": 0x00`), and
+    `SqlExceptionHandler` maps it to 500 "Unknown SQL error handled". Box 2026-10-04:
+    `GET /direct/v1/customers?customerName=a%00b` (core-ro) and `POST /direct/v1/customers` with a
+    NUL in `customerReference` both answer 500; the failed create leaves no customer row. A NUL in
+    `accountReference` is refused with 400 by its pattern, and one in a nominated account name is
+    never stored because the identifier matched an existing link (finding 34). Found by
+    `explorer/params.py` and the new `weird.py` mutation. Fix: refuse control characters at the
+    API with a 400.
+
 ## Checked and holding
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
