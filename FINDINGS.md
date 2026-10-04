@@ -460,6 +460,28 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     account with no filter on the creation date. Box: 5 accounts created 2028-04-01 have statements
     for 2028-03-01 to 2028-03-31.
 
+41. **A Direct account's `openedAt` is when it was requested, not when it went live.** No ticket
+    yet. The field is documented as "Reflects timestamp of when an account has a deposit completion
+    and is therefore gone live" (`ExternalDirectSavingsAccountResponse.java:32`), but
+    `DirectSavingsAccountRepository` (`:44`) prints `customer_product_account.created_at`. A
+    REQUESTED account, which has not gone live, prints its creation time instead of null. Box: a
+    TERM OPEN account prints `2028-04-06T04:07:45Z` and its first deposit booked at 06:21:22Z;
+    19 of 20 sampled accounts on one platform print the creation time. Found by
+    `explorer/read_oracle.py`.
+
+42. **Two Direct account fields documented as null for pooled accounts are not.** No ticket yet.
+    `paymentReference` is documented "Null for pooled accounts"
+    (`ExternalDirectSavingsAccountResponse.java:52`), but `DirectCustomerAccountService` (`:119`)
+    generates one for every Direct account, and every pooled account on the box has one.
+    `depositInfo` is documented "Always null for POOLED customers"
+    (`ExternalDirectDepositInfoResponse.java:10`), but `DirectModelResponseMapper.depositInfo`
+    returns it for any REQUESTED account. Either the code or the public contract is wrong; every
+    harness platform is pooled, so both fire on every account read.
+    Read in the code and not yet seen on the box, because no platform has the data: an account's
+    minimum deposit reads `bp.deposit_requirement_min` while the product read and account opening
+    use the platform override first, and an account's embedded `periodFeature.topUpWindowDays` is
+    hard-coded null in `DirectModelResponseMapper` while the product read returns the real value.
+
 ## Checked and holding
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
