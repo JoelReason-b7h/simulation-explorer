@@ -388,7 +388,7 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     agree with core on all 4.
 
 36. **A settlement that opens one account for two instructions fails every time and dead-letters
-    the payment.** No ticket yet. `DirectSettlementPlan.from` (`direct/settlement/DirectSettlementPlan.java:64-65`)
+    the payment.** SAV-11796. `DirectSettlementPlan.from` (`direct/settlement/DirectSettlementPlan.java:64-65`)
     adds a `ProductAccountOpeningRecord` for every instruction row whose account is still
     REQUESTED, so two deposits for one new account give the same account twice.
     `DirectAccountStatusWriter.transitionAll` (`:56-70`) bulk-updates REQUESTED to OPEN, updates 1
