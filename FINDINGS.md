@@ -492,6 +492,13 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     `explorer/params.py` and the new `weird.py` mutation. Fix: refuse control characters at the
     API with a 400.
 
+44. **CreateCustomer accepts a customerReference of spaces only.** No ticket yet. Same family as
+    finding 20. `ExternalDirectCustomerRequest.customerReference` has `@NotNull @Size(max = 128)`
+    and no `@NotBlank`, so `"   "` answers 201 and the response echoes `'   '`. Since the field
+    is the lookup key for `GET /direct/v1/customers?externalId=`, a blank reference cannot be
+    searched for usefully. Box fleets 564 p2, 568 p3, 569 p1 (WeirdCall "an invalid request is
+    refused"). Low.
+
 ## Checked and holding
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
