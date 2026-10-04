@@ -279,13 +279,26 @@ class Journey:
         run.sweeps += 1
         return _first_failure(steps) or batch
 
+    # A read that fails while a restart is injected came back as no balance, and the money checks
+    # read that as 0: fleet 417's soft-close journey counted 425 funded against 375 held. A read
+    # is tried again across a restart's usual length before it gives up.
+    READ_TRIES, READ_PAUSE = 6, 5
+
+    def _read(self, path):
+        call = None
+        for attempt in range(self.READ_TRIES):
+            call = self.client.call("GET", path)
+            if call.ok or call.status not in (500, 502, 503, 504, 598):
+                return call
+            time.sleep(self.READ_PAUSE)
+        return call
+
     def accounts(self, customer=None):
-        call = self.client.call("GET", "/direct/v1/customers/{}/accounts".format(
-            customer or self.customer))
+        call = self._read("/direct/v1/customers/{}/accounts".format(customer or self.customer))
         return {a.get("accountId"): a for a in _rows(call.body)} if call.ok else None
 
     def account(self, account_id, customer=None):
-        call = self.client.call("GET", "/direct/v1/customers/{}/accounts/{}".format(
+        call = self._read("/direct/v1/customers/{}/accounts/{}".format(
             customer or self.customer, account_id))
         return call.body if call.ok and isinstance(call.body, dict) else {}
 
@@ -493,6 +506,9 @@ def multi_product(run):
                    (a_notice, amounts[a_notice["accountId"]]),
                    (a_term, amounts[a_term["accountId"]])])
     j.step("fund three accounts from one batch of {}".format(funded), call.status)
+    if not getattr(j, "batch_accepted", False):
+        return j.done(note="the batch was refused with {}, so no funding was owed".format(
+            call.status))
 
     def landed():
         read = j.accounts() or {}
@@ -985,7 +1001,8 @@ def fee_mid_period(run):
     # Core is read on both sides of the API, because the clock keeper realises a day every few
     # seconds: fleet 206 read 0.12 in core and then 0.15 from the API, and both held 0.57 later.
     def core_realised():
-        totals = interest_oracle.realised_totals(run.platform_uid, limit=500) or {}
+        # Named, not the top 500: a new account fell outside them and read as 0 (fleet 466).
+        totals = interest_oracle.realised_totals(run.platform_uid, 1, account["accountId"]) or {}
         return totals.get(account["accountId"], (None, ZERO))[1]
     before = core_realised()
     api = sum((_money(r.get("amount")) for r in j.transactions(account["accountId"]) or []

@@ -371,11 +371,14 @@ def main():
         summary["feed"] = run_check("direct_feed.py", bank, FINDINGS / "{}-feed.json".format(name),
                                     *generate)
         summary["mi"] = run_check("direct_mi.py", bank, FINDINGS / "{}-mi.json".format(name))
+        # Every column of the newest feed rows against core and compliance, not only balances.
+        summary["feedValues"] = run_check("direct_feed_values.py", bank,
+                                          FINDINGS / "{}-feed-values.json".format(name))
         if summary["feed"]["files"] and summary["feed"]["files"].startswith("0 files") \
                 and feed_has_run(bank):
             summary["sanity"].append("the data feed wrote no files for bank {}".format(bank))
     summary["newRules"] = sorted(new_rules)
-    file_failures = [k for k in ("feed", "mi") if summary.get(k, {}).get("exit")]
+    file_failures = [k for k in ("feed", "mi", "feedValues") if summary.get(k, {}).get("exit")]
     quiet = not summary["sanity"] and not new_rules and not file_failures
     summary["quiet"] = quiet
     # Only a potential product issue is worth the rows behind it: a violation of a rule not yet

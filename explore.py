@@ -22,9 +22,10 @@ import sys
 import httpx
 
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
-                      preflight, projector, race, triallog, webhook_oracle, webhooks, weird,
+                      params, preflight, projector, race, triallog, webhook_oracle, webhooks, weird,
                       world)
-from explorer import clock, interest_oracle, journeys, journeys_softclose, longlived
+from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose,
+                      longlived, read_oracle, statement_oracle)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -210,9 +211,14 @@ class Run:
         return None
 
     def mint(self, kind, limit):
-        """Run-id prefixed so replay never collides, and alphanumeric so the 16-char batch reference accepts it."""
+        """Run-id prefixed so replay never collides, and alphanumeric so the 16-char batch reference accepts it.
+
+        The counter is padded to four digits because an instructionReference must be 10 to 36
+        characters: a 6-character run id, one letter and a counter under 100 made 9, and the API
+        refused the batch with 400 (14 fleets of "a batch ... lands on each" read that as money lost).
+        """
         self.counter += 1
-        reference = "{}{}{}".format(self.run_id, kind, self.counter)[:limit]
+        reference = "{}{}{:04d}".format(self.run_id, kind, self.counter)[:limit]
         self.minted[reference] = kind
         return reference
 
@@ -603,8 +609,11 @@ class Run:
             print("  -- webhook accounting is off: the capture reached its size limit")
             return None, None
         outstanding = webhooks.outstanding_transactions(self.ops, self.platform_uid)
+        withheld = webhooks.withheld_transactions(list(world_now["accounts"]))
+        if withheld is None:
+            print("  -- webhook accounting could not read the withheld withdrawal rows from core")
         findings, stats = webhooks.check(records, world_now, self.platform_uid, self.minted, grace,
-                                         outstanding=outstanding)
+                                         outstanding=outstanding, withheld=withheld)
         if stats is not None:
             stats = dict(stats, outstandingTransactions=len(outstanding))
             judged, judged_stats = webhook_oracle.check(
@@ -899,6 +908,40 @@ class Run:
         return Call(method, "WeirdCall", call.status, {
             "message": "{} on {}: {}".format(name, base.name, str(call.body)[:200])},
             call.elapsed_ms)
+
+    def probe_parameters(self):
+        """Read with one query or path parameter wrong (explorer/params.py) and judge the answer."""
+        if not hasattr(self, "param_ops"):
+            try:
+                self.param_ops = params.operations()
+            except Exception as fault:  # noqa: BLE001 - no spec means no probes, not a failed run
+                print("  -- parameter probes are off: {}".format(fault))
+                self.param_ops = []
+        built = params.build(self.param_ops, self.held, self.steps)
+        if built is None:
+            return Call("GET", "ProbeParameters", 412, {"message": "no probe fits the held ids"}, 0)
+        path, query, name, invalid = built
+        call = self.client.call("GET", path, params=query)
+        rule = None
+        if 500 <= call.status < 598:
+            rule = "a strange parameter is refused, not answered with a server error"
+        elif invalid and call.ok:
+            rule = "an invalid parameter is refused"
+        if rule:
+            violation = oracles.Violation(
+                rule, path.split("?")[0], "{} on GET {} answered {}".format(name, path, call.status),
+                expected="a 4xx" if invalid else "no 5xx",
+                actual="{} {}".format(call.status, str(call.body)[:300]))
+            row = violation.as_row()
+            row["n"] = len(self.log) + 1
+            row["action"] = "ProbeParameters"
+            row["body"] = call.body if isinstance(call.body, (dict, list)) else str(call.body)
+            row["request"] = {"method": "GET", "path": path, "query": query, "mutation": name}
+            row["inFlight"] = self.in_flight_now()
+            row["attribution"] = "ProbeParameters alone" if not row["inFlight"] else "in flight"
+            self.record_violation(row, violation)
+        return Call("GET", "ProbeParameters", call.status, {
+            "message": "{} on {}: {}".format(name, path, str(call.body)[:200])}, call.elapsed_ms)
 
     def run_data_feed(self):
         """Ask core for the bank's data feed and then its RECON, as their schedules would.
@@ -1823,6 +1866,7 @@ class Run:
             "ProbeOtherPlatform": type(self).probe_other_platform,
             "RunDataFeed": type(self).run_data_feed,
             "WeirdCall": type(self).weird_call,
+            "ProbeParameters": type(self).probe_parameters,
             "ChangePlatformFee": type(self).change_platform_fee,
             "ChangeBankRate": type(self).change_bank_rate,
             "TransferToProduct": type(self).transfer_to_product,
@@ -1947,6 +1991,94 @@ class Run:
                                                   json.dumps(stats, sort_keys=True, default=str)))
         return len(found)
 
+    STATEMENT_SWEEP_SECONDS = float(os.environ.get("SIM_STATEMENT_SWEEP_SECONDS", "600"))
+    STATEMENT_ACCOUNTS = 2
+
+    def statement_sweep(self, final=False):
+        """Ask ops for statements of a few of this platform's accounts and judge what they print.
+
+        Each statement is a PDF rendered in the request, a few seconds each, so a sweep takes a
+        small sample on a ten-minute timer. A request ops refuses is counted, not reported: a
+        restart in flight refuses it, and the 500 is already judged where the fault is.
+        """
+        if not self.platform_uid or not self.ops:
+            return 0
+        now = time.time()
+        if not hasattr(self, "statement_swept_at"):
+            self.statement_swept_at = now
+        if not final and now - self.statement_swept_at < self.STATEMENT_SWEEP_SECONDS:
+            return 0
+        self.statement_swept_at = now
+        try:
+            found, stats = statement_oracle.check(self.ops, self.platform_uid,
+                                                  count=self.STATEMENT_ACCOUNTS)
+        except Exception as fault:  # noqa: BLE001 - a sweep that fails must not end the run
+            print("  -- the statement oracle raised {}: {}".format(type(fault).__name__, fault))
+            return 0
+        for finding in found:
+            self.note_violation("StatementOracle", finding["rule"], finding["subject"],
+                                finding["detail"], finding["expected"], finding["actual"])
+        stats["final"] = final
+        self.statement_stats = stats
+        print("  -- statement oracle{}: {}".format(" (final)" if final else "",
+                                                   json.dumps(stats, sort_keys=True, default=str)))
+        return len(found)
+
+    READ_SWEEP_SECONDS = float(os.environ.get("SIM_READ_SWEEP_SECONDS", "600"))
+
+    def read_sweep(self, final=False):
+        """Hold this platform's account, balance and product reads against core
+        (explorer/read_oracle.py): derived fields such as accrued interest, next realisation,
+        maturity and projected maturity value are recomputed from core's own rows."""
+        if not self.platform_uid:
+            return 0
+        now = time.time()
+        if not hasattr(self, "read_swept_at"):
+            self.read_swept_at = now
+        if not final and now - self.read_swept_at < self.READ_SWEEP_SECONDS:
+            return 0
+        self.read_swept_at = now
+        try:
+            found, stats = read_oracle.check(self.client, self.platform_uid)
+        except Exception as fault:  # noqa: BLE001 - a sweep that fails must not end the run
+            print("  -- the read oracle raised {}: {}".format(type(fault).__name__, fault))
+            return 0
+        for finding in found:
+            self.note_violation("ReadOracle", finding["rule"], finding["subject"],
+                                finding["detail"], finding["expected"], finding["actual"])
+        stats["final"] = final
+        print("  -- read oracle{}: {}".format(" (final)" if final else "",
+                                              json.dumps(stats, sort_keys=True, default=str)))
+        return len(found)
+
+    DOCUMENT_SWEEP_SECONDS = float(os.environ.get("SIM_DOCUMENT_SWEEP_SECONDS", "3600"))
+
+    def document_sweep(self, final=False):
+        """Judge the scheduled monthly statements and tax documents (explorer/document_oracle.py).
+
+        The scheduled documents cover every platform, so only the conductor reads them.
+        """
+        if fleet.is_member() or not self.ops:
+            return 0
+        now = time.time()
+        if not hasattr(self, "document_swept_at"):
+            self.document_swept_at = now
+        if not final and now - self.document_swept_at < self.DOCUMENT_SWEEP_SECONDS:
+            return 0
+        self.document_swept_at = now
+        try:
+            found, stats = document_oracle.check(self.ops, None)
+        except Exception as fault:  # noqa: BLE001 - a sweep that fails must not end the run
+            print("  -- the document oracle raised {}: {}".format(type(fault).__name__, fault))
+            return 0
+        for finding in found:
+            self.note_violation("DocumentOracle", finding["rule"], finding["subject"],
+                                finding["detail"], finding["expected"], finding["actual"])
+        stats["final"] = final
+        print("  -- document oracle{}: {}".format(" (final)" if final else "",
+                                                  json.dumps(stats, sort_keys=True, default=str)))
+        return len(found)
+
     def interest_against_api(self):
         """The Direct API's INTEREST rows against the interest core realised, for a few accounts."""
         totals = interest_oracle.realised_totals(self.platform_uid, self.INTEREST_API_ACCOUNTS)
@@ -1957,16 +2089,16 @@ class Run:
             # API against 2.39 in core one realisation earlier; both held 3.47 when read together.
             listed, before, after = None, realised, realised
             for _ in range(3):
-                before = (interest_oracle.realised_totals(self.platform_uid, 500) or {}).get(
-                    account_id, (None, before))[1]
+                before = (interest_oracle.realised_totals(self.platform_uid, 1, account_id)
+                          or {}).get(account_id, (None, before))[1]
                 rows = self.account_transactions(customer_id, account_id)
                 if rows is None:
                     listed = None
                     break
                 listed = sum((Decimal(str(r.get("amount") or "0")) for r in rows
                               if r.get("type") == "INTEREST"), Decimal("0"))
-                after = (interest_oracle.realised_totals(self.platform_uid, 500) or {}).get(
-                    account_id, (None, after))[1]
+                after = (interest_oracle.realised_totals(self.platform_uid, 1, account_id)
+                         or {}).get(account_id, (None, after))[1]
                 if before <= listed <= after:
                     break
                 time.sleep(self.CONFIRM_PAUSE_SECONDS)
@@ -3431,6 +3563,9 @@ class Run:
         self.replay_refused_credits_now()
         self.long_life_tick()
         self.interest_sweep()
+        self.statement_sweep()
+        self.document_sweep()
+        self.read_sweep()
         self.rotate_batch()
         # Journey shape drives what to construct; entity keys drive what to do to what exists.
         # Without this the pool only grows when CreateCustomer happens to be the least-tried
@@ -4544,6 +4679,9 @@ def main():
     run.sweep_transition_chains(force=True)
     run.account_webhooks(final=True)
     run.interest_sweep(final=True)
+    run.statement_sweep(final=True)
+    run.document_sweep(final=True)
+    run.read_sweep(final=True)
     if getattr(run, "long", None) and run.long.population:
         run.long.population.save()
 

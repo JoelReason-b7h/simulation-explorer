@@ -201,7 +201,10 @@ def check(platform_uid=None, account_uids=None, since_sid=0, limit=LIMIT):
                WHERE j.cutoff_at IS NULL
                  AND ir.customer_product_account_sid = j.customer_product_account_sid
                  AND ir.value_date = j.value_date
-                 AND abs(extract(epoch FROM ir.created_at - j.created_at)) < 2
+                 -- One realisation per account and value date, so the window only has to be
+                 -- wider than the gap: 2 s missed rows written 2.2 to 3.2 s apart (fleets 425,
+                 -- 458, 474), which then read as a second accrual on the same day.
+                 AND abs(extract(epoch FROM ir.created_at - j.created_at)) < 30
                ORDER BY abs(extract(epoch FROM ir.created_at - j.created_at)) LIMIT 1)
       FROM judged j JOIN interest_accrual_amount a ON a.interest_accrual_sid = j.sid
       GROUP BY j.sid, j.customer_product_account_sid, j.value_date, j.created_at, j.cutoff_at,
@@ -494,9 +497,10 @@ def expected_pots(account, gross, platform_fee, bondsmith, moment, value_date, b
             (gross_rate, fee_rate, bondsmith_rate))
 
 
-def realised_totals(platform_uid, limit=8):
+def realised_totals(platform_uid, limit=8, account_uid=None):
     """{account uid: (customer uid, sum of realised customer interest)} for the platform's accounts
-    with the most realisations, so a caller can hold the Direct API's INTEREST rows against it."""
+    with the most realisations, or for the one account named, so a caller can hold the Direct
+    API's INTEREST rows against it."""
     rows, _ = _psql("""
       SELECT cpa.uid, pc.uid, coalesce(sum(ra.amount), 0)
       FROM interest_realised ir
@@ -506,8 +510,9 @@ def realised_totals(platform_uid, limit=8):
       JOIN customer_account ca ON ca.sid = cpa.customer_account_sid
       JOIN platform_customer pc ON pc.sid = ca.platform_customer_sid
       JOIN partner_platform pp ON pp.sid = pc.platform_sid
-      WHERE pp.uid = '{}'
-      GROUP BY cpa.uid, pc.uid ORDER BY count(*) DESC LIMIT {}""".format(platform_uid, int(limit)))
+      WHERE pp.uid = '{}' {}
+      GROUP BY cpa.uid, pc.uid ORDER BY count(*) DESC LIMIT {}""".format(
+        platform_uid, "AND cpa.uid = '{}'".format(account_uid) if account_uid else "", int(limit)))
     if rows is None:
         return None
     return {row[0]: (row[1], Decimal(row[2])) for row in rows}

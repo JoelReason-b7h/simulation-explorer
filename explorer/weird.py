@@ -140,6 +140,11 @@ MUTATIONS = (
     ("non-ASCII text", False, _text("Zoë 名前 🙂")),
     ("SQL in text", False, _text("x'; DROP TABLE customer; --")),
     ("empty text", True, _text("")),
+    # Postgres refuses a NUL in any text value, so one that reaches a query unchecked answers 500:
+    # GET /direct/v1/customers?customerName=a%00b did (explorer/params.py, 2026-10-04).
+    ("a NUL byte in text", False, _text("a\x00b")),
+    ("text of spaces only", True, _text("   ")),
+    ("a right-to-left override in text", False, _text("abc‮def")),
     ("date of birth in the future", True, _future_birth),
     ("customer under 18", True, _minor),
     ("malformed sort code", True, _bad_sort_code),

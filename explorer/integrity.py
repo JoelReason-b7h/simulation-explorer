@@ -149,6 +149,10 @@ CHECKS = (
         # SAV-11278 caps a Direct withdrawal by the available balance, the ledger balance less the
         # other outbound instructions still waiting. Overlapping withdrawals that together ask for
         # more than the account holds show the cap was checked against the ledger alone.
+        # SAV-11198 debits savings when the internal transfer settles and leaves the instruction
+        # PENDING until the payout settles, so an instruction already debited is out of the
+        # balance and is left out here, as DirectCustomerInstructionRepository
+        # .sumPendingOutboundAmount leaves it out of the available balance.
         "open withdrawals never ask for more than the account holds",
         "direct_customer_instruction",
         """
@@ -159,6 +163,9 @@ CHECKS = (
         JOIN customer_product_account a ON a.sid = d.customer_product_account_sid
         WHERE i.status IN ('PENDING', 'HELD')
           AND i.instruction_type IN ('WITHDRAWAL', 'PRODUCT_TRANSFER_OUT')
+          AND NOT EXISTS (SELECT 1 FROM direct_instruction_subject s
+                          WHERE s.instruction_sid = i.sid
+                            AND s.transaction_type = 'SAVINGS_WITHDRAWAL')
         GROUP BY a.uid, a.product_account_balance
         HAVING sum(coalesce(i.amount, 0)) > a.product_account_balance + 0.005
         ORDER BY max(i.sid) DESC LIMIT {limit}

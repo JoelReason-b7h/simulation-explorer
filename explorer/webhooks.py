@@ -356,8 +356,65 @@ def where_delivered(event):
         (event.get("headers") or {}).get("X-Request-ID"))
 
 
+WITHHELD_SQL = """
+  WITH accounts AS (SELECT d.sid FROM direct_customer_account d
+                    JOIN customer_product_account a ON a.sid = d.customer_product_account_sid
+                    WHERE a.uid IN ({uids})),
+  debits AS (
+    SELECT i.sid, i.direct_customer_account_sid AS account, i.amount, i.created_at, i.status,
+           t.uid, t.customer_amount
+    FROM direct_customer_instruction i
+    JOIN direct_instruction_subject s ON s.instruction_sid = i.sid
+     AND s.transaction_type = 'SAVINGS_WITHDRAWAL'
+    JOIN account_transaction t ON t.balance_change_subject_id = s.sid
+    WHERE i.direct_customer_account_sid IN (SELECT sid FROM accounts)
+      AND NOT EXISTS (SELECT 1 FROM direct_instruction_subject c
+                      WHERE c.instruction_sid = i.sid AND c.transaction_type = 'CASH_WITHDRAWAL')),
+  rejected AS (
+    SELECT d.*, row_number() OVER (PARTITION BY d.account, d.amount ORDER BY d.created_at) AS n
+    FROM debits d WHERE d.status = 'CANCELLED'),
+  returns AS (
+    SELECT i.direct_customer_account_sid AS account, i.amount, t.uid, t.customer_amount,
+           row_number() OVER (PARTITION BY i.direct_customer_account_sid, i.amount
+                              ORDER BY i.created_at) AS n
+    FROM direct_customer_instruction i
+    JOIN direct_instruction_subject s ON s.instruction_sid = i.sid
+     AND s.transaction_type = 'SAVINGS_DEPOSIT'
+    JOIN account_transaction t ON t.balance_change_subject_id = s.sid
+    WHERE i.instruction_type = 'DEPOSIT' AND i.direct_batch_instruction_sid IS NULL
+      AND i.direct_customer_account_sid IN (SELECT sid FROM accounts)
+      AND EXISTS (SELECT 1 FROM rejected r WHERE r.account = i.direct_customer_account_sid
+                  AND r.amount = i.amount AND r.created_at < i.created_at))
+  SELECT uid, customer_amount FROM debits
+  UNION ALL
+  SELECT r.uid, r.customer_amount FROM returns r
+  JOIN rejected j ON j.account = r.account AND j.amount = r.amount AND j.n = r.n
+"""
+
+
+def withheld_transactions(account_ids):
+    """{transaction id: signed amount} for the rows SAV-11198 books with no SAVINGS_TRANSACTION.
+
+    A withdrawal's debit is announced only once its payout settles (CASH_WITHDRAWAL), so a debit
+    whose payout is pending or was rejected has no delivery yet, or ever. A rejected payout's
+    return to savings is booked with none either (DirectDepositSweepService
+    .returnRejectedPayoutToSavings). Core keeps no link from the return to the withdrawal, so a
+    return is paired with a rejected withdrawal of the same account and amount, oldest first.
+    None when core cannot be read.
+    """
+    from explorer.interest_oracle import _psql
+    uids = [a for a in account_ids if a]
+    if not uids:
+        return {}
+    rows, _ = _psql(WITHHELD_SQL.format(uids=",".join("'{}'".format(u) for u in uids)),
+                    timeout=120)
+    if rows is None:
+        return None
+    return {uid: Decimal(amount) for uid, amount in rows}
+
+
 def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None,
-          outstanding=frozenset()):
+          outstanding=frozenset(), withheld=None):
     """Hold the platform's deliveries up against the API's reads.
 
     Returns (findings, stats). A finding is a dict with rule, subject, detail, expected, actual.
@@ -368,6 +425,7 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
     now = now or clock.time()
     grace_seconds = clock.system_seconds(grace_seconds)
     minted = minted or {}
+    withheld = withheld or {}
     findings = []
 
     def found(rule, subject, detail, expected, actual):
@@ -460,6 +518,8 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
             # again, and locally that job is off, so it is outstanding, not undelivered.
             young.add(row.get("accountId"))
             continue
+        if not copies and tx_id in withheld:
+            continue
         if not copies:
             found("every transaction the API shows is delivered",
                   "transaction {}".format(tx_id),
@@ -482,6 +542,11 @@ def check(records, world, platform_uid, minted=None, grace_seconds=0.0, now=None
         sign = 1 if payload.get("paymentDirection") == "CREDIT" else -1
         account_id = payload.get("savingsAccountId")
         built[account_id] = built.get(account_id, Decimal("0")) + sign * amount
+    # A withheld row moves the balance with no delivery, so it is added to what was delivered.
+    for tx_id, amount in withheld.items():
+        row = api_tx.get(tx_id)
+        if row is not None and tx_id not in delivered:
+            built[row["accountId"]] = built.get(row["accountId"], Decimal("0")) + amount
     balanced = 0
     for account_id, account in accounts.items():
         if account_id not in transactions or account_id in young:

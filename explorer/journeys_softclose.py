@@ -268,8 +268,15 @@ def _top_up(j, holder):
     """An existing customer's deposit into a soft-closed product lands, within grace or after."""
     account = holder["account"]
     j.customer = holder["customer"]
+    if not j.account(account["accountId"], customer=account.get("customerId") or j.customer):
+        j.step("top up a holder's account", "not judged: the account could not be read")
+        return
     before = _balance(j, account)
     j.fund([(account, TOP_UP)])
+    if not getattr(j, "batch_accepted", False):
+        j.step("top up a holder's account", "not judged: the batch was refused with {}".format(
+            (getattr(j, "batch_answer", None) or ("?",))[0]))
+        return
     after = j.settle_until(lambda: _balance(j, account) >= before + TOP_UP and
                            _balance(j, account)) or _balance(j, account)
     j.step("top up a holder's account", "{} -> {}".format(before, after))
