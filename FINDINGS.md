@@ -376,6 +376,44 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     links; its 13 errors fall 1 to 2 s after a `NOMINATED_ACCOUNT_ADDED` for the same customer.
     Last fleet388.
 
+35. **A Direct customer statement prints the gross rate and the AER at one hundredth of their
+    value.** SAV-11794. `DirectStatementDetailsService` passes the reduced gross rate as the
+    fraction core stores (0.042), and `getAer` returns a fraction too; `direct.html:95` and `:99`
+    format each to 2 dp and add `%` with no x100, so 4.20% prints `0.04%`. The run never read a
+    statement before `explorer/statement_oracle.py`, which asks ops for a statement over the last
+    14 closed days, reads the PDF with `pdftotext`, and holds the rate, AER, lines, balances and
+    interest paid against core. Box 2026-10-03, platform `d212d3f2`: 4 of 4 statements print
+    "Gross rate 0.04%" against 4.20% and 4.50%, and the 3 that are not TERM print "AER 0.04%"
+    against 4.29%. Lines, running balances, brought-forward and closing balances and interest paid
+    agree with core on all 4.
+
+36. **A settlement that opens one account for two instructions fails every time and dead-letters
+    the payment.** No ticket yet. `DirectSettlementPlan.from` (`direct/settlement/DirectSettlementPlan.java:64-65`)
+    adds a `ProductAccountOpeningRecord` for every instruction row whose account is still
+    REQUESTED, so two deposits for one new account give the same account twice.
+    `DirectAccountStatusWriter.transitionAll` (`:56-70`) bulk-updates REQUESTED to OPEN, updates 1
+    distinct row, and throws "Bulk account status transition REQUESTED -> OPEN row-count mismatch:
+    expected 2 accounts, updated 1" from `DirectSettlementWriter.applyAccountOpenings` (`:163`),
+    called from `DirectPlatformAccountHandler.handleExternalCredit`. The `PaymentSettled` message
+    retries to `eventbridge-pi-core`'s dead-letter queue and neither deposit books; the account
+    stays REQUESTED. Box fleet558: message `43c102b8`, two PLATFORM_SAFEGUARD payments (5.00 and
+    13.33) for batches `0godl4batch122` and `0godl4batch141`, both funding `0godl4acct44`; 8 ERRORs
+    in `service-errors.log`. Fix: open each distinct account once.
+
+37. **An ACCOUNT feed row is sent for a customer the CUSTOMER feed never sends.** No ticket yet.
+    A customer that was ACTIVATED and then moved back to PENDING is dropped from the CUSTOMER file:
+    `InvestecCustomerSpec.mapClientStatus` (`:253`) throws `RecordExcludedFromFeedException` for
+    PENDING. The ACCOUNT query gates on `EVER_ACTIVATED_PREDICATE` (`InvestecFileRepository.java:155`),
+    which the history row keeps true, so the customer's accounts ship naming a customer the bank
+    never receives. Box bank `a21c95b8`: 38 "Sim Explorer Sanc" customers, for example `36f43d42`
+    (ACTIVATED 2028-03-31 18:29, PENDING 2028-04-02 01:50, actor null), about 96 ACCOUNT rows a
+    day from 2028-04-03 to 04-07, reported by "an account's customer was sent first". The
+    ACTIVATED to PENDING move is the KYC status family of findings 6 and 16; whether it is
+    intended is not settled, but the two feeds must agree either way.
+    The same rule also caught a separate burst (176 + 40 customers) when the CUSTOMER files were
+    empty from 2028-03-31T19:11 to 04-02T02:00 under the known RECON hold and then sent 1,579
+    INSERTs at once; that part is the hold, not this defect.
+
 ## Checked and holding
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
