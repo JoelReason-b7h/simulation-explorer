@@ -443,6 +443,23 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     core and compliance. Fix: set `updated_at = now()` on each status change, or read the close
     date from a dated source.
 
+39. **A statement asked for through ops replaces the customer's scheduled monthly statement when
+    both end on the same date.** No ticket yet. The `customer_document` key is platform, customer
+    reference and a name built from the product alias, account reference and end date only, so an
+    ops `POST /operations/statement/customer/{id}/documents` for any period ending on a month end
+    publishes to the scheduled statement's key: the S3 PDF is overwritten and the stub is marked
+    generated, while the row keeps the scheduled `parameters`. Box: document `b8d558e3` reads
+    fromDate 2028-03-01 in its row and prints 18/03/2028 to 31/03/2028, after the harness's
+    statement oracle asked for 18 to 31 March on that account. The customer then sees a partial
+    month under the monthly statement's name. The harness's own requests no longer end on a
+    month end. Found by `explorer/document_oracle.py`.
+
+40. **An account opened on the 1st, before the 05:00 statement run, gets an empty statement for the
+    month before it existed.** No ticket yet; whether it is wrong is a product decision. The stub
+    query `findCustomerAccountDetailsByPlatformAndDirectAccount` takes every OPEN, CLOSING or CLOSED
+    account with no filter on the creation date. Box: 5 accounts created 2028-04-01 have statements
+    for 2028-03-01 to 2028-03-31.
+
 ## Checked and holding
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
