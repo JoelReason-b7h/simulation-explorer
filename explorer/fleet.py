@@ -150,9 +150,11 @@ def peer_fault():
     """What another run broke that could still be broken now, or None.
 
     A member injects no faults, but the conductor's cut or restart reaches every platform, so a
-    member's 500 inside that window is a fault survived badly, not an unexplained 5xx.
+    member's 500 inside that window is a fault survived badly, not an unexplained 5xx. A service
+    that stopped or started with no run recording it counts too.
     """
     for entry in reversed(others_in_flight()):
         if entry["kind"] in ("fault", "restart"):
             return entry["what"]
-    return None
+    from explorer import outages
+    return outages.current()

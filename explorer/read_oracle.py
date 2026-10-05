@@ -85,7 +85,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
 
-from explorer import clock
+from explorer import clock, fleet
 from explorer.interest_oracle import ZERO, PENNY, _d, _day, _psql, _when, accrue
 from explorer.statement_oracle import aer as statement_aer
 
@@ -712,6 +712,9 @@ def check_account(client, account, today, calendar_, products, findings, stats):
             stats["transportFaults"] += 1
             return
         if not call.ok or not isinstance(call.body, dict):
+            if call.status >= 500 and fleet.peer_fault():
+                stats["readsDuringOutage"] = stats.get("readsDuringOutage", 0) + 1
+                return
             findings.add("an account read answers 200", subject,
                          "GET {} answered {} for a {} {} account".format(
                              path, call.status, account["status"], account["type"]),
@@ -896,6 +899,9 @@ def check_balances(client, account, findings, stats):
             stats["transportFaults"] += 1
             return
         if not call.ok or not isinstance(call.body, dict):
+            if call.status >= 500 and fleet.peer_fault():
+                stats["readsDuringOutage"] = stats.get("readsDuringOutage", 0) + 1
+                return
             findings.add("a balances read answers 200", customer,
                          "GET {} answered {}".format(path, call.status), 200, call.status)
             return

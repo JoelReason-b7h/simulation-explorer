@@ -301,11 +301,19 @@ class Run:
                 entity, before.get(field), after.get(field), subject))
 
         if entity == "account" and isinstance(after, dict) and after.get("accountId"):
+            def balance_and_transactions():
+                account, transactions = self.read("account"), self.read_transactions()
+                return None if account is None or transactions is None else (account, transactions)
+
             def balance_oracle(snapshot):
                 transactions = self.read_transactions()
-                if transactions is None:
+                if transactions is None or oracles.account_balance(snapshot, transactions) is None:
                     return None
-                return oracles.account_balance(snapshot, transactions)
+                reading = oracles.settled(
+                    balance_and_transactions,
+                    key=lambda r: (r[0].get("balance"), [(t.get("transactionId"), t.get("amount"))
+                                                         for t in r[1]]))
+                return None if reading is None else oracles.account_balance(*reading)
             found.append(self.confirmed(balance_oracle, after, "account"))
 
         if entity == "batch" and isinstance(after, dict):
@@ -623,6 +631,7 @@ class Run:
         return findings, stats
 
     CONFIRM_PAUSE_SECONDS = float(os.environ.get("SIM_CONFIRM_PAUSE", "2.0"))
+    CONFIRM_TRIES = 2
 
     def confirmed(self, oracle, snapshot, entity):
         """A disagreement is only a finding once it survives a second reading.
@@ -632,14 +641,18 @@ class Run:
         failure that is gone a second later. Re-reading turns that timing artefact into silence
         and leaves a real disagreement standing.
         """
-        first = oracle(snapshot)
-        if first is None:
-            return None
-        time.sleep(self.CONFIRM_PAUSE_SECONDS)
-        again = self.read(entity)
-        if again is None:
-            return first
-        return oracle(again)
+        # A reading that fails is no evidence either way, so it ends the check rather than
+        # letting the first disagreement stand.
+        found = oracle(snapshot)
+        for _ in range(self.CONFIRM_TRIES):
+            if found is None:
+                return None
+            time.sleep(self.CONFIRM_PAUSE_SECONDS)
+            again = self.read(entity)
+            if again is None:
+                return None
+            found = oracle(again)
+        return found
 
     def read_transactions(self):
         """The account's own transaction list, or None when the service would not give it.
@@ -885,8 +898,9 @@ class Run:
         name, invalid = mutation
         call = self.client.call(method, path, json_body=changed)
         rule = None
-        # 598 is the harness's own code for a transport fault, not an answer from the service.
-        if 500 <= call.status < 598:
+        # 598 is the harness's own code for a transport fault, not an answer from the service. A
+        # 5xx during an outage is judged by no_server_error as a fault survived, not here.
+        if 500 <= call.status < 598 and not (self.live_fault() or fleet.peer_fault()):
             rule = "a strange request is refused, not answered with a server error"
         elif invalid and call.ok:
             rule = "an invalid request is refused"
@@ -923,7 +937,7 @@ class Run:
         path, query, name, invalid = built
         call = self.client.call("GET", path, params=query)
         rule = None
-        if 500 <= call.status < 598:
+        if 500 <= call.status < 598 and not (self.live_fault() or fleet.peer_fault()):
             rule = "a strange parameter is refused, not answered with a server error"
         elif invalid and call.ok:
             rule = "an invalid parameter is refused"

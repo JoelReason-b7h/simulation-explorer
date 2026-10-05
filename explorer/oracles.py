@@ -53,6 +53,27 @@ def _amount(value):
         return None
 
 
+def settled(take, key=lambda reading: reading, tries=3, pause=1.0):
+    """A reading taken twice in a row with the same `key`, or None if it never holds still.
+
+    An oracle that compares two reads judges the moment between them as well as the service. A
+    deposit landing between the balance read and the transaction read put the list 3.00 ahead of
+    the balance in fleets 555, 567, 588 and 613 while core's own running balance was right on
+    every row. `take` returns None when a read fails, and a failed read is not a judgement.
+    """
+    import time
+    last = take()
+    for _ in range(tries):
+        if last is None:
+            return None
+        time.sleep(pause)
+        again = take()
+        if again is not None and key(again) == key(last):
+            return again
+        last = again
+    return None
+
+
 def account_balance(account, transactions):
     """balance == Σ amount over the account's transactions.
 
