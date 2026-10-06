@@ -623,3 +623,10 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
 - A platform cannot read another platform's customer, balances or instructions: every probe in
   fleet 2 answered 400 "Customer not found".
 - The Direct MI reports for the fleet 1 bank agree with each other and with core.
+- Two `INTEREST_RATE_CHANGED` webhooks for one product can carry the same body under different
+  X-Request-IDs. `InterestRateAnnouncementService.sendAndMark` sends one webhook per unannounced
+  rate key (`RateAnnouncementRepository.fetchUnannouncedRateKeys`, one key per platform product and
+  start date). The V1 payload (`InterestRateChangedWebhookService.getPayloadV1`) has no start date,
+  so two scheduled changes give the same body. Joel: the sends are correct and the contract cannot
+  change, so do not raise it. The webhook oracle's "one event is announced under one id" check
+  skips `INTEREST_RATE_CHANGED`. Box product `7388171e`, events 628907 and 628909, keys 924 and 930.
