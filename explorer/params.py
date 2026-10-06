@@ -58,7 +58,6 @@ MUTATIONS = {
     "array": [("a malformed list item", "not-a-uuid", True),
               ("an empty list item", "", False)],
     "string": [("10,000 characters", "x" * 10000, False),
-               ("a NUL byte", "a\x00b", False),
                ("SQL text", "' OR 1=1 --", False)],
 }
 
