@@ -486,7 +486,9 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     any text parameter (`invalid byte sequence for encoding "UTF8": 0x00`), and
     `SqlExceptionHandler` maps it to 500 "Unknown SQL error handled". Box 2026-10-04:
     `GET /direct/v1/customers?customerName=a%00b` (core-ro) and `POST /direct/v1/customers` with a
-    NUL in `customerReference` both answer 500; the failed create leaves no customer row. A NUL in
+    NUL in `customerReference` both answer 500; the failed create leaves no customer row. So do
+    `externalId` on `/direct/v1/customers` and `name` on `/direct/v1/products` (fleets 633-720,
+    21 hits after fleet627, every one a NUL byte). A NUL in
     `accountReference` is refused with 400 by its pattern, and one in a nominated account name is
     never stored because the identifier matched an existing link (finding 34). Found by
     `explorer/params.py` and the new `weird.py` mutation. Fix: refuse control characters at the
@@ -498,6 +500,17 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     is the lookup key for `GET /direct/v1/customers?externalId=`, a blank reference cannot be
     searched for usefully. Box fleets 564 p2, 568 p3, 569 p1 (WeirdCall "an invalid request is
     refused"). Low.
+
+45. **An officer CLOSE answers 500 after the customer is already CLOSED, and the override record
+    is not written.** No ticket yet. `CustomerStatusOverrideService.closeThroughCore` (compliance-api,
+    `:93-94` at 2fb856f49e) calls core's `closeCustomer` first, and core closes the customer and
+    pushes CLOSED to compliance. Then `flowInterventionClient.updateCustomerStatus` records the
+    override run, its kyc_check and the officer's notes. In fleet706 p3 that second call failed
+    with `ResponseClosedException: Connection closed before response was received`, and
+    `GlobalExceptionHandler` answered 500. Customer `e3d89892` is CLOSED in core and compliance,
+    the officer sees a 500, and no override record exists. Neither call is retried, and a repeat
+    CLOSE is refused because the customer is already CLOSED. No restart or fault was in force.
+    compliance-api logged the same exception twice in two days. Rare, low.
 
 ## Checked and holding
 
