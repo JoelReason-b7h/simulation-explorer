@@ -72,6 +72,9 @@ KNOWN_DETAIL = {
     ("an invalid request is refused", "empty text in instructionReference on PlaceWithdrawal"),
     # Finding 19: a 0.00 INTEREST row carrying a fee is booked but never webhooked.
     ("every transaction the API shows is delivered", "CREDIT INTEREST 0.00"),
+    # Finding 43: Postgres refuses a NUL byte in any text value and SqlExceptionHandler answers 500.
+    ("a strange request is refused, not answered with a server error", "a NUL byte"),
+    ("a strange parameter is refused, not answered with a server error", "a NUL byte"),
 }
 
 

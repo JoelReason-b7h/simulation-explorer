@@ -282,6 +282,11 @@ class Run:
         under_fault = self.live_fault() or fleet.peer_fault()
         own_wire = getattr(call, "own_wire", False) and call.status == oracles.TRANSPORT_FAULT
         found = [] if own_wire else [oracles.no_server_error(action_name, call, subject, under_fault)]
+        # WeirdCall and ProbeParameters judge their own 5xx and record the request that caused it,
+        # so the plain rule here only counted each one a second time, without the request.
+        if action_name in ("WeirdCall", "ProbeParameters") and found and found[0] is not None \
+                and found[0].rule == "no unexplained 5xx":
+            found = []
         if not under_fault:
             # A slow answer while the wire carries a second of injected latency is the latency,
             # not the service.
