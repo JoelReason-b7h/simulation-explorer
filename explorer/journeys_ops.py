@@ -697,6 +697,11 @@ def _judge_customer(j, customer):
         j.step("the balances of {}".format(customer[:8]), "not judged: balances kept moving")
         return
     if not call.ok or not isinstance(call.body, dict):
+        outage = call.status >= 500 and (j.run.live_fault() or fleet.peer_fault())
+        if outage:
+            j.step("the balances of {}".format(customer[:8]),
+                   "not judged: answered {} while {} was in force".format(call.status, outage))
+            return
         j.expect(False, "a customer's balances are readable",
                  "GET balances for {} answered {}".format(customer, call.status), "2xx",
                  call.status, body=call.body)

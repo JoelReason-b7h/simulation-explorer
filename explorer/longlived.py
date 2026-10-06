@@ -447,11 +447,12 @@ class Population:
         total, by_type = read
         funded = Decimal(entry.get("funded") or "0")
         moved = Decimal(entry.get("moved") or "0")
-        deposits = by_type.get("DEPOSIT", ZERO) - moved
+        instructions = j.instructions() or []
+        deposits = by_type.get("DEPOSIT", ZERO) - moved - _matured_in(instructions)
         transfers = by_type.get("TRANSFER", ZERO)
         booked = sum(by_type.values(), ZERO)
         run = self.run
-        completed = sum((Decimal(str(r.get("amount") or "0")) for r in j.instructions() or []
+        completed = sum((Decimal(str(r.get("amount") or "0")) for r in instructions
                          if r.get("type") == "DEPOSIT" and r.get("status") == "COMPLETED"),
                         ZERO)
         # A deposit the service refused is funded and never booked, so the rule is broken only
@@ -556,6 +557,28 @@ class Population:
         return {"live": len(live), "left": len(self.state["customers"]) - len(live),
                 "joinedThisRun": self.joined, "personas": personas,
                 "lastDay": self.state.get("lastDay"), "recent": self.actions[-10:]}
+
+
+def _amount(row):
+    return Decimal(str(row.get("amount") or "0"))
+
+
+def _matured_in(instructions):
+    """What maturities moved into another of the customer's own accounts.
+
+    The transactions API lists that move as a DEPOSIT on the destination, so a termer holding a
+    maturity destination showed 120.18 of deposits against 70.00 funded in 39 cycles (647-698).
+    Only a PRODUCT_TRANSFER_IN paired with a MATURITY of the same amount counts: a maturity paid to
+    the nominated account books no deposit, and the mover's own transfers are in `moved`.
+    """
+    done = [r for r in instructions if r.get("status") == "COMPLETED"]
+    maturities = [_amount(r) for r in done if r.get("type") == "MATURITY"]
+    total = ZERO
+    for row in done:
+        if row.get("type") == "PRODUCT_TRANSFER_IN" and _amount(row) in maturities:
+            maturities.remove(_amount(row))
+            total += _amount(row)
+    return total
 
 
 class LongLife:
