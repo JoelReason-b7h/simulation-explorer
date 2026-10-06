@@ -24,7 +24,7 @@ import httpx
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
                       params, preflight, projector, race, triallog, webhook_oracle, webhooks, weird,
                       world)
-from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose,
+from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose, midjob,
                       longlived, read_oracle, statement_oracle)
 from explorer.client import BearerClient, Call, DirectClient
 
@@ -1871,6 +1871,7 @@ class Run:
             "RestartCompliance": type(self).restart_compliance,
             "RestartPublicApi": type(self).restart_public_api,
             "RestartSeveral": type(self).restart_several,
+            "RestartMidJob": type(self).restart_mid_job,
             "ReplayLastCall": type(self).replay_last_call,
             "FundAccountDuplicated": type(self).fund_account_duplicated,
             "RejectClosurePayment": type(self).reject_closure_payment,
@@ -2859,6 +2860,30 @@ class Run:
             self.restart_turn += 1
         return call
 
+    def restart_mid_job(self):
+        """Wait for a scheduled job to start, then restart the service running it."""
+        if self.restart_waiting():
+            return Call("POST", "restart-mid-job", 412, {
+                "message": "a restart or fault is still in force"}, 0)
+        if not hasattr(self, "midjob"):
+            self.midjob = midjob.Watcher()
+        job = self.midjob.wait_for_start()
+        if job is None:
+            return Call("POST", "restart-mid-job", 412, {
+                "message": "no scheduled job started within {:.0f}s".format(midjob.WATCH_SECONDS)}, 0)
+        call = self.restart(job["service"], kill=True)
+        if call.status != 200:
+            return call
+        self.midjob.interrupted(job)
+        return Call("POST", "restart-mid-job", 200, {
+            "message": "{} was restarted while {} ran, from {}: {}".format(
+                job["service"], job["job"], job["started"], call.body.get("message"))}, 0)
+
+    def midjob_check(self):
+        if hasattr(self, "midjob"):
+            self.midjob.check(lambda rule, subject, detail, expected, actual: self.note_violation(
+                "RestartMidJob", rule, subject, detail, expected, actual))
+
     # Core takes about ninety seconds to come back, so a restart is expensive and must be rare:
     # three of them eat half a ten-minute run, and restarting again before the last one finished
     # left core unable to answer at all while the run recorded every call as a finding.
@@ -2869,7 +2894,7 @@ class Run:
         return bool(self.restarted_at and since < self.RESTART_COOLDOWN_TRIALS) or bool(
             self.live_fault())
 
-    def restart(self, *which):
+    def restart(self, *which, kill=False):
         """Stop one or more services and start them again, then wait for each to report itself healthy.
 
         Waiting matters: without it every following trial reports a connection failure that says
@@ -2888,7 +2913,7 @@ class Run:
         self.restarted_at = self.steps
         self.note_in_flight("restart", "a restart of {}".format(named))
         if len(which) == 1:
-            done, note = faults.restart_service(which[0])
+            done, note = faults.restart_service(which[0], kill=kill)
         else:
             done, note = faults.restart_services(which)
         if not done:
@@ -3580,6 +3605,7 @@ class Run:
         self.statement_sweep()
         self.document_sweep()
         self.read_sweep()
+        self.midjob_check()
         self.rotate_batch()
         # Journey shape drives what to construct; entity keys drive what to do to what exists.
         # Without this the pool only grows when CreateCustomer happens to be the least-tried

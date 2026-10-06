@@ -318,7 +318,7 @@ def _docker(*args, timeout=60):
         return None
 
 
-def restart_service(which, timeout=90):
+def restart_service(which, timeout=90, kill=False):
     """Stop a service and start it again, which is the crudest fault there is.
 
     A service that dies part way through a payment is the case every retry and every idempotency
@@ -328,7 +328,9 @@ def restart_service(which, timeout=90):
     if not container:
         return False, "no container is registered for {}".format(which)
     try:
-        done = subprocess.run(["docker", "restart", container],
+        # `-t 0` kills at once. The default stop waits ten seconds for a graceful shutdown, long
+        # enough for a running job to finish, which defeats a restart timed to land inside it.
+        done = subprocess.run(["docker", "restart"] + (["-t", "0"] if kill else []) + [container],
                               capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError) as fault:
         return False, "{}: {}".format(type(fault).__name__, fault)

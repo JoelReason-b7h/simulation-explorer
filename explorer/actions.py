@@ -369,6 +369,9 @@ CORE_SIDE = [
     Action("RestartPublicApi", "POST", "/direct/v1/batches", needs=["accountId"],
            entity="account"),
     Action("RestartSeveral", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
+    # A restart timed to land inside a scheduled job, which a restart at a random moment almost
+    # never does (explorer/midjob.py).
+    Action("RestartMidJob", "POST", "/direct/v1/batches", needs=["accountId"], entity="account"),
     # Delivering the same request twice, which is what a retry after an unclear answer looks like
     # from the service's side.
     Action("ReplayLastCall", "POST", "/direct/v1/batches", needs=["customerId"],
@@ -453,7 +456,8 @@ SPENDS = {"CloseCustomer", "CloseAccount", "CancelAccountOpening",
 # bank simulator for the whole stack and then puts it back, so two of them at once leave the bank
 # in whichever state the slower one restored, and neither result means anything. One run raced
 # RejectClosurePayment against itself and the returned closure was never tried at all.
-NEVER_RACED = {"RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue"}
+NEVER_RACED = {"RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
+               "RestartMidJob"}
 
 # Acts on the whole stack rather than on the entity the driver is standing on. A world action
 # conflicts with nothing, so it takes no part in the limit on how many calls of a race may win.
@@ -464,20 +468,20 @@ EXPENSIVE_FAULTS = {
     "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
     "SlowBankForClearing", "BreakBankForClearing",
     "RestartClearing", "RestartCore", "RestartBank",
-    "RestartCompliance", "RestartPublicApi", "RestartSeveral",
+    "RestartCompliance", "RestartPublicApi", "RestartSeveral", "RestartMidJob",
     "FundAccountInterrupted", "FundAccountDuplicated", "DuplicateMessages",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
 }
 
 RESTARTS = {"RestartClearing", "RestartCore", "RestartBank", "RestartCompliance",
-            "RestartPublicApi", "RestartSeveral"}
+            "RestartPublicApi", "RestartSeveral", "RestartMidJob"}
 
 WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", "ProcessDueNotice",
          "ChangeBankRate",
          "SlowTheBank", "BreakTheBank", "SlowClearing", "BreakClearing",
          "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
          "RestartClearing", "RestartCore", "RestartBank",
-         "RestartCompliance", "RestartPublicApi", "RestartSeveral",
+         "RestartCompliance", "RestartPublicApi", "RestartSeveral", "RestartMidJob",
          "DuplicateMessages", "StopDuplicating"}
 
 # Actions whose after-read looks at a DIFFERENT object than the before-read. Only the two customer
