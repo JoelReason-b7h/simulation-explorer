@@ -512,7 +512,42 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     CLOSE is refused because the customer is already CLOSED. No restart or fault was in force.
     compliance-api logged the same exception twice in two days. Rare, low.
 
+46. **The 03:00 notice-withdrawal run aborts when a realisation overtakes the account's accrual.**
+    No ticket yet. `InterestSchedulerRepository.updateRealisedInterestSchedule` (`:178`, from
+    `RealisedInterestCreationService:87`) sets `realised_last_value_date` to the business date,
+    and `interest_processing_schedule`'s `ck_accrual_next_date_after_realised_last_date` refuses
+    it when `accrual_next_value_date` is earlier: `Failing row contains (17, 45, 2026-12-28
+    20:00:55+00, 2026-12-27, 2026-12-28, 2026-12-29 03:00:01+00, 2026-12-29, 2026-12-30)`.
+    `DefaultTaskExceptionHandler` logs the whole scheduler run as failed, so the other notice
+    accounts in that run wait for the next one. Box: 8 times in fleets 726-791, 15 in 600-718.
+    The accrual lag probably comes from the bank business date being a day behind (finding 47);
+    nothing guards a realisation dated past the accrual. Medium.
+
+47. **A bank created between its evening date roll and midnight keeps a business date one day
+    behind, and BANK_BUSINESS_DATE_CHECK fails every night.** No ticket yet.
+    `DbIntegrityCheckService` (`:185-188`) wants the bank's `business_date` in [today, today+1].
+    `nextDay()` raises it once a day at about 20:00, and the box bank was created at 22:19 on
+    2026-12-25, after that day's roll, so the date has trailed by one ever since: from midnight to
+    about 20:00 each day the check fails (`businessDate [2027,1,6]` at 00:04 on 01-07). 298 lines
+    in 70 of 74 fleets from 700, when the clock and bank were replaced. Not yet proved to be the
+    whole cause; a bank created in that window in production would show the same. Low.
+
+48. **The ops "statement lines with exceptions" read is unpaginated and fails once the list
+    passes 10 MiB.** No ticket yet. `OpsPortalAccountController.fetchStatementLinesWithExceptions`
+    (`:125-126`) returns clearing's whole list (`AccountStatementOperations:19`), and the clearing
+    client refuses the body: `ContentLengthExceededException: The received length [10493952]
+    exceeds the maximum allowed content length [10485760]`. The ops portal's exceptions view, and
+    the MI_RECON report that reads the same list, then fail. Box: 55 times in fleets 784-798 and
+    252 in 600-630, with 17,904 EXCEPTION lines held. Those lines are harness funding credits with
+    an empty `/REMI/` reference that never match (about 1,400 a day), so the volume is harness-made;
+    the missing paging is not. Medium.
+
 ## Checked and holding
+
+- A month-boundary burst of CUSTOMER_DOCUMENT_CREATED filled core's webhook delivery pool in
+  fleet752 (379 `RejectedExecutionException` lines at `WebhookSender:170`, about 06:01 on the 1st).
+  Each refused event stays AWAITING_RESPONSE and the resend scheduler sends it later, so nothing is
+  lost; the cost is ERROR noise at every month end.
 
 - A Direct batch whose allocation the platform cancels after paying, but before clearing matches
   the credit, never settles: clearing matches a credit to a due by exact amount
