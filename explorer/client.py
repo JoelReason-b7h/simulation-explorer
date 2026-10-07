@@ -23,13 +23,14 @@ from lib.auth import ClientCredentialsAuth  # noqa: E402
 
 
 class Call:
-    def __init__(self, method, path, status, body, elapsed_ms, request_body=None):
+    def __init__(self, method, path, status, body, elapsed_ms, request_body=None, headers=None):
         self.method = method
         self.path = path
         self.status = status
         self.body = body
         self.elapsed_ms = elapsed_ms
         self.request_body = request_body
+        self.headers = headers or {}
 
     @property
     def ok(self):
@@ -64,12 +65,12 @@ class _Client:
     # nothing mistakes it for something the service said.
     TRANSPORT_FAULT = 598
 
-    def call(self, method, path, json_body=None, params=None):
+    def call(self, method, path, json_body=None, params=None, headers=None):
         started = time.time()
         try:
             response = self.http.request(
                 method, self.base_url + path, json=json_body, params=params,
-                headers=self._headers()
+                headers=dict(self._headers(), **(headers or {}))
             )
         except httpx.HTTPError as fault:
             # A timeout or a dropped connection is something to record, not something to stop on.
@@ -88,7 +89,8 @@ class _Client:
         except ValueError:
             body = response.text or None
 
-        record = Call(method, path, response.status_code, body, elapsed, json_body)
+        record = Call(method, path, response.status_code, body, elapsed, json_body,
+                      {k.lower(): v for k, v in response.headers.items()})
         if elapsed >= SLOW_MS:
             SLOW_CALLS.append([method, path, response.status_code, round(elapsed)])
         self.calls.append(record)
@@ -120,11 +122,11 @@ class BearerClient(_Client):
     def _headers(self):
         return {"Authorization": "Bearer {}".format(self.token)} if self.token else {}
 
-    def call(self, method, path, json_body=None, params=None):
-        result = _Client.call(self, method, path, json_body, params)
+    def call(self, method, path, json_body=None, params=None, headers=None):
+        result = _Client.call(self, method, path, json_body, params, headers)
         if getattr(result, "status", 0) != 401 or self.renew is None:
             return result
         # A token minted at startup outlives a short run and not a long one, so mint another and
         # try once more rather than reporting the ops endpoint as broken.
         self.token = self.renew()
-        return _Client.call(self, method, path, json_body, params)
+        return _Client.call(self, method, path, json_body, params, headers)

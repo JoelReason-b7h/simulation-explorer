@@ -376,6 +376,18 @@ CORE_SIDE = [
     # from the service's side.
     Action("ReplayLastCall", "POST", "/direct/v1/batches", needs=["customerId"],
            entity="customer"),
+    # Sending a key the API calls unique a second time with a different valid body, which is what
+    # a client that rebuilt its request after a timeout does (explorer/keyreuse.py).
+    Action("ReuseBatchReference", "POST", "/direct/v1/batches",
+           needs=["customerId", "accountReference", "productId"], entity="customer"),
+    Action("ReuseInstructionReference", "POST", "/direct/v1/batches",
+           needs=["customerId", "accountReference", "productId"], entity="customer"),
+    Action("ReuseAccountReference", "POST", "/direct/v1/customers/{customerId}/accounts",
+           needs=["customerId", "accountId", "accountReference", "productId"], entity="account"),
+    Action("ReuseCustomerReference", "POST", "/direct/v1/customers", needs=["customerId"],
+           entity="customer"),
+    Action("ReuseIdempotencyKey", "POST", "/direct/v1/batches",
+           needs=["customerId", "accountReference", "productId"], entity="customer"),
     # Funding with the wire cut part way through, which is the state a fault injected between two
     # whole actions can never make: the money has left the bank and the settlement never ran.
     # Duplicate message delivery on the queues clearing consumes, which is the at-least-once
@@ -458,6 +470,9 @@ SPENDS = {"CloseCustomer", "CloseAccount", "CancelAccountOpening",
 # RejectClosurePayment against itself and the returned closure was never tried at all.
 NEVER_RACED = {"RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
                "RestartMidJob"}
+# Several calls judged against each other, and a race would put a third between them.
+NEVER_RACED |= {"ReuseBatchReference", "ReuseInstructionReference", "ReuseAccountReference",
+                "ReuseCustomerReference", "ReuseIdempotencyKey"}
 
 # Acts on the whole stack rather than on the entity the driver is standing on. A world action
 # conflicts with nothing, so it takes no part in the limit on how many calls of a race may win.
