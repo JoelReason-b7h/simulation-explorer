@@ -25,7 +25,7 @@ from explorer import (client, actions, config, driver, faults, fleet, integrity,
                       params, preflight, projector, race, tenancy, triallog, webhook_oracle, webhooks, weird,
                       world)
 from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose, midjob,
-                      keyreuse, longlived, misref, read_oracle, statement_oracle)
+                      keyreuse, killswitch, longlived, misref, read_oracle, statement_oracle)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -1935,6 +1935,7 @@ class Run:
             "ReuseAccountReference": keyreuse.reuse_account_reference,
             "ReuseCustomerReference": keyreuse.reuse_customer_reference,
             "ReuseIdempotencyKey": keyreuse.reuse_idempotency_key,
+            "KillSwitchDuringPayouts": killswitch.kill_switch_during_payouts,
             "FundAccountDuplicated": type(self).fund_account_duplicated,
             "RejectClosurePayment": type(self).reject_closure_payment,
             "ReturnClosurePayment": type(self).return_closure_payment,
@@ -4836,6 +4837,9 @@ def main():
     # proxy would cut the conductor's traffic in the middle of its trial.
     if not fleet.is_member():
         faults.install_cleanup()
+        # A run killed hard leaves the payment kill switch on, which would stall every payout of
+        # every later cycle. The conductor is the only run that turns it on, so it turns it off.
+        killswitch.ensure_off_at_start(ops)
 
     run = Run(client, ops, hsb, platform_uid, virtual_iban, sim, compliance)
     # Route the run's own bank credits through toxiproxy, so a network fault can be injected on
