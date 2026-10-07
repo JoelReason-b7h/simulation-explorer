@@ -492,6 +492,7 @@ EXPENSIVE_FAULTS = {
     "FundAccountInterrupted", "FundAccountDuplicated", "DuplicateMessages",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
     "SendMisreferencedCredit", "KillSwitchDuringPayouts",
+    "SplitOverpaidCredit", "ReturnUnmatchedCredit", "AdjustCustomerAccount",
 }
 
 RESTARTS = {"RestartClearing", "RestartCore", "RestartBank", "RestartCompliance",
@@ -554,6 +555,15 @@ CORE_SIDE += [
     # whitespace or length, a cancelled, settled or unknown batch's, or an amount a penny out.
     Action("SendMisreferencedCredit", "POST", "/direct/v1/batches", needs=["batchPaymentReference"],
            entity="batch"),
+    # The ops corrections an operator makes by hand, four-eyes approved by a second ops user
+    # (explorer/corrections.py): split an over-paid credit and match the right part, return an
+    # unmatched credit, and adjust a customer account.
+    Action("SplitOverpaidCredit", "POST", "/direct/v1/batches", needs=["batchPaymentReference"],
+           entity="batch"),
+    Action("ReturnUnmatchedCredit", "POST", "/direct/v1/batches", needs=["batchPaymentReference"],
+           entity="batch"),
+    Action("AdjustCustomerAccount", "POST", "/direct/v1/batches", needs=["accountId", "customerId"],
+           entity="account"),
 ]
 
 SPENDS |= {"OfficerCloseCustomer", "OfficerRejectCustomer", "OfficerCancelCustomer"}
@@ -563,9 +573,11 @@ SPENDS |= {"OfficerCloseCustomer", "OfficerRejectCustomer", "OfficerCancelCustom
 NEVER_RACED |= {"TransferToProduct", "SetMaturityToNotice", "OfficerCloseCustomer",
                 "OfficerRejectCustomer",
                 "OfficerCancelCustomer", "AdjustNoticeWithdrawals", "ReemitFeedEntity",
-                "SendMisreferencedCredit"}
+                "SendMisreferencedCredit", "SplitOverpaidCredit", "ReturnUnmatchedCredit",
+                "AdjustCustomerAccount"}
 
-WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity", "SendMisreferencedCredit"}
+WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity", "SendMisreferencedCredit",
+          "SplitOverpaidCredit", "ReturnUnmatchedCredit", "AdjustCustomerAccount"}
 
 # Multi-step journeys (explorer/journeys.py). Each makes a customer of its own and walks it end
 # to end, so the subject the driver stands on only has to exist; the placeholder path is never
