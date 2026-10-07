@@ -25,7 +25,7 @@ from explorer import (client, actions, config, driver, faults, fleet, integrity,
                       params, preflight, projector, race, tenancy, triallog, webhook_oracle, webhooks, weird,
                       world)
 from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose, midjob,
-                      keyreuse, longlived, misref, read_oracle, statement_oracle)
+                      keyreuse, longlived, misref, read_oracle, statement_oracle, corrections)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -1954,6 +1954,9 @@ class Run:
             "AdjustNoticeWithdrawals": type(self).adjust_notice_withdrawals,
             "ReemitFeedEntity": type(self).reemit_feed_entity,
             "SendMisreferencedCredit": type(self).send_misreferenced_credit,
+            "SplitOverpaidCredit": corrections.split_overpaid_credit,
+            "ReturnUnmatchedCredit": corrections.return_unmatched_credit,
+            "AdjustCustomerAccount": corrections.adjust_customer_account,
             **{name: (lambda run, name=name: run.run_journey(name)) for name in journeys.ALL},
         }
 

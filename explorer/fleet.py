@@ -58,6 +58,10 @@ STACK_FAULTS |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 # Credits the bank, then waits on the settlement sweep, which moves every cohort's money.
 STACK_FAULTS |= {"SendMisreferencedCredit"}
 
+# Four-eyes ops corrections (explorer/corrections.py): each sweeps the bank's money, and the split
+# and the return act on credits clearing holds for every platform of the bank.
+STACK_FAULTS |= {"SplitOverpaidCredit", "ReturnUnmatchedCredit", "AdjustCustomerAccount"}
+
 
 def is_member():
     return bool(EVENTS) and ROLE == "member"
