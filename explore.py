@@ -629,9 +629,14 @@ class Run:
                                          outstanding=outstanding, withheld=withheld)
         if stats is not None:
             stats = dict(stats, outstandingTransactions=len(outstanding))
+            products = {}
+            for product_id in webhook_oracle.announced_products(records, self.platform_uid):
+                read = self.client.call("GET", "/direct/v1/products/{}".format(product_id))
+                if read.ok and isinstance(read.body, dict):
+                    products[product_id] = read.body
             judged, judged_stats = webhook_oracle.check(
                 records, world_now, self.platform_uid, webhook_oracle.intents(self.client.calls),
-                self.failed_payouts, self.completed_seen, grace)
+                self.failed_payouts, self.completed_seen, grace, products)
             findings, stats = findings + judged, dict(stats, **judged_stats)
         return findings, stats
 
