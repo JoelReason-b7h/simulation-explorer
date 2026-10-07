@@ -185,6 +185,7 @@ def check_history(files, out):
     accrued_by_date = defaultdict(dict)
     customers_of_account = {}
     recons = []
+    reemitted = insert_reemits()
     for f in files:
         if f.entity == "RECON":
             recons.append(f)
@@ -195,6 +196,10 @@ def check_history(files, out):
         for r in f.rows:
             ident = r.get(key)
             first = ident not in seen[f.entity]
+            if not first and r.get("ChangeType") == "INSERT" and (f.entity, ident) in reemitted:
+                # The harness asked for this entity to be sent again as an INSERT.
+                reemitted.discard((f.entity, ident))
+                first = True
             # A TRANSACTION row is a new fact every time; only the other three are re-sent.
             if f.entity != "TRANSACTION":
                 if first and r.get("ChangeType") != "INSERT":
@@ -551,6 +556,27 @@ def generate(bank_uid, times):
             break
     ops.close()
     return ["{} x{}".format(k, v) for k, v in statuses.items()]
+
+
+REEMITS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "feed-reemits.jsonl")
+
+
+def insert_reemits():
+    """(file type, entity) pairs the harness asked to be re-emitted as an INSERT."""
+    found = set()
+    try:
+        with open(REEMITS_FILE) as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if entry.get("mode") == "INSERT":
+                    found.add((entry.get("fileType"), entry.get("entity")))
+    except OSError:
+        pass
+    return found
 
 
 def main():

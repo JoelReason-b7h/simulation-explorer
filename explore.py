@@ -2645,6 +2645,8 @@ class Run:
                     entry["fileType"], entry["entity"][:8], entry["fileType"]))
         self.reemits = waiting[-20:]
 
+    REEMITS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "feed-reemits.jsonl")
+
     def reemit_feed_entity(self):
         """Ask the next Direct feed run to re-emit one of this run's customers, accounts or products.
 
@@ -2679,6 +2681,15 @@ class Run:
         if not call.ok:
             return call
         outcome = call.body.get("outcome") if isinstance(call.body, dict) else None
+        if outcome == "REEMIT_QUEUED":
+            # checks/direct_feed.py reads this, because an INSERT re-emit sends the entity as an
+            # INSERT again, which its "a later appearance is an UPDATE" rule would otherwise report.
+            try:
+                with open(self.REEMITS_FILE, "a") as handle:
+                    handle.write(json.dumps({"fileType": file_type, "entity": entity,
+                                             "mode": mode}) + "\n")
+            except OSError:
+                pass
         if outcome == "REEMIT_QUEUED" and after is not None:
             # A file whose run began before the re-emit committed was cut from rows that lack it,
             # even when its sid is newer than `after`. The feed stamps each file with the instant

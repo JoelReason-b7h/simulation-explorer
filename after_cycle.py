@@ -105,7 +105,7 @@ def run_check(script, bank_uid, out, *extra):
 
 
 SERVICES = ("core", "core-ro", "clearing", "adapter", "public-api", "ops-api", "simulator-api",
-            "hot-sauce-bank", "compliance")
+            "hot-sauce-bank", "compliance", "compliance-api")
 ERROR_LINES = 150
 
 
