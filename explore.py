@@ -25,7 +25,7 @@ from explorer import (client, actions, config, driver, faults, fleet, integrity,
                       params, preflight, projector, race, triallog, webhook_oracle, webhooks, weird,
                       world)
 from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose, midjob,
-                      longlived, read_oracle, statement_oracle)
+                      longlived, misref, read_oracle, statement_oracle)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -85,6 +85,7 @@ class Run:
         # Batches live on the run, not on a customer: one spans several customers, several can be
         # outstanding at once, and a batch nobody is standing on must still be payable.
         self.batches = []
+        self.misref_used = set()
         self.batch_at = None
         # Logical time. The bank's business date is not readable over HTTP, so the run counts its
         # own advances from a bank that was approved today.
@@ -1896,6 +1897,7 @@ class Run:
             "OfficerCancelCustomer": type(self).officer_cancel_customer,
             "AdjustNoticeWithdrawals": type(self).adjust_notice_withdrawals,
             "ReemitFeedEntity": type(self).reemit_feed_entity,
+            "SendMisreferencedCredit": type(self).send_misreferenced_credit,
             **{name: (lambda run, name=name: run.run_journey(name)) for name in journeys.ALL},
         }
 
@@ -2702,6 +2704,107 @@ class Run:
             "message": "{} {} {}: {}".format(mode, file_type, entity[:8], call.body),
             "rowsAffected": (call.body or {}).get("rowsAffected")
             if isinstance(call.body, dict) else None, "outcome": outcome}, call.elapsed_ms)
+
+    MISREF_WAIT_SECONDS = 120
+    MISREF_PASS_SECONDS = 10
+
+    def misref_pick(self, variant):
+        """The batch a variant aims at, or None when the run holds no unused one.
+
+        A batch is used once per variant, so no identical credit reaches the bank twice, and a batch
+        whose paymentReference another batch shares is left out.
+        """
+        refs = [b["paymentReference"] for b in self.batches]
+        unshared = [b for b in self.batches
+                    if b.get("batchId") and refs.count(b["paymentReference"]) == 1
+                    and (variant, b["paymentReference"]) not in self.misref_used]
+        if variant in misref.NEEDS_LIVE_BATCH:
+            pool = [b for b in unshared if not b.get("done") and not b.get("payments")
+                    and b.get("status") not in misref.TERMINAL]
+        elif variant in ("cancelled", "settled"):
+            pool = [b for b in unshared if b.get("status") == variant.upper()]
+        else:
+            pool = []
+        return pool[0] if pool else None
+
+    def send_misreferenced_credit(self):
+        """Credit the bank with money that nearly matches a batch, and judge where clearing puts it.
+
+        Judged on clearing's own links from the credit's funding record to payment dues, because
+        that is what moves money, and other batches settle meanwhile for their own reasons.
+        """
+        if not self.spaced("misref_at"):
+            return Call("POST", "SendMisreferencedCredit", 412, {
+                "message": "a misreferenced credit was sent fewer than {} trials ago".format(
+                    self.STACK_CALL_EVERY_TRIALS)}, 0)
+        turn = getattr(self, "misref_turns", 0)
+        self.misref_turns = turn + 1
+        variant = misref.VARIANTS[turn % len(misref.VARIANTS)]
+        target = self.misref_pick(variant)
+        fallback = ""
+        if target is None and variant != "unknown":
+            fallback = "no unused batch for {}, so an unknown reference was sent".format(variant)
+            variant = "unknown"
+        if target is not None:
+            sent = misref.mutate(variant, target["paymentReference"], turn // len(misref.VARIANTS))
+            amount = misref.amount_for(variant, target["required"])
+            self.misref_used.add((variant, target["paymentReference"]))
+        else:
+            live = [b for b in self.batches if b.get("batchId") and not b.get("done")]
+            amount = live[0]["required"] if live else self.LINE_AMOUNT
+            sent = self.mint("m", 16)
+        status_before = self.misref_batch_status(target)
+        rows, error = integrity._psql_on(integrity.CLEARING_DSN,
+                                         "SELECT coalesce(max(sid), 0) FROM funding_record")
+        if error or not rows:
+            return Call("POST", "SendMisreferencedCredit", 412, {
+                "message": "clearing's funding_record could not be read: {}".format(error)}, 0)
+        floor = int(rows[0][0])
+        failed = _first_failure([world.raise_platform_dues(self.ops, self.platform_uid),
+                                 self.credit_and_count("{:.2f}".format(amount), sent)])
+        if failed is not None:
+            return failed
+        if target is not None:
+            target["amended"] = True
+        self.note_in_flight("credit", "a misreferenced credit {!r}".format(sent))
+        failed = _first_failure([self.poll_if_new_money(), world.drain_transactions(self.ops),
+                                 world.settle_payments(self.ops),
+                                 world.drain_transactions(self.ops)])
+        if failed is not None:
+            return failed
+        self.sweeps += 1
+        funding_sql = misref.funding_sql(floor, amount, sent)
+        deadline = time.time() + self.MISREF_WAIT_SECONDS
+        found_at = None
+        while time.time() < deadline:
+            time.sleep(self.MISREF_PASS_SECONDS)
+            funding, _ = integrity._psql_on(integrity.CLEARING_DSN, funding_sql)
+            if funding and found_at is None:
+                found_at = time.time()
+            if found_at is not None and time.time() - found_at >= self.MISREF_PASS_SECONDS:
+                break
+            _first_failure([world.drain_transactions(self.ops),
+                            world.settle_payments(self.ops), world.drain_transactions(self.ops)])
+        funding, _ = integrity._psql_on(integrity.CLEARING_DSN, funding_sql)
+        links, _ = integrity._psql_on(integrity.CLEARING_DSN,
+                                      misref.links_sql(floor, amount, sent))
+        findings, notes = misref.judge(
+            variant, sent, [tuple(r) for r in funding], [tuple(r) for r in links],
+            status_before, self.misref_batch_status(target))
+        for rule, detail, expected, actual in findings:
+            self.note_violation("SendMisreferencedCredit", rule, sent, detail, expected, actual)
+        message = "{} credit of {:.2f} sent as {!r}{}: {}".format(
+            variant, amount, sent,
+            " for batch {}".format(target["batchId"][:8]) if target is not None else "",
+            "; ".join(([fallback] if fallback else []) + notes) or "no finding")
+        return Call("POST", "SendMisreferencedCredit", 200, {"message": message}, 0)
+
+    def misref_batch_status(self, batch):
+        if batch is None or not batch.get("batchId"):
+            return None
+        read = self.client.call("GET", "/direct/v1/batches/{}".format(batch["batchId"]))
+        body = read.body if read.ok and isinstance(read.body, dict) else {}
+        return body.get("status")
 
     # How long a received message stays hidden from other consumers while duplication is on.
     # Zero means it comes back the instant it is received, so the consumer sees it again.
