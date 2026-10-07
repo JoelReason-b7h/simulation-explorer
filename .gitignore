@@ -22,3 +22,4 @@ current.json
 .operator-plan-index
 midjob.pending.json
 feed-reemits.jsonl
+.kill-switch-variant-index
