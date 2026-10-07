@@ -58,6 +58,9 @@ STACK_FAULTS |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 # Credits the bank, then waits on the settlement sweep, which moves every cohort's money.
 STACK_FAULTS |= {"SendMisreferencedCredit"}
 
+# Stops every platform's payments reaching the bank until it is turned off, so one run asks.
+STACK_FAULTS |= {"KillSwitchDuringPayouts"}
+
 
 def is_member():
     return bool(EVENTS) and ROLE == "member"

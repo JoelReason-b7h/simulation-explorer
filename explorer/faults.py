@@ -393,6 +393,8 @@ def restore_stack(why="the run ended"):
             _BANK_STATUS_BEFORE.clear()
     if clear_every_toxic():
         restored.append("every boundary passes traffic through")
+    from explorer import killswitch
+    restored.extend(killswitch.restore(why))
     if restored:
         print("  -- restoring the stack because {}: {}".format(why, "; ".join(restored)))
     return restored

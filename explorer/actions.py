@@ -410,6 +410,10 @@ CORE_SIDE = [
            needs=["customerId", "accountId", "accountReference"], entity="account"),
     Action("ReturnClosurePayment", "POST", "/direct/v1/batches",
            needs=["customerId", "accountId", "accountReference"], entity="account"),
+    # Clearing's payment kill switch on while withdrawals or a closure payout are live, then off
+    # (explorer/killswitch.py). The placeholder path is never called.
+    Action("KillSwitchDuringPayouts", "POST", "/direct/v1/batches",
+           needs=["customerId", "accountId", "accountReference"], entity="account"),
     # In a fleet, this platform's token against another platform's customer and account. The
     # platform is the tenant boundary, so every one of these calls must be refused.
     # The bank's Direct data feed and its RECON, asked for in the middle of the traffic rather than
@@ -462,14 +466,15 @@ CORE_SIDE = [
 
 # Spends the entity, so the driver forks rather than burning its only one.
 SPENDS = {"CloseCustomer", "CloseAccount", "CancelAccountOpening",
-          "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue"}
+          "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
+          "KillSwitchDuringPayouts"}
 
 # Actions the run never races, against each other or against anything else. Each one changes the
 # bank simulator for the whole stack and then puts it back, so two of them at once leave the bank
 # in whichever state the slower one restored, and neither result means anything. One run raced
 # RejectClosurePayment against itself and the returned closure was never tried at all.
 NEVER_RACED = {"RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
-               "RestartMidJob"}
+               "RestartMidJob", "KillSwitchDuringPayouts"}
 # Several calls judged against each other, and a race would put a third between them.
 NEVER_RACED |= {"ReuseBatchReference", "ReuseInstructionReference", "ReuseAccountReference",
                 "ReuseCustomerReference", "ReuseIdempotencyKey"}
@@ -486,7 +491,7 @@ EXPENSIVE_FAULTS = {
     "RestartCompliance", "RestartPublicApi", "RestartSeveral", "RestartMidJob",
     "FundAccountInterrupted", "FundAccountDuplicated", "DuplicateMessages",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
-    "SendMisreferencedCredit",
+    "SendMisreferencedCredit", "KillSwitchDuringPayouts",
 }
 
 RESTARTS = {"RestartClearing", "RestartCore", "RestartBank", "RestartCompliance",
@@ -498,7 +503,7 @@ WORLD = {"SettleWorld", "AdvanceBusinessDay", "RunDataFeed", "ProcessClosures", 
          "SlowBankForClearing", "BreakBankForClearing", "HealTheNetwork",
          "RestartClearing", "RestartCore", "RestartBank",
          "RestartCompliance", "RestartPublicApi", "RestartSeveral", "RestartMidJob",
-         "DuplicateMessages", "StopDuplicating"}
+         "DuplicateMessages", "StopDuplicating", "KillSwitchDuringPayouts"}
 
 # Actions whose after-read looks at a DIFFERENT object than the before-read. Only the two customer
 # creations qualify: each moves the driver onto the new customer, so an edge from the old
