@@ -638,6 +638,12 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   core logs the error with an empty `traceId`, so support cannot link a platform's call to the log;
   that comes from `GlobalExceptionHandler` (`b7h.libs.micronaut`) and affects every unexpected 500.
   Box fleet1 p3 trial 182, under the harness's cut of core's calls to clearing.
+  Seen 2026-10-07: when the platform does not retry, the split stays. Five Direct accounts read OPEN
+  in core while clearing holds their internal account SOFT_CLOSED (`7601f4b1` fleet806 trial 405,
+  `cc6ad960` fleet734, `688f0ffd` fleet746, `dde2785d` fleet758; `999204b5` fleet732 has no matching
+  500 and may be the cancel-opening path). Later deposits still land on the soft-closed account, and
+  only a re-request through `AccountRequested` (`AccountRequestedProcessor:164`) reopens it. The
+  check that finds them had read a dropped column since SAV-11593 and judged nothing until `514de35`.
 - Clearing's `PUBLISHED_ASL_NOT_LINKED_TO_PARTNER_PAYMENT` check
   (`ClearingIntegrityCheckReplicaRepository.java:24-30`) fails for about a second after a statement
   line is published, because the relay consumer writes the `partner_payment` row 0.3 s (median) to
