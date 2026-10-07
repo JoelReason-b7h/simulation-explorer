@@ -422,7 +422,9 @@ def accounts_core_and_clearing_disagree_on_closing(limit=LIMIT):
     if not core:
         return [], []
     closed, error = _psql_on(CLEARING_DSN,
-        "SELECT account_uid FROM internal_account WHERE soft_closed AND account_uid IN ({})"
+        # SAV-11593 dropped soft_closed; access_status is now the only record of a soft close.
+        "SELECT account_uid FROM internal_account WHERE access_status = 'SOFT_CLOSED' "
+        "AND account_uid IN ({})"
         .format(", ".join("'{}'".format(u) for u in core)))
     if error:
         return [], ["clearing accounts: {}".format(error)]
@@ -435,8 +437,8 @@ def accounts_core_and_clearing_disagree_on_closing(limit=LIMIT):
             "subject": product_account,
             "detail": "account {} reads {} in core, and clearing has soft-closed {}".format(
                 product_account, status, account_uid),
-            "expected": "soft_closed false in clearing",
-            "actual": "soft_closed true",
+            "expected": "access_status OPEN in clearing",
+            "actual": "access_status SOFT_CLOSED",
             "row": list(core[account_uid]),
         })
     return findings[:limit], []
