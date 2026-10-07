@@ -502,48 +502,33 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     refused"). Low.
 
 45. **An officer CLOSE answers 500 after the customer is already CLOSED, and the override record
-    is not written.** No ticket yet. `CustomerStatusOverrideService.closeThroughCore` (compliance-api,
+    is not written.** Cause tracked by SAV-11732 (pooled connections reused as the server closes
+    them, In Development). `CustomerStatusOverrideService.closeThroughCore` (compliance-api,
     `:93-94` at 2fb856f49e) calls core's `closeCustomer` first, and core closes the customer and
     pushes CLOSED to compliance. Then `flowInterventionClient.updateCustomerStatus` records the
     override run, its kyc_check and the officer's notes. In fleet706 p3 that second call failed
     with `ResponseClosedException: Connection closed before response was received`, and
     `GlobalExceptionHandler` answered 500. Customer `e3d89892` is CLOSED in core and compliance,
-    the officer sees a 500, and no override record exists. Neither call is retried, and a repeat
-    CLOSE is refused because the customer is already CLOSED. No restart or fault was in force.
-    compliance-api logged the same exception twice in two days. Rare, low.
+    the officer sees a 500, and no override record exists. A repeat CLOSE is refused because the
+    customer is already CLOSED. SAV-11732 removes the closed connection; the two calls stay
+    non-atomic. Rare, low.
 
-46. **The 03:00 notice-withdrawal run aborts when a realisation overtakes the account's accrual.**
-    No ticket yet. `InterestSchedulerRepository.updateRealisedInterestSchedule` (`:178`, from
-    `RealisedInterestCreationService:87`) sets `realised_last_value_date` to the business date,
-    and `interest_processing_schedule`'s `ck_accrual_next_date_after_realised_last_date` refuses
-    it when `accrual_next_value_date` is earlier: `Failing row contains (17, 45, 2026-12-28
-    20:00:55+00, 2026-12-27, 2026-12-28, 2026-12-29 03:00:01+00, 2026-12-29, 2026-12-30)`.
-    `DefaultTaskExceptionHandler` logs the whole scheduler run as failed, so the other notice
-    accounts in that run wait for the next one. Box: 8 times in fleets 726-791, 15 in 600-718.
-    The accrual lag probably comes from the bank business date being a day behind (finding 47);
-    nothing guards a realisation dated past the accrual. Medium.
-
-47. **A bank created between its evening date roll and midnight keeps a business date one day
-    behind, and BANK_BUSINESS_DATE_CHECK fails every night.** No ticket yet.
-    `DbIntegrityCheckService` (`:185-188`) wants the bank's `business_date` in [today, today+1].
-    `nextDay()` raises it once a day at about 20:00, and the box bank was created at 22:19 on
-    2026-12-25, after that day's roll, so the date has trailed by one ever since: from midnight to
-    about 20:00 each day the check fails (`businessDate [2027,1,6]` at 00:04 on 01-07). 298 lines
-    in 70 of 74 fleets from 700, when the clock and bank were replaced. Not yet proved to be the
-    whole cause; a bank created in that window in production would show the same. Low.
-
-48. **The ops "statement lines with exceptions" read is unpaginated and fails once the list
-    passes 10 MiB.** No ticket yet. `OpsPortalAccountController.fetchStatementLinesWithExceptions`
-    (`:125-126`) returns clearing's whole list (`AccountStatementOperations:19`), and the clearing
-    client refuses the body: `ContentLengthExceededException: The received length [10493952]
-    exceeds the maximum allowed content length [10485760]`. The ops portal's exceptions view, and
-    the MI_RECON report that reads the same list, then fail. Box: 55 times in fleets 784-798 and
-    252 in 600-630, with 17,904 EXCEPTION lines held. Those lines are harness funding credits with
-    an empty `/REMI/` reference that never match (about 1,400 a day), so the volume is harness-made;
-    the missing paging is not. Medium.
+46. **SAV-11791: the 03:00 notice-withdrawal job aborts for every account when one CLOSING notice
+    account's bank is a day behind.** Already raised (New, assigned to Joel). The realisation
+    uses the calendar date, `ck_accrual_next_date_after_realised_last_date` refuses it, and the
+    job's one transaction rolls back every account. Box again: 8 times in fleets 726-791, with
+    the box bank's cycle at 20:00.
 
 ## Checked and holding
 
+- BANK_BUSINESS_DATE_CHECK fails every night from fleet700 (298 lines in 70 of 74 fleets): the
+  bank's business date moves at its 20:00 cycle, so from midnight to 20:00 it is a day behind the
+  wall clock. `explorer/integrity.py` already lists it in `MOVED_BY_THE_HARNESS`; harness-made.
+- The ops "statement lines with exceptions" read fails past 10 MiB
+  (`ContentLengthExceededException` at `OpsPortalAccountController:126`, 55 times in fleets
+  784-798) because the harness has left 17,904 funding credits with an empty `/REMI/` reference
+  unmatched in clearing. Production never holds that many, so this is a harness defect: the
+  harness funding that leaves those credits unmatched needs fixing, not the endpoint.
 - A month-boundary burst of CUSTOMER_DOCUMENT_CREATED filled core's webhook delivery pool in
   fleet752 (379 `RejectedExecutionException` lines at `WebhookSender:170`, about 06:01 on the 1st).
   Each refused event stays AWAITING_RESPONSE and the resend scheduler sends it later, so nothing is
