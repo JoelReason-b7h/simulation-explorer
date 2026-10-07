@@ -13,9 +13,11 @@ lock alone says nothing, because `lock_until` stays in the future after the job 
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 
 from explorer.integrity import CLEARING_DSN, CORE_DSN, _psql_on
 
@@ -30,6 +32,11 @@ POLL_SECONDS = 0.3
 RECOVERY_SECONDS = 600.0
 
 SCHEDULE_TABLES = ("bank_event_schedule", "platform_event_schedule")
+
+# Interrupted jobs still waiting to be judged. A cycle lasts fifteen minutes, so a restart in its
+# second half was never judged before the run ended; the next cycle's conductor reads them here.
+PENDING_FILE = Path(os.environ.get(
+    "SIM_MIDJOB_PENDING", Path(__file__).resolve().parent.parent / "midjob.pending.json"))
 
 
 def _at(text):
@@ -56,7 +63,16 @@ class Watcher:
         self.seen = {service: {} for service in DSN}
         # Each lock's last two locked_at values, so a minute job can be told from a daily one.
         self.history = {}
-        self.pending = []
+        try:
+            self.pending = json.loads(PENDING_FILE.read_text())
+        except (OSError, ValueError):
+            self.pending = []
+
+    def _save(self):
+        try:
+            PENDING_FILE.write_text(json.dumps(self.pending))
+        except OSError:
+            pass
 
     def _record(self, service, locks):
         for name, at in locks.items():
@@ -100,12 +116,14 @@ class Watcher:
 
     def interrupted(self, job):
         self.pending.append(dict(job, healthyAt=time.time()))
+        self._save()
 
     def check(self, note):
         """Report each interrupted job that has not recovered once its time is up."""
         due = [j for j in self.pending if time.time() - j["healthyAt"] >= RECOVERY_SECONDS]
         for job in due:
             self.pending.remove(job)
+            self._save()
             if job["kind"] == "schedule":
                 rows, error = _psql_on(CORE_DSN, "SELECT status, run_started_at FROM {} WHERE sid "
                                                  "= {}".format(job["table"], int(job["sid"])))

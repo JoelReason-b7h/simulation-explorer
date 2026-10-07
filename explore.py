@@ -2880,12 +2880,20 @@ class Run:
         if call.status != 200:
             return call
         self.midjob.interrupted(job)
+        # The trial log keeps no message for a 200, so the events file is where the job is named.
+        fleet.note("restart", "a restart of {} while {} ran".format(job["service"], job["job"]))
         return Call("POST", "restart-mid-job", 200, {
             "message": "{} was restarted while {} ran, from {}: {}".format(
                 job["service"], job["job"], job["started"], call.body.get("message"))}, 0)
 
     def midjob_check(self):
-        if hasattr(self, "midjob"):
+        # Only the conductor restarts, so only it holds the pending file. Checked every twenty
+        # trials, because each check costs a psql call per job due.
+        if fleet.is_member() or self.steps % 20:
+            return
+        if not hasattr(self, "midjob"):
+            self.midjob = midjob.Watcher()
+        if self.midjob.pending:
             self.midjob.check(lambda rule, subject, detail, expected, actual: self.note_violation(
                 "RestartMidJob", rule, subject, detail, expected, actual))
 

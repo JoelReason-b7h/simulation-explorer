@@ -20,3 +20,4 @@ current.json
 
 # The operator decision plan counter, specific to one local stack.
 .operator-plan-index
+midjob.pending.json
