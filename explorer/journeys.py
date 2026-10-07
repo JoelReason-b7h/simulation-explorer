@@ -1079,3 +1079,7 @@ ALL.update(journeys_ops.ALL)
 from explorer import journeys_softclose  # noqa: E402
 
 ALL.update(journeys_softclose.ALL)
+
+from explorer import journeys_maturity  # noqa: E402
+
+ALL.update(journeys_maturity.ALL)
