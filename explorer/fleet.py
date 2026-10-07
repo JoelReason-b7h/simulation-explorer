@@ -55,6 +55,9 @@ STACK_FAULTS = {
 # withdrawal, and a re-emit changes the next feed file of the bank.
 STACK_FAULTS |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
 
+# Credits the bank, then waits on the settlement sweep, which moves every cohort's money.
+STACK_FAULTS |= {"SendMisreferencedCredit"}
+
 
 def is_member():
     return bool(EVENTS) and ROLE == "member"

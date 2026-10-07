@@ -471,6 +471,7 @@ EXPENSIVE_FAULTS = {
     "RestartCompliance", "RestartPublicApi", "RestartSeveral", "RestartMidJob",
     "FundAccountInterrupted", "FundAccountDuplicated", "DuplicateMessages",
     "RejectClosurePayment", "ReturnClosurePayment", "CloseNoticeAfterDue",
+    "SendMisreferencedCredit",
 }
 
 RESTARTS = {"RestartClearing", "RestartCore", "RestartBank", "RestartCompliance",
@@ -529,6 +530,10 @@ CORE_SIDE += [
            entity="account"),
     Action("ReemitFeedEntity", "POST", "/direct/v1/batches", needs=["accountId"],
            entity="account"),
+    # Credits the bank with money that nearly matches a batch: a reference off by case, affix,
+    # whitespace or length, a cancelled, settled or unknown batch's, or an amount a penny out.
+    Action("SendMisreferencedCredit", "POST", "/direct/v1/batches", needs=["batchPaymentReference"],
+           entity="batch"),
 ]
 
 SPENDS |= {"OfficerCloseCustomer", "OfficerRejectCustomer", "OfficerCancelCustomer"}
@@ -537,9 +542,10 @@ SPENDS |= {"OfficerCloseCustomer", "OfficerRejectCustomer", "OfficerCancelCustom
 # that record describing a call that lost.
 NEVER_RACED |= {"TransferToProduct", "SetMaturityToNotice", "OfficerCloseCustomer",
                 "OfficerRejectCustomer",
-                "OfficerCancelCustomer", "AdjustNoticeWithdrawals", "ReemitFeedEntity"}
+                "OfficerCancelCustomer", "AdjustNoticeWithdrawals", "ReemitFeedEntity",
+                "SendMisreferencedCredit"}
 
-WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity"}
+WORLD |= {"AdjustNoticeWithdrawals", "ReemitFeedEntity", "SendMisreferencedCredit"}
 
 # Multi-step journeys (explorer/journeys.py). Each makes a customer of its own and walks it end
 # to end, so the subject the driver stands on only has to exist; the placeholder path is never
