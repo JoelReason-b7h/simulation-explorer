@@ -25,7 +25,7 @@ from explorer import (client, actions, config, driver, faults, fleet, integrity,
                       params, preflight, projector, race, tenancy, triallog, webhook_oracle, webhooks, weird,
                       world)
 from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose, midjob,
-                      longlived, misref, read_oracle, statement_oracle)
+                      keyreuse, longlived, misref, read_oracle, statement_oracle)
 from explorer.client import BearerClient, Call, DirectClient
 
 # No natural end: the frontier keeps growing as new states appear, so the run continues
@@ -1930,6 +1930,11 @@ class Run:
             "RestartSeveral": type(self).restart_several,
             "RestartMidJob": type(self).restart_mid_job,
             "ReplayLastCall": type(self).replay_last_call,
+            "ReuseBatchReference": keyreuse.reuse_batch_reference,
+            "ReuseInstructionReference": keyreuse.reuse_instruction_reference,
+            "ReuseAccountReference": keyreuse.reuse_account_reference,
+            "ReuseCustomerReference": keyreuse.reuse_customer_reference,
+            "ReuseIdempotencyKey": keyreuse.reuse_idempotency_key,
             "FundAccountDuplicated": type(self).fund_account_duplicated,
             "RejectClosurePayment": type(self).reject_closure_payment,
             "ReturnClosurePayment": type(self).return_closure_payment,
