@@ -22,7 +22,7 @@ import sys
 import httpx
 
 from explorer import (client, actions, config, driver, faults, fleet, integrity, ledger, oracles,
-                      params, preflight, projector, race, triallog, webhook_oracle, webhooks, weird,
+                      params, preflight, projector, race, tenancy, triallog, webhook_oracle, webhooks, weird,
                       world)
 from explorer import (clock, document_oracle, interest_oracle, journeys, journeys_softclose, midjob,
                       longlived, read_oracle, statement_oracle)
@@ -734,6 +734,10 @@ class Run:
                        and (l.get("type") or l.get("instructionType")) == "WITHDRAWAL"
                        and l.get("instructionId")]
             if waiting:
+                if subject.get("instructionId") != waiting[0]["instructionId"]:
+                    fleet.share_subject(subject.get("customerId"), subject.get("accountId"),
+                                        subject.get("productId"),
+                                        instruction_id=waiting[0]["instructionId"])
                 subject["instructionId"] = waiting[0]["instructionId"]
             else:
                 subject.pop("instructionId", None)
@@ -775,6 +779,9 @@ class Run:
                 and target.get("customerId")):
             fleet.share_subject(target["customerId"], body.get("accountId"),
                                 target.get("productId"))
+        if body.get("batchId") and target.get("customerId"):
+            fleet.share_subject(target["customerId"], target.get("accountId"),
+                                target.get("productId"), batch_id=body["batchId"])
         if body.get("accountId"):
             seen = target.setdefault("accounts", [])
             if body["accountId"] not in [a["id"] for a in seen]:
@@ -1022,9 +1029,53 @@ class Run:
                 row["inFlight"] = []
                 row["attribution"] = "ProbeOtherPlatform alone"
                 self.record_violation(row, violation)
+        calls.extend(self.probe_foreign_write_or_read())
         worst = max(calls, key=lambda c: (c[1].ok, c[1].status))[1]
         return Call("GET", "ProbeOtherPlatform", 403 if not worst.ok else worst.status,
                     {"message": "; ".join("{} {}".format(w, c.status) for w, c in calls)}, 0)
+
+    def probe_foreign_write_or_read(self):
+        """One more call with another platform's identifiers, rotating through explorer/tenancy.py.
+
+        Close and cancel probes are sent although success would be destructive: a 2xx is the
+        defect being looked for, and core's rows for the customer are read before and after, so a
+        call the service wrongly honoured shows in both the status and the state.
+        """
+        shared = fleet.foreign_subject(lambda found: found) or []
+        own = {p for _, p in self.products.values()} | {self.product_id}
+        candidates = []
+        for entry in reversed(shared[-12:]):
+            if not entry.get("customerId"):
+                continue
+            document = tenancy.document_of(entry["customerId"])
+            candidates += [(entry, probe) for probe in tenancy.probes_for(
+                entry, self.mint, own, document)]
+        if not candidates:
+            return []
+        theirs, probe = candidates[self.steps % len(candidates)]
+        customer = theirs["customerId"]
+        before = tenancy.fingerprint(customer) if probe.writes else None
+        call = self.client.call(probe.method, probe.path, json_body=probe.body)
+        after = tenancy.fingerprint(customer) if probe.writes else None
+        problems = []
+        if call.ok:
+            problems.append((probe.rule, "answered {}".format(call.status)))
+        elif call.status in tenancy.NOT_JUDGED:
+            pass
+        elif call.status not in tenancy.REFUSALS:
+            problems.append((probe.rule, "was not refused as unknown or forbidden but answered {}"
+                             .format(call.status)))
+        for part, was, now in tenancy.changed_parts(before, after):
+            problems.append(("another platform's customer is unchanged by a refused call",
+                             "{} went from '{}' to '{}'".format(part, was, now)))
+        for rule, what in problems:
+            self.note_violation(
+                "ProbeOtherPlatform", rule, customer,
+                "{} {} for {}'s customer {}".format(probe.method, probe.path, theirs.get("run"),
+                                                    what),
+                expected="a refusal of 400, 403 or 404, and no change to the other platform's data",
+                actual="{} {}".format(call.status, str(call.body)[:300]), body=call.body)
+        return [(probe.name, call)]
 
     def fund_account(self):
         """The grouped action §3 declares as plumbing: batch, credit, poll, process, dues, settle.

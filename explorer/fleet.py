@@ -110,15 +110,21 @@ def _subjects_file():
     return EVENTS[:-len(".events.jsonl")] + ".subjects.jsonl" if EVENTS else None
 
 
-def share_subject(customer_id, account_id=None, product_id=None):
-    """Tell the other runs about a customer this platform holds, so they can try to reach it."""
+def share_subject(customer_id, account_id=None, product_id=None, batch_id=None,
+                  instruction_id=None):
+    """Tell the other runs about a customer this platform holds, so they can try to reach it.
+
+    A batch or an instruction is shared as its own entry beside the customer's, because it is
+    created long after the customer is.
+    """
     path = _subjects_file()
     if not path or not customer_id:
         return
     try:
         with open(path, "a") as handle:
             handle.write(json.dumps({"run": NAME, "customerId": customer_id,
-                                     "accountId": account_id, "productId": product_id}) + "\n")
+                                     "accountId": account_id, "productId": product_id,
+                                     "batchId": batch_id, "instructionId": instruction_id}) + "\n")
     except OSError:
         pass
 

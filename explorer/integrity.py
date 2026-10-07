@@ -709,13 +709,19 @@ SYSTEM_CHECK_ENDPOINTS = (
     "/operations/processor/clearing-integrity-checks",
     "/operations/processor/internal-reconciliation",
     "/operations/processor/order-flow-checks",
+    "/operations/processor/interest-checks",
 )
 
-# Where each service writes its results. The two tables carry the same columns under different
-# names, so each query is written out rather than shared.
+# Where each service writes its results. The tables carry the same columns under different
+# names, so each query is written out rather than shared. Core's interest checks write
+# interest_integrity_check, not db_integrity_check (SAV-11730 moved the two interest checks there).
 SYSTEM_CHECK_TABLES = (
     ("core", CORE_DSN,
      "SELECT check_name, check_details, created_at FROM db_integrity_check "
+     "WHERE check_passed = false AND created_at > now() - interval '{minutes} minutes' "
+     "ORDER BY created_at DESC LIMIT {limit}"),
+    ("core interest", CORE_DSN,
+     "SELECT check_name, check_details, created_at FROM interest_integrity_check "
      "WHERE check_passed = false AND created_at > now() - interval '{minutes} minutes' "
      "ORDER BY created_at DESC LIMIT {limit}"),
     ("clearing", CLEARING_DSN,
