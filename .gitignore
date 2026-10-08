@@ -23,3 +23,4 @@ current.json
 midjob.pending.json
 feed-reemits.jsonl
 .kill-switch-variant-index
+service-errors.seen.json

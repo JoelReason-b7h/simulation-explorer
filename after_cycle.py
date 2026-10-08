@@ -21,7 +21,7 @@ import tarfile
 import time
 from pathlib import Path
 
-from explorer import clock, ledger
+from explorer import clock, ledger, service_errors
 
 HERE = Path(__file__).resolve().parent
 FINDINGS = HERE / "findings"
@@ -355,6 +355,8 @@ def main():
         summary["sanity"].append("clearing has {} preloaded accounts left, under {}".format(
             available, MIN_PRELOADED))
     summary["serviceErrors"] = keep_service_errors(name)
+    new_errors = service_errors.judge(name, HERE / "{}.service-errors.log".format(name))
+    summary["newServiceErrors"] = new_errors
     try:
         summary["tableGrowth"] = table_growth()
     except (OSError, subprocess.SubprocessError) as fault:
@@ -382,11 +384,11 @@ def main():
             summary["sanity"].append("the data feed wrote no files for bank {}".format(bank))
     summary["newRules"] = sorted(new_rules)
     file_failures = [k for k in ("feed", "mi", "feedValues") if summary.get(k, {}).get("exit")]
-    quiet = not summary["sanity"] and not new_rules and not file_failures
+    quiet = not summary["sanity"] and not new_rules and not file_failures and not new_errors
     summary["quiet"] = quiet
     # Only a potential product issue is worth the rows behind it: a violation of a rule not yet
-    # known, or a file check that failed. A harness sanity problem alone takes no dump.
-    if new_rules or file_failures:
+    # known, an ERROR signature no cycle has logged before, or a file check that failed. A harness sanity problem alone takes no dump.
+    if new_rules or file_failures or new_errors:
         import cycle
         kept = cycle.dump_databases(name)
         summary["databases"] = str(kept) if kept else None
