@@ -519,6 +519,41 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     job's one transaction rolls back every account. Box again: 8 times in fleets 726-791, with
     the box bank's cycle at 20:00.
 
+47. **Ops can break a Direct TERM deposit, and the account matures with its money still on it.**
+    No ticket yet. `POST /operations/own/account/{id}/term/maturity/break` reaches
+    `DepositBreakingService.requestDepositBreak` (`:86`), whose checks (`getDepositBreakProcessingContext`
+    `:99-104`) are only an OPEN account, a non-zero balance and a TERM or NOTICE product
+    (`requiresTermOrNoticeProductType`, `:236`); nothing refuses a Direct account, so it runs the Trust
+    break (`breakTermDeposit`, `:167`). The box's JourneyTermMaturity broke 98 Direct TERMs from
+    fleet819 (rule "the ops term maturity break is not applied to a Direct TERM account", 95 hits):
+    each answered 200, `customer_product_break_request` is APPROVED, the account reads MATURED with
+    50.00 on it, and `customer_product_account_maturity.due_date` is rewritten to the bank date, a day
+    before the account was created (`1fcf7d89`, `114c47b9`, `c47c5e2b`). The account then reads a
+    maturity a month early through the Direct API and accrues 0 on 50.00. Medium: an operator's
+    mistake on one account, but nothing Direct-side pays the money out.
+
+48. **An ops balance adjustment is value-dated with the wall-clock date, so the ledger orders it
+    after deposits booked later.** No ticket yet. `CustomerProductAccountAdjustmentService` (`:86`)
+    books the ADJUSTMENT with `timeProvider.getLocalDate()`, while every other Direct booking uses
+    the bank's business date. Box account `42626690` (AdjustCustomerAccount, fleet809): ADJUSTMENT
+    0.05 value-dated 2027-01-08, then 22 SAVINGS_DEPOSIT rows created after it value-dated
+    2027-01-07, so the ledger in (value date, created) order ends at 3.05 while the account holds
+    72.05. Core's PRODUCT_ACCOUNT_RUNNING_BALANCE_CHECK and PRODUCT_ACCOUNT_BALANCE_CHECK fail on it
+    every cycle (652 and 176 lines from fleet809), and the Direct feed's UpdatedBalance chain breaks
+    (72.05 -> 3.05 for 0.05). Same on `d5fbe4f5` and `8f9d2aa7`. The window is the gap between
+    midnight and the bank's accrual run, the same shape as the FEES wall-clock date held below.
+    Low to medium.
+
+49. **A batch placed while one of its accounts stops accepting instructions answers 500 with an
+    internal sentence.** No ticket yet. The bulk insert in `DirectBatchInstructionRepository` only
+    inserts rows for accounts `IN ('REQUESTED', 'OPEN')` (`:306`), and a concurrent cancel or close
+    makes the count short, so `insertAcceptedOrderBatch` throws `IllegalStateException` (`:341`):
+    "Direct batch insert row-count mismatch: expected 1 instruction rows, inserted 0; an account may
+    have stopped accepting instructions mid-placement". `IllegalStateExceptionHandler` answers 500
+    and shows the platform that text. Box fleet813 p2 trial 549 (RACE CancelAccountOpening +
+    FundAccount) and fleet921 (expected 4, inserted 3). The transaction rolls back, so nothing is
+    booked; the answer should be a 4xx naming the account's state. Low.
+
 ## Checked and holding
 
 - BANK_BUSINESS_DATE_CHECK fails every night from fleet700 (298 lines in 70 of 74 fleets): the
@@ -558,8 +593,6 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
   compares the signed `customer_amount` (`DirectCustomerTransactionService`), while `MoneyString`
   refuses a negative bound, so no `valueAmountFrom`/`valueAmountTo` pair can select withdrawals by
   size. JourneyReadModels now exercises the filters.
-- Candidate from code reading: ops `POST /operations/own/account/{id}/term/maturity/break`
-  (`DepositBreakingService`) runs the Trust break flow and shows no Direct guard.
 
 - Under investigation, not yet a finding: INSTANT accounts left CLOSING with a live interest
   schedule keep accruing and realising and never reach the closure sweep, which needs both
