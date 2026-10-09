@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 
-from explorer import actions
+from explorer import actions, fleet
 from explorer.client import Call
 
 SHOWN = 700
@@ -56,6 +56,10 @@ def account_rows(x, customer_id):
         return None
     return sorted((_pick(r, ("accountId", "accountReference", "balance")) for r in rows),
                   key=_text)
+
+
+def _account_ids(rows):
+    return sorted(str(r.get("accountId")) for r in rows)
 
 
 def instruction_ids(x, customer_id):
@@ -142,7 +146,10 @@ def judge(x, action, rule, subject, first, second, documented, same_as_first, ex
     object it counted itself.
     """
     broken = list(extra)
-    if second.status >= 500:
+    # Fleets 1-936: every ReuseCustomerReference 5xx fell in a core or clearing restart.
+    if second.status >= 500 and (x.live_fault() or fleet.peer_fault()):
+        pass
+    elif second.status >= 500:
         broken.append((REFUSAL_OR_FIRST, "the second call failed with {}".format(
             _observed(second))))
     elif second.ok and documented and not same_as_first(second):
@@ -326,9 +333,13 @@ def _unchanged(x, extra, customer, accounts, instructions, read_first, first_vie
     """Append each way the first object, the balances or the instruction list moved."""
     if accounts is not None:
         now = account_rows(x, customer)
-        if now is not None and now != accounts:
-            extra.append(("no balance moves and no account appears",
-                          "accounts read {} before and {} after".format(_text(accounts), _text(now))))
+        # Ids only: settlements from earlier actions land between the reads and move balances
+        # even when the refused second call did nothing (about 60 hits, fleets 1-936).
+        was_ids, now_ids = _account_ids(accounts), _account_ids(now or ())
+        if now is not None and now_ids != was_ids:
+            extra.append(("no account appears",
+                          "account ids read {} before and {} after".format(
+                              _text(was_ids), _text(now_ids))))
     if instructions is not None:
         now = instruction_ids(x, customer)
         if now is not None and now != instructions:

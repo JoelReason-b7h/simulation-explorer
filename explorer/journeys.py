@@ -387,28 +387,30 @@ class Journey:
                     row.get("amount"))
         return total, by_type
 
-    def conserved(self, funded, paid_out, label):
-        """Across the customer's accounts: balances == funded - paid out + interest, and every
-        transfer's two legs cancel."""
+    def conserved(self, funded, paid_out, label, returned=ZERO):
+        """Across the customer's accounts: balances == funded - paid out + returned + interest,
+        and every transfer's two legs cancel.
+
+        `returned` is a payout the bank refused: it comes back to savings as a new DEPOSIT row."""
         read = self.money()
         if read is None:
             self.step("read the money at " + label, "unreadable")
             return
         total, by_type = read
         interest = by_type.get("INTEREST", ZERO)
-        expected = funded - paid_out + interest
+        expected = funded - paid_out + returned + interest
         self.expect(total.compare(expected) == 0,
                     "a customer's money is conserved across its accounts",
                     "at {}: the accounts hold {} against {} funded, {} paid out and {} interest"
                     .format(label, total, funded, paid_out, interest), expected, total,
                     body={k: str(v) for k, v in by_type.items()})
-        self.expect(by_type.get("DEPOSIT", ZERO).compare(funded + self.moved) == 0,
+        self.expect(by_type.get("DEPOSIT", ZERO).compare(funded + self.moved + returned) == 0,
                     "the deposits booked are the deposits funded and the transfers in",
                     "at {}: DEPOSIT rows sum to {} against {} funded and {} transferred".format(
                         label, by_type.get("DEPOSIT", ZERO), funded, self.moved),
-                    funded + self.moved, by_type.get("DEPOSIT", ZERO))
-        self.step("money conserved at " + label, "{} = {} - {} + {}".format(
-            total, funded, paid_out, interest))
+                    funded + self.moved + returned, by_type.get("DEPOSIT", ZERO))
+        self.step("money conserved at " + label, "{} = {} - {} + {} + {}".format(
+            total, funded, paid_out, returned, interest))
 
     def next_day(self):
         """A business date advance: made here on the clock keeper, waited for elsewhere."""

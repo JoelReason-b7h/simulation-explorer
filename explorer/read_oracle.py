@@ -988,6 +988,14 @@ def read_products(platform_uid):
     return products
 
 
+def _version_window(product):
+    """Every record version core held from the product read to after the API reads, as strings."""
+    low, high = _int(product["version"]), _int(product.get("version_after", product["version"]))
+    if low is None or high is None:
+        return {str(product["version"]), str(product.get("version_after", product["version"]))}
+    return {str(v) for v in range(min(low, high), max(low, high) + 1)}
+
+
 def fetch_products(client, findings, stats):
     """{platform product uid: {"body", "stable"}} from the list and the single reads."""
     listed = client.call("GET", "/direct/v1/products", params={"take": 1000})
@@ -1034,6 +1042,11 @@ def check_products(client, platform_uid, today, findings, stats):
                          "is {}".format(uid, call.status, product["access"]), 200, call.status)
             continue
         reads[uid] = {"body": call.body, "stable": True}
+        # A rate or fee change bumps a TERM product's version between reads (fleets 850, 865, 887).
+        moved = _first("SELECT record_version FROM bank_product WHERE sid = {}".format(
+            int(product["bp"])))
+        if moved:
+            product["version_after"] = moved[0]
         slices_after = rate_slices(*read_rate_rows(product["bp"], product["plp"]))
         # rows are read after the call, so a rate approved during it shows as a change.
         reads[uid]["stable"] = _slice_key(slices_before) == _slice_key(slices_after)
@@ -1041,9 +1054,14 @@ def check_products(client, platform_uid, today, findings, stats):
                       "product read")
         stats["productsChecked"] += 1
         in_list = listed.get(uid)
+        keys = []
         if in_list is not None and reads[uid]["stable"] and in_list != call.body:
+            window = _version_window(product)
             keys = sorted(k for k in set(in_list) | set(call.body)
-                          if in_list.get(k) != call.body.get(k))
+                          if in_list.get(k) != call.body.get(k)
+                          and not (k == "recordVersion" and {str(in_list.get(k)),
+                                                             str(call.body.get(k))} <= window))
+        if keys:
             findings.add("the product list and the single read agree", uid,
                          "GET /direct/v1/products lists product {} with {} different from "
                          "GET /direct/v1/products/{}".format(uid, keys, uid),
@@ -1244,8 +1262,9 @@ def check_static(product, body, findings, source):
     hold("a product reads its tax wrappers", "taxWrappers", sorted(set(body.get("taxWrappers")
                                                                          or [])),
          product["wrappers"])
-    hold("a product reads its record version", "recordVersion", body.get("recordVersion"),
-         str(product["version"]))
+    shown = body.get("recordVersion")
+    hold("a product reads its record version", "recordVersion", shown,
+         shown if str(shown) in _version_window(product) else str(product["version"]))
     bank = body.get("bank") or {}
     hold("a product reads its bank", "bank.bankName", bank.get("bankName"), product["bank"])
     hold("a product reads its bank colour", "bank.colorHexCode", bank.get("colorHexCode"),
