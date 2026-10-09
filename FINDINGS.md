@@ -540,9 +540,10 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     2027-01-07, so the ledger in (value date, created) order ends at 3.05 while the account holds
     72.05. Core's PRODUCT_ACCOUNT_RUNNING_BALANCE_CHECK and PRODUCT_ACCOUNT_BALANCE_CHECK fail on it
     every cycle (652 and 176 lines from fleet809), and the Direct feed's UpdatedBalance chain breaks
-    (72.05 -> 3.05 for 0.05). Same on `d5fbe4f5` and `8f9d2aa7`. The window is the gap between
-    midnight and the bank's accrual run, the same shape as the FEES wall-clock date held below.
-    Low to medium.
+    (72.05 -> 3.05 for 0.05). Same on `d5fbe4f5` and `8f9d2aa7`. The dates differ between midnight
+    and the bank's accrual run. The FEES wall-clock date held below never hits that gap, because the
+    scheduled fee withdrawal runs after the accrual run; an adjustment is made by hand at any time,
+    so nothing keeps it out of the gap. Low to medium.
 
 49. **A batch placed while one of its accounts stops accepting instructions answers 500 with an
     internal sentence.** No ticket yet. The bulk insert in `DirectBatchInstructionRepository` only
