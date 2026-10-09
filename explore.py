@@ -1065,16 +1065,22 @@ class Run:
         call = self.client.call(probe.method, probe.path, json_body=probe.body)
         after = tenancy.fingerprint(customer) if probe.writes else None
         problems = []
+        refused = call.status in tenancy.REFUSALS
+        # A 5xx or 598 inside a restart or outage says the fault works, not that the call got through.
+        faulted = call.status >= 500 and (self.live_fault() or fleet.peer_fault())
         if call.ok:
             problems.append((probe.rule, "answered {}".format(call.status)))
-        elif call.status in tenancy.NOT_JUDGED:
+        elif call.status in tenancy.NOT_JUDGED or faulted:
             pass
-        elif call.status not in tenancy.REFUSALS:
+        elif not refused:
             problems.append((probe.rule, "was not refused as unknown or forbidden but answered {}"
                              .format(call.status)))
-        for part, was, now in tenancy.changed_parts(before, after):
-            problems.append(("another platform's customer is unchanged by a refused call",
-                             "{} went from '{}' to '{}'".format(part, was, now)))
+        # A refused call changed nothing, so a differing fingerprint is the other run's own work
+        # (fleets 861, 894, 920, 929: 400 "Customer not found" beside its customer's updates).
+        if not refused and not faulted:
+            for part, was, now in tenancy.changed_parts(before, after):
+                problems.append(("another platform's customer is unchanged by a refused call",
+                                 "{} went from '{}' to '{}'".format(part, was, now)))
         for rule, what in problems:
             self.note_violation(
                 "ProbeOtherPlatform", rule, customer,

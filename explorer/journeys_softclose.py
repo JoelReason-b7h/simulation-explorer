@@ -218,10 +218,22 @@ def _withdraw(j, holder, amount, label, product_state):
              len(live), body=dues)
     if paid and live:
         holder["paidOut"] += amount
-        j.conserved(holder["funded"], holder["paidOut"], "the withdrawal {}".format(when))
+        j.conserved(holder["funded"], holder["paidOut"], "the withdrawal {}".format(when),
+                    _returned(j, holder))
     elif not paid:
         holder["unsettled"] = {"amount": amount, "when": when, "calls": 0, "live": bool(live)}
     return True
+
+
+def _returned(j, holder):
+    """What the bank refused to pay out and savings took back as a new DEPOSIT row.
+
+    The fake bank auto-rejects some payouts (RJCT); fleets 844 and 896 showed DEPOSIT rows and a
+    balance above funded less paid out by exactly such a withdrawal."""
+    j.customer = holder["customer"]
+    return sum((_money(r.get("amount")) for r in j.instructions() or []
+                if r.get("type") == "WITHDRAWAL" and r.get("status") in ("CANCELLED", "REJECTED")),
+               ZERO)
 
 
 # A payout still pending this many calls after its withdrawal is judged as stuck.
@@ -244,7 +256,7 @@ def _recheck_unsettled(j, product):
             if pending["live"]:
                 holder["paidOut"] += pending["amount"]
                 j.conserved(holder["funded"], holder["paidOut"],
-                            "the withdrawal {}".format(pending["when"]))
+                            "the withdrawal {}".format(pending["when"]), _returned(j, holder))
         elif pending["calls"] >= UNSETTLED_CALLS:
             holder["unsettled"] = None
             j.expect(False, "a withdrawal on a soft-close product settles",

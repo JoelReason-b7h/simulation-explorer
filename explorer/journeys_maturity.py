@@ -21,8 +21,6 @@ Variants, in rotation:
 4. a destination set and the customer then REJECTed (DEACTIVATED): divertReason (:96) asks
    DirectTransferDepositCheck.maturityRejection, which refuses a DEACTIVATED customer
    (CustomerActionPolicy.frozenStaysOnPlatform :228), so the maturity is paid out.
-5. an ops term maturity break on the funded TERM, driven at once: DepositBreakingService
-   .requestDepositBreak runs the Trust break and has no Direct guard on any layer.
 
 A maturity that is paid out is judged by the money it moves, not by the payee screen: the account
 ends at zero, one MATURITY instruction carries the balance plus the interest realised up to it,
@@ -41,8 +39,7 @@ from explorer.journeys import POLL_WINDOW_NOTE, ZERO, Journey, _money, _payouts_
 FUNDED = Decimal("50.00")
 NOTICE_FUNDED = Decimal("5.00")
 PAYEE_NUMBER = "46238510"
-VARIANTS = ("no destination", "eligible destination", "destination closed", "customer rejected",
-            "ops break")
+VARIANTS = ("no destination", "eligible destination", "destination closed", "customer rejected")
 NEEDS_NOTICE = {"eligible destination", "destination closed", "customer rejected"}
 MAX_PENDING_PER_VARIANT = 2
 # Whole wall days after the due date. TERM_PRODUCT_DISTRIBUTIONS runs each day, and the payout
@@ -57,7 +54,11 @@ def _path(run):
 
 
 def _load(run):
-    return longlived._read(_path(run)) or {"next": 0, "pending": [], "judged": 0}
+    state = longlived._read(_path(run)) or {"next": 0, "pending": [], "judged": 0}
+    # The ops break variant was removed (its defect reproduced 95 times and left MATURED Direct
+    # TERMs that read as false violations), so saved entries naming it are dropped.
+    state["pending"] = [e for e in state.get("pending", []) if e.get("variant") in VARIANTS]
+    return state
 
 
 def _save(run, state):
@@ -213,34 +214,10 @@ def _reject_customer(j, entry):
     entry["rejected"] = status == "DEACTIVATED"
 
 
-def _break(j, entry):
-    """The ops Trust deposit break on a Direct TERM account. It is refused by intent: the break
-    pays the bank's return through the distribution flow, which Direct accounts do not use."""
-    amount = "{:.2f}".format(FUNDED)
-    call = j.run.ops.call(
-        "POST", "/operations/own/account/{}/term/maturity/break".format(entry["account"]),
-        json_body={"totalAmountReceived": amount, "customerAmounts": amount,
-                   "platformFeeAmounts": "0.00", "bondsmithFeeAmounts": "0.00",
-                   "depositBreakType": "OTHER", "bankPaymentReference": j.run.mint("brk", 16)})
-    account = _account(entry["account"]) or {}
-    j.step("ops term maturity break", "{}; the account reads {}".format(call.status,
-                                                                         account.get("state")))
-    j.expect(not call.ok and account.get("state") == "OPEN",
-             "the ops term maturity break is not applied to a Direct TERM account",
-             "the break answered {} and the Direct TERM account reads {} with {}".format(
-                 call.status, account.get("state"), account.get("balance")),
-             "a 4xx and the account still OPEN", "{} and {}".format(call.status,
-                                                                   account.get("state")),
-             body=call.body)
-
-
 def _stage(j, state, variant):
     entry = _setup(j, variant)
     if not isinstance(entry, dict):
         return j.refuse(entry)
-    if variant == "ops break":
-        _break(j, entry)
-        return j.done()
     if variant in NEEDS_NOTICE:
         _set_destination(j, entry)
     if entry["destination"] and variant == "destination closed":
@@ -432,8 +409,6 @@ def _next_variant(run, state):
         if waiting >= MAX_PENDING_PER_VARIANT:
             continue
         if variant == "customer rejected" and not run.compliance:
-            continue
-        if variant == "ops break" and not run.ops:
             continue
         state["next"] = (state.get("next", 0) + offset + 1) % len(VARIANTS)
         return variant
