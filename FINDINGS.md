@@ -555,6 +555,21 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     FundAccount) and fleet921 (expected 4, inserted 3). The transaction rolls back, so nothing is
     booked; the answer should be a 4xx naming the account's state. Low.
 
+50. **The Direct feed can send an account an hour before its customer.** No ticket yet; same cause
+    as SAV-11770 (finding 33), which bounded only the ACCOUNT balance lateral. `DirectDataFeedService
+    .execute` takes the window end once (`:141`) and then runs the collectors one after another
+    (`:182-185`), and neither candidate query is cut at the window end:
+    `fetchCustomerCandidateRows` (`:696-697`) and `fetchAccountCandidates` (`:555-556`) filter only
+    `created_at <= flipInstant` (null on a normal run) and `EVER_ACTIVATED_PREDICATE` (`:155-162`),
+    which reads the live status. A customer created and activated between the CUSTOMER read and the
+    ACCOUNT read, with an account opened in that gap, lands in the ACCOUNT file and not the CUSTOMER
+    file of the same run. Box fleet939: `ACCOUNT_20270122T110002Z` carries `3eb10fb3` (customer
+    `37da7ac2`, activated 11:00:17, account 11:00:26) and `795ff51e` (customer `4434e60d`), and the
+    customers arrive only in `CUSTOMER_20270122T120049Z`. Unchanged on `origin/main`. Fix: bound both
+    queries by `created_at <= windowEnd` and test activation as of the window end
+    (`h.transitioned_at <= windowEnd`). The gap is seconds on the box's x10 clock and milliseconds
+    in production. Low.
+
 ## Checked and holding
 
 - BANK_BUSINESS_DATE_CHECK fails every night from fleet700 (298 lines in 70 of 74 fleets): the
