@@ -1075,3 +1075,4 @@
 {"name": "fleet1081", "at": "2026-10-11 08:30:28", "quiet": false, "trials": 722, "violations": 9, "serviceErrors": 531, "newRules": ["a pooled account has no depositInfo (ReadOracle)", "a pooled account has no payment reference (ReadOracle)", "openedAt is when the account's first deposit completed (ReadOracle)"]}
 {"name": "fleet1082", "at": "2026-10-11 08:49:33", "quiet": false, "trials": 421, "violations": 12, "serviceErrors": 40, "newRules": ["a pooled account has no depositInfo (ReadOracle)", "a pooled account has no payment reference (ReadOracle)", "openedAt is when the account's first deposit completed (ReadOracle)", "over its life a customer's deposits are what it funded (LongLife)"]}
 {"name": "fleet1083", "at": "2026-10-11 08:51:49", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
+{"name": "fleet1084", "at": "2026-10-11 08:54:02", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
