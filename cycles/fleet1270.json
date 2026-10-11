@@ -1,0 +1,330 @@
+{
+ "name": "fleet1270",
+ "progress": {
+  "name": "fleet1270",
+  "at": "2026-10-11 16:34:09",
+  "seconds": 900,
+  "clock": {
+   "fake": true,
+   "spec": "@2026-12-25 22:19:26 x10",
+   "rate": 10.0,
+   "fakeStart": "2026-12-25T22:19:26+00:00",
+   "realStart": "2026-10-06T07:29:27.418917+00:00",
+   "boundary": {
+    "name": "Boxing Day",
+    "at": "2026-12-26T00:00:00+00:00",
+    "atLondon": "2026-12-26T00:00:00+00:00",
+    "offsetSeconds": 6033
+   },
+   "fakeNow": "2027-02-17T07:06:24.606133+00:00"
+  },
+  "runs": {},
+  "sanity": [
+   "fleet1270-p0 did not finish: no final page line",
+   "fleet1270-p0 made 0 trials in 15 minutes, under 1.0 a minute",
+   "fleet1270-p1 did not finish: no final page line",
+   "fleet1270-p1 made 0 trials in 15 minutes, under 3.0 a minute",
+   "fleet1270-p2 did not finish: no final page line",
+   "fleet1270-p2 made 0 trials in 15 minutes, under 3.0 a minute",
+   "fleet1270-p3 did not finish: no final page line",
+   "fleet1270-p3 made 0 trials in 15 minutes, under 3.0 a minute"
+  ],
+  "serviceErrors": 0,
+  "newServiceErrors": [],
+  "tableGrowth": {
+   "now": {
+    "core": {
+     "rows": 7170387,
+     "megabytes": 1970.1,
+     "tables": {
+      "platform_webhook_event": 493062,
+      "interest_accrual": 545498,
+      "interest_accrual_amount": 1636449,
+      "sqs_message": 146620,
+      "platform_person_history": 61577,
+      "investec_file_account_entry": 692102,
+      "interest_realised_amount": 707344,
+      "operations_tasks": 130371,
+      "interest_realised": 235791,
+      "account_transaction": 124316,
+      "direct_batch_instruction": 60848,
+      "customer_product_account_eod_rollups_p20270101": 168362
+     }
+    },
+    "clearing": {
+     "rows": 3505095,
+     "megabytes": 2615.5,
+     "tables": {
+      "account_statement_file": 410752,
+      "account_statement_line_history": 530136,
+      "poll_response_history": 179739,
+      "partner_payment_audit": 134221,
+      "account_statement_balance": 711360,
+      "payment_information_outbox": 130561,
+      "account_statement_line": 198511,
+      "partner_payment": 134195,
+      "partner_payment_due": 123297,
+      "account_statement_file_batch": 177059,
+      "funding_record": 134172,
+      "partner_payment_link": 115093
+     }
+    },
+    "hsb": {
+     "rows": 85938,
+     "megabytes": 40.7,
+     "tables": {
+      "transaction_entry": 62549,
+      "payment_file": 6687,
+      "payment_transaction_status": 6687,
+      "virtual_account": 4992,
+      "virtual_account_numbers": 4992,
+      "application_configuration": 9,
+      "profile": 3,
+      "real_account": 15,
+      "flyway_schema_history": 4
+     }
+    }
+   },
+   "sinceLastCycle": {
+    "core": {
+     "rows": 4,
+     "megabytes": 0.1,
+     "tables": {
+      "platform_webhook_event": 0,
+      "interest_accrual": 0,
+      "interest_accrual_amount": 0,
+      "sqs_message": 0,
+      "platform_person_history": 0,
+      "investec_file_account_entry": 0,
+      "interest_realised_amount": 0,
+      "operations_tasks": 0,
+      "interest_realised": 0,
+      "account_transaction": 0,
+      "direct_batch_instruction": 0,
+      "customer_product_account_eod_rollups_p20270101": 0
+     }
+    },
+    "clearing": {
+     "rows": 557,
+     "megabytes": 0.5,
+     "tables": {
+      "account_statement_file": 137,
+      "account_statement_line_history": 0,
+      "poll_response_history": 75,
+      "partner_payment_audit": 0,
+      "account_statement_balance": 272,
+      "payment_information_outbox": 0,
+      "account_statement_line": 0,
+      "partner_payment": 0,
+      "partner_payment_due": 0,
+      "account_statement_file_batch": 69,
+      "funding_record": 0,
+      "partner_payment_link": 0
+     }
+    },
+    "hsb": {
+     "rows": 0,
+     "megabytes": 0.0,
+     "tables": {
+      "transaction_entry": 0,
+      "payment_file": 0,
+      "payment_transaction_status": 0,
+      "virtual_account": 0,
+      "virtual_account_numbers": 0,
+      "application_configuration": 0,
+      "profile": 0,
+      "real_account": 0,
+      "flyway_schema_history": 0
+     }
+    }
+   }
+  },
+  "exceptionCopies": {
+   "lines": "",
+   "entries": "0",
+   "mostCopied": ""
+  },
+  "repeatsIgnored": "56770 exception lines read, 0 ignored as repeats, 0 refused",
+  "feed": {
+   "exit": 1,
+   "result": "4038 checks failed",
+   "files": "4594 files: {'PRODUCT': 1135, 'CUSTOMER': 1135, 'ACCOUNT': 1135, 'TRANSACTION': 1135, 'RECON': 54}"
+  },
+  "mi": {
+   "exit": 0,
+   "result": "0 checks failed",
+   "files": "19 MI files; MI_RECON rows 30796"
+  },
+  "feedValues": {
+   "exit": 0,
+   "result": "0 checks failed",
+   "files": null
+  },
+  "newRules": [],
+  "quiet": false,
+  "databases": "/home/joel/sim/simulation-explorer/archive/fleet1270-db",
+  "next": 900
+ },
+ "runs": {},
+ "clock": null,
+ "mi": {
+  "files": [
+   "FLAGGED_PAYMENTS_2026-12-31.csv",
+   "FLAGGED_PAYMENTS_2027-01-31.csv",
+   "MI_RECON_2026-12-25.csv",
+   "MI_RECON_2026-12-26.csv",
+   "MI_RECON_2026-12-27.csv",
+   "MI_RECON_2026-12-28.csv",
+   "MI_RECON_2026-12-29.csv",
+   "MI_RECON_2026-12-30.csv",
+   "MI_RECON_2026-12-31.csv",
+   "MI_RECON_2027-01-01.csv",
+   "MI_RECON_2027-01-02.csv",
+   "MI_RECON_2027-01-03.csv",
+   "MI_RECON_2027-01-04.csv",
+   "MI_RECON_2027-01-05.csv",
+   "MI_RECON_2027-01-06.csv",
+   "MI_RECON_2027-01-07.csv",
+   "MI_RECON_2027-01-08.csv",
+   "ONBOARDING_2026-12-31.csv",
+   "ONBOARDING_2027-01-31.csv"
+  ],
+  "findings": []
+ },
+ "feed": {
+  "failed": 4038,
+  "byRule": {
+   "an account's customer was sent first": 4026,
+   "UpdatedBalance is the previous UpdatedBalance plus the amount": 12
+  },
+  "samples": {
+   "an account's customer was sent first": [
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20270122T110002Z.csv",
+     "detail": "account 3eb10fb3-c2a3-41d5-81f0-639d1a943d1e names customer 37da7ac2-4521-4d35-b849-8187615abbe2",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "3eb10fb3-c2a3-41d5-81f0-639d1a943d1e",
+      "CustomerId": "37da7ac2-4521-4d35-b849-8187615abbe2",
+      "AccountNumber": "01006130",
+      "SortCode": "405656",
+      "ProductId": "0277f3b1-a20f-4a3b-a00a-834dfb8f0e06",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2027-01-22",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2027-01-22",
+      "AccountOpenDate": "2027-01-22",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2027-01-22T10:55:20Z"
+     }
+    },
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20270122T110002Z.csv",
+     "detail": "account 795ff51e-53e7-4dbb-9d4c-8a2c1bd04aba names customer 4434e60d-8a19-45ce-9acb-b8ab3d91fe7d",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "795ff51e-53e7-4dbb-9d4c-8a2c1bd04aba",
+      "CustomerId": "4434e60d-8a19-45ce-9acb-b8ab3d91fe7d",
+      "AccountNumber": "01006131",
+      "SortCode": "405656",
+      "ProductId": "0277f3b1-a20f-4a3b-a00a-834dfb8f0e06",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2027-01-22",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2027-01-22",
+      "AccountOpenDate": "2027-01-22",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2027-01-22T10:55:28Z"
+     }
+    },
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20270128T150000Z.csv",
+     "detail": "account 3afce259-2568-4080-a0ab-a136d714b250 names customer 6ab69bd4-b8bf-493b-b934-4dda892823fe",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "3afce259-2568-4080-a0ab-a136d714b250",
+      "CustomerId": "6ab69bd4-b8bf-493b-b934-4dda892823fe",
+      "AccountNumber": "01037668",
+      "SortCode": "405656",
+      "ProductId": "81f933fe-5314-4d97-a673-8767d129c5d5",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2027-01-28",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2027-01-28",
+      "AccountOpenDate": "2027-01-28",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2027-01-28T14:55:41Z"
+     }
+    }
+   ],
+   "UpdatedBalance is the previous UpdatedBalance plus the amount": [
+    {
+     "rule": "UpdatedBalance is the previous UpdatedBalance plus the amount",
+     "file": "TRANSACTION_20270108T080000Z.csv",
+     "detail": "account 42626690-b4e1-4200-9cd8-0b168cddfed4: 3.00 -> 6.05 for amount 3.00 (Deposit)",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "0ac61d3e-3bc3-4374-bb7a-56692204e1e0",
+      "AccountId": "42626690-b4e1-4200-9cd8-0b168cddfed4",
+      "BookingDateTime": "2027-01-08T07:47:04Z",
+      "ValueDate": "2027-01-07T00:00:00Z",
+      "TransactionType": "Deposit",
+      "Amount": "3.00",
+      "PaymentReference": "42y1tgp0384",
+      "UpdatedBalance": "6.05"
+     }
+    },
+    {
+     "rule": "UpdatedBalance is the previous UpdatedBalance plus the amount",
+     "file": "TRANSACTION_20270109T000001Z.csv",
+     "detail": "account 42626690-b4e1-4200-9cd8-0b168cddfed4: 72.05 -> 3.05 for amount 0.05 (Interest)",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "ad7d41f3-8f6f-465d-829b-7f1e14a7c0f6",
+      "AccountId": "42626690-b4e1-4200-9cd8-0b168cddfed4",
+      "BookingDateTime": "2027-01-08T07:42:57Z",
+      "ValueDate": "2027-01-08T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.05",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "3.05"
+     }
+    },
+    {
+     "rule": "UpdatedBalance is the previous UpdatedBalance plus the amount",
+     "file": "TRANSACTION_20270109T000001Z.csv",
+     "detail": "account 42626690-b4e1-4200-9cd8-0b168cddfed4: 3.05 -> 72.06 for amount 0.01 (Interest)",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "8dca1b56-a87c-485e-a417-21bff375992e",
+      "AccountId": "42626690-b4e1-4200-9cd8-0b168cddfed4",
+      "BookingDateTime": "2027-01-08T20:08:24Z",
+      "ValueDate": "2027-01-08T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.01",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "72.06"
+     }
+    }
+   ]
+  }
+ }
+}
