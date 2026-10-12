@@ -570,6 +570,25 @@ product's is the same as finding 10, a timeout surfaced as a bare 500.
     (`h.transitioned_at <= windowEnd`). The gap is seconds on the box's x10 clock and milliseconds
     in production. Low.
 
+51. **A compliance customer closure and a KYC check update lock the same rows in opposite order,
+    so they deadlock.** No ticket yet. `CustomerClosureService.closeCustomer` (compliance, one
+    `@Transaction`) updates `customer` through `updateCustomerStatus`, then runs
+    `KycCheckRepository.cancelOpenChecksForCustomer` (`:130`), which updates `kyc_check`, `person`
+    and `customer`. `KycCheckRepository.updateCheckStatus` (`:73`, the `update_kyc_check` CTE)
+    updates `kyc_check` first, then `person`, then `customer`. A closure that arrives while a
+    check for the same customer is being updated waits on the check's `kyc_check` row while the
+    check waits on the closure's `customer` row. Production Postgres aborts one of the two with a
+    deadlock error after `deadlock_timeout` (1s). Added by SAV-11141 (#12244); unchanged on
+    `origin/main`. Fix: take the locks in one order, for example lock `customer` first in
+    `updateCheckStatus`, or run the closure's cancel before its status update.
+    Box: two deadlocked pairs (closure pid 1502209 against check update 1502235, and 3037707
+    against 3037695), 38 and 16 fake days old on 2026-10-12. The box's Postgres runs under
+    libfaketime, which stops its timers, so neither deadlock was ever aborted (0 "deadlock
+    detected" lines; an advisory-lock deadlock and `statement_timeout` also never fire). Every
+    later compliance write queued behind them: no compliance customer was created after
+    2027-02-09 00:57, so 19 closures from fleet1046 logged "No compliance customer <id> to close".
+    The check updates were terminated by hand on 2026-10-12 and compliance drained.
+
 ## Checked and holding
 
 - BANK_BUSINESS_DATE_CHECK fails every night from fleet700 (298 lines in 70 of 74 fleets): the
