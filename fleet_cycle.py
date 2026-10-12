@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cycle  # noqa: E402
-from explorer import clock, config, local_auth, longlived, webhooks  # noqa: E402
+from explorer import clock, config, deadlocks, local_auth, longlived, webhooks  # noqa: E402
 
 HERE = cycle.HERE
 FIELDS = ("bankUid", "platformUid", "productUid", "termProductUid", "shortTermProductUid",
@@ -98,6 +98,7 @@ def main():
     name = sys.argv[2] if len(sys.argv) > 2 else "fleet"
     count = int(sys.argv[3]) if len(sys.argv) > 3 else 4
     cycle.stop_any_running_cycle()
+    deadlocks.start()
     patched = False
     if config.load("local").get("local_auth"):
         patched = cycle.stack_patch.patch(cycle.REPO)

@@ -21,7 +21,7 @@ import tarfile
 import time
 from pathlib import Path
 
-from explorer import clock, ledger, service_errors
+from explorer import clock, deadlocks, ledger, service_errors
 
 HERE = Path(__file__).resolve().parent
 FINDINGS = HERE / "findings"
@@ -319,6 +319,18 @@ def sanity(name, seconds, runs):
     return problems
 
 
+def cycle_started(name, seconds):
+    """The epoch the cycle began, from its line in fleet.progress, else a cycle's length back."""
+    try:
+        for line in reversed(PROGRESS.read_text().splitlines()):
+            entry = json.loads(line)
+            if entry.get("name") == name and entry.get("started"):
+                return time.mktime(time.strptime(entry["started"], "%Y-%m-%d %H:%M:%S"))
+    except (OSError, ValueError):
+        pass
+    return time.time() - seconds - 1800
+
+
 def main():
     name = sys.argv[1]
     FINDINGS.mkdir(exist_ok=True)
@@ -357,6 +369,10 @@ def main():
     summary["serviceErrors"] = keep_service_errors(name)
     new_errors = service_errors.judge(name, HERE / "{}.service-errors.log".format(name))
     summary["newServiceErrors"] = new_errors
+    all_deadlocks, new_deadlocks = deadlocks.judge(name, cycle_started(name, seconds))
+    summary["deadlocks"] = all_deadlocks
+    summary["newDeadlocks"] = new_deadlocks
+    long_waits = [d for d in all_deadlocks if d["kind"] == "longLockWait"]
     try:
         summary["tableGrowth"] = table_growth()
     except (OSError, subprocess.SubprocessError) as fault:
@@ -384,11 +400,12 @@ def main():
             summary["sanity"].append("the data feed wrote no files for bank {}".format(bank))
     summary["newRules"] = sorted(new_rules)
     file_failures = [k for k in ("feed", "mi", "feedValues") if summary.get(k, {}).get("exit")]
-    quiet = not summary["sanity"] and not new_rules and not file_failures and not new_errors
+    quiet = not summary["sanity"] and not new_rules and not file_failures and not new_errors \
+        and not new_deadlocks and not long_waits
     summary["quiet"] = quiet
     # Only a potential product issue is worth the rows behind it: a violation of a rule not yet
     # known, an ERROR signature no cycle has logged before, or a file check that failed. A harness sanity problem alone takes no dump.
-    if new_rules or file_failures or new_errors:
+    if new_rules or file_failures or new_errors or new_deadlocks or long_waits:
         import cycle
         kept = cycle.dump_databases(name)
         summary["databases"] = str(kept) if kept else None
