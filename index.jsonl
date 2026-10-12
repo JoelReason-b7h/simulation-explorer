@@ -1453,3 +1453,4 @@
 {"name": "fleet1459", "at": "2026-10-12 00:55:58", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 2, "newRules": []}
 {"name": "fleet1460", "at": "2026-10-12 00:58:44", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
 {"name": "fleet1461", "at": "2026-10-12 01:01:36", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
+{"name": "fleet1462", "at": "2026-10-12 01:06:32", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 128, "newRules": []}
