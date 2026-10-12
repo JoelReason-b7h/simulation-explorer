@@ -1695,3 +1695,4 @@
 {"name": "fleet1701", "at": "2026-10-12 11:52:09", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
 {"name": "fleet1702", "at": "2026-10-12 11:54:48", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
 {"name": "fleet1703", "at": "2026-10-12 11:57:37", "quiet": false, "trials": 0, "violations": 0, "serviceErrors": 0, "newRules": []}
+{"name": "fleet1705", "at": "2026-10-12 12:37:52", "quiet": false, "trials": 2474, "violations": 35, "serviceErrors": 119, "newRules": ["a pooled account has no depositInfo (ReadOracle)", "a pooled account has no payment reference (ReadOracle)", "an account carries the product's rate details (ReadOracle)", "clearing's bank reconciliation passes (TransitionChainSweep)", "openedAt is when the account's first deposit completed (ReadOracle)"]}
