@@ -4,7 +4,7 @@
 #   box status              the dashboard's verdict and problems
 #   box sh [command]        a shell on the box, or one command
 #   box sync                copy the harness, the stack files and their inputs; check them
-#   box images              build the ten service images for amd64 and load them on the box
+#   box images              build the service images for amd64 and load them on the box
 #   box start|up [rate] [--at "YYYY-MM-DD HH:MM"]
 #                           ./harness start|up on the box, detached, on a fake clock with a rate
 #   box pause|stop          ./harness pause|stop on the box, detached from this session
@@ -35,6 +35,8 @@ SERVICES=(
   "savings-exchange-simulator-api apps/savings-exchange/api/simulator-api"
   "forge-compliance apps/forge/compliance"
   "forge-notification apps/forge/notification"
+  "savings-exchange-pay-by-bank apps/savings-exchange/pay-by-bank"
+  "savings-exchange-api-pay-by-bank apps/savings-exchange/api/pay-by-bank-api"
 )
 # The AWS CLI is installed in ~/.local (Ubuntu 24.04 has no apt package), and a non-interactive
 # ssh session does not read ~/.profile, so ~/.local/bin is added here.
