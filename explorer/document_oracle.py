@@ -128,10 +128,10 @@ def _accounts_at(platform, run_at):
              dca.updated_at <= '{run}'::timestamptz, cpa.created_at::date, ca.tax_wrapper, ca.currency,
              COALESCE((SELECT h.to_state::text FROM platform_customer_status_history h
                        WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at <= '{run}'::timestamptz
-                       ORDER BY h.transitioned_at DESC, h.sid DESC LIMIT 1),
+                       ORDER BY h.sid DESC LIMIT 1),
                       (SELECT h.from_state::text FROM platform_customer_status_history h
                        WHERE h.platform_customer_sid = pc.sid AND h.transitioned_at > '{run}'::timestamptz
-                       ORDER BY h.transitioned_at, h.sid LIMIT 1),
+                       ORDER BY h.sid LIMIT 1),
                       pc.verification_status::text)
       FROM direct_customer_account dca
       JOIN customer_product_account cpa ON cpa.sid = dca.customer_product_account_sid
