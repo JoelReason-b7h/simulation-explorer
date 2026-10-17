@@ -1,0 +1,6615 @@
+{
+ "name": "fleet2047",
+ "progress": {
+  "name": "fleet2047",
+  "at": "2026-10-17 02:17:14",
+  "seconds": 900,
+  "clock": {
+   "fake": true,
+   "spec": "@2028-10-06 13:26:00 x10",
+   "rate": 10.0,
+   "fakeStart": "2028-10-06T13:26:00+00:00",
+   "realStart": "2026-10-12T11:15:33.396215+00:00",
+   "boundary": {
+    "name": "cron at 17:45 London",
+    "at": "2028-10-06T16:45:00+00:00",
+    "atLondon": "2028-10-06T17:45:00+01:00",
+    "offsetSeconds": 11940
+   },
+   "fakeNow": "2028-11-21T09:42:46.787388+00:00"
+  },
+  "runs": {
+   "fleet2047-p1": {
+    "trials": 381,
+    "races": 9,
+    "raceFindings": 0,
+    "unattributed": 0,
+    "violations": 18,
+    "rules": [
+     "a pooled account has no depositInfo",
+     "a pooled account has no payment reference",
+     "a read answers promptly",
+     "a terminal status is not left",
+     "no unexplained 5xx",
+     "openedAt is when the account's first deposit completed",
+     "over its life a customer's deposits are what it funded"
+    ]
+   }
+  },
+  "sanity": [
+   "fleet2047-p0 did not finish: no final page line",
+   "fleet2047-p0 made 0 trials in 15 minutes, under 1.0 a minute",
+   "fleet2047-p2 did not finish: no final page line",
+   "fleet2047-p2 made 0.0 trials a minute, under half the usual 32.7",
+   "fleet2047-p2 made 0 trials in 15 minutes, under 3.0 a minute",
+   "fleet2047-p3 did not finish: no final page line",
+   "fleet2047-p3 made 0.0 trials a minute, under half the usual 32.7",
+   "fleet2047-p3 made 0 trials in 15 minutes, under 3.0 a minute"
+  ],
+  "serviceErrors": 139,
+  "newServiceErrors": [],
+  "deadlocks": [],
+  "newDeadlocks": [],
+  "tableGrowth": {
+   "now": {
+    "core": {
+     "rows": 6595422,
+     "megabytes": 1983.4,
+     "tables": {
+      "platform_webhook_event": 534148,
+      "sqs_message": 152752,
+      "interest_accrual": 428759,
+      "interest_accrual_amount": 1286075,
+      "platform_person_history": 72774,
+      "account_publish_outbox": 75127,
+      "investec_file_account_entry": 578249,
+      "expectation_outbox": 92472,
+      "interest_realised": 188443,
+      "customer_product_account_eod_rollups_default": 237160,
+      "interest_realised_amount": 570408,
+      "direct_batch_instruction": 67130
+     }
+    },
+    "clearing": {
+     "rows": 3492963,
+     "megabytes": 2460.7,
+     "tables": {
+      "account_statement_line_history": 544910,
+      "account_statement_file": 339630,
+      "poll_response_history": 142227,
+      "partner_payment_audit": 139721,
+      "payment_information_outbox": 134178,
+      "partner_payment": 139681,
+      "account_statement_line": 205245,
+      "account_statement_balance": 564692,
+      "partner_payment_due": 136173,
+      "account_statement_file_batch": 138692,
+      "funding_record": 139632,
+      "partner_payment_link": 120256
+     }
+    },
+    "hsb": {
+     "rows": 99215,
+     "megabytes": 50.2,
+     "tables": {
+      "transaction_entry": 69201,
+      "payment_file": 10006,
+      "payment_transaction_status": 9993,
+      "virtual_account": 4992,
+      "virtual_account_numbers": 4992,
+      "profile": 3,
+      "real_account": 15,
+      "flyway_schema_history": 4,
+      "application_configuration": 9
+     }
+    }
+   },
+   "sinceLastCycle": {
+    "core": {
+     "rows": 4377,
+     "megabytes": 0.5,
+     "tables": {
+      "platform_webhook_event": 242,
+      "sqs_message": 88,
+      "interest_accrual": 0,
+      "interest_accrual_amount": 0,
+      "platform_person_history": 53,
+      "account_publish_outbox": 2832,
+      "investec_file_account_entry": 23,
+      "expectation_outbox": 46,
+      "interest_realised": 0,
+      "customer_product_account_eod_rollups_default": 0,
+      "interest_realised_amount": 0,
+      "direct_batch_instruction": 36
+     }
+    },
+    "clearing": {
+     "rows": 5189,
+     "megabytes": 6.0,
+     "tables": {
+      "account_statement_line_history": 1262,
+      "account_statement_file": 1201,
+      "poll_response_history": 585,
+      "partner_payment_audit": 77,
+      "payment_information_outbox": 70,
+      "partner_payment": 77,
+      "account_statement_line": 88,
+      "account_statement_balance": 2340,
+      "partner_payment_due": 68,
+      "account_statement_file_batch": -1227,
+      "funding_record": 77,
+      "partner_payment_link": 60
+     }
+    },
+    "hsb": {
+     "rows": 55,
+     "megabytes": 0.0,
+     "tables": {
+      "transaction_entry": 39,
+      "payment_file": 8,
+      "payment_transaction_status": 8,
+      "virtual_account": 0,
+      "virtual_account_numbers": 0,
+      "profile": 0,
+      "real_account": 0,
+      "flyway_schema_history": 0,
+      "application_configuration": 0
+     }
+    }
+   }
+  },
+  "exceptionCopies": {
+   "lines": "43",
+   "entries": "31",
+   "mostCopied": "577128d10bab4c1b85323008601d6e4b x2 2028-11-21 07:35:31.128887+00..2028-11-21 07:40:29.072947+00; 579a955fdd74420b91b82147ad49cfad x2 2028-11-21 07:35:31.128887+00..2028-11-21 07:40:29.072947+00; 30f3c2d6bef94c4098af6ae1387afb21 x2 2028-11-21 07:20:45.218127+00..2028-11-21 07:25:29.034727+00; 400a607c899b45aeab8e61107ed815dc x2 2028-11-21 07:20:45.218127+00..2028-11-21 07:25:29.034727+00; 86c382df724d47cc907c64a9a7cffd47 x2 2028-11-21 09:15:42.600027+00..2028-11-21 09:20:29.868737+00"
+  },
+  "repeatsIgnored": "59638 exception lines read, 12 ignored as repeats, 0 refused",
+  "feed": {
+   "exit": 1,
+   "result": "26 checks failed",
+   "files": "3914 files: {'PRODUCT': 967, 'CUSTOMER': 967, 'ACCOUNT': 967, 'TRANSACTION': 967, 'RECON': 46}"
+  },
+  "mi": {
+   "exit": 1,
+   "result": "33 checks failed",
+   "files": "14 MI files; MI_RECON rows 30346"
+  },
+  "feedValues": {
+   "exit": 1,
+   "result": "42 checks failed",
+   "files": null
+  },
+  "newRules": [
+   "a pooled account has no depositInfo (ReadOracle)",
+   "a pooled account has no payment reference (ReadOracle)",
+   "no unexplained 5xx (CancelAllocation)",
+   "openedAt is when the account's first deposit completed (ReadOracle)",
+   "over its life a customer's deposits are what it funded (LongLife)"
+  ],
+  "quiet": false,
+  "databases": "/home/joel/sim/simulation-explorer/archive/fleet2047-db",
+  "next": 900
+ },
+ "runs": {
+  "fleet2047-p1": {
+   "summary": {
+    "trials": 381,
+    "races": 9,
+    "race findings": 0,
+    "distinct states": 31,
+    "rejections": 142,
+    "unattributed changes": 0,
+    "frontier": 11
+   },
+   "trialTotals": {
+    "byAction": {
+     "CreateCustomer": {
+      "n": 27,
+      "ok": 27,
+      "rej": 0
+     },
+     "RACE CreateCustomer + CreateCustomer": {
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     "OpenAccount": {
+      "n": 16,
+      "ok": 14,
+      "rej": 2
+     },
+     "FundAccount": {
+      "n": 21,
+      "ok": 21,
+      "rej": 0
+     },
+     "JourneyTermBeforeMaturity": {
+      "n": 6,
+      "ok": 1,
+      "rej": 5
+     },
+     "AddUnverifiableNominatedAccount": {
+      "n": 14,
+      "ok": 14,
+      "rej": 0
+     },
+     "JourneyFeeMidPeriod": {
+      "n": 10,
+      "ok": 1,
+      "rej": 9
+     },
+     "JourneyDateFlipUnderLoad": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "ReadCustomer": {
+      "n": 14,
+      "ok": 14,
+      "rej": 0
+     },
+     "UnfreezeCustomer": {
+      "n": 13,
+      "ok": 13,
+      "rej": 0
+     },
+     "CreateKycFailedCustomer": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "JourneyMultiProduct": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "OfficerCancelCustomer": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "CloseCustomer": {
+      "n": 13,
+      "ok": 13,
+      "rej": 0
+     },
+     "AddNominatedAccount": {
+      "n": 13,
+      "ok": 13,
+      "rej": 0
+     },
+     "JourneySoftClose": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "JourneyReadModels": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "ProbeParameters": {
+      "n": 10,
+      "ok": 3,
+      "rej": 7
+     },
+     "JourneyPlatformFeeWithdrawal": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "WeirdCall": {
+      "n": 7,
+      "ok": 0,
+      "rej": 7
+     },
+     "UpdateCustomer": {
+      "n": 13,
+      "ok": 13,
+      "rej": 0
+     },
+     "ReplayLastCall": {
+      "n": 13,
+      "ok": 13,
+      "rej": 0
+     },
+     "ReuseCustomerReference": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "JourneyTermMaturity": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "SetMaturityToNotice": {
+      "n": 4,
+      "ok": 2,
+      "rej": 2
+     },
+     "JourneyFrozenLifecycle": {
+      "n": 6,
+      "ok": 1,
+      "rej": 5
+     },
+     "PlaceWithdrawal": {
+      "n": 8,
+      "ok": 0,
+      "rej": 8
+     },
+     "ReadInstructions": {
+      "n": 13,
+      "ok": 12,
+      "rej": 1
+     },
+     "SetKycStatus": {
+      "n": 16,
+      "ok": 16,
+      "rej": 0
+     },
+     "OfficerCloseCustomer": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "JourneyPayeeReview": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "ReadBalances": {
+      "n": 13,
+      "ok": 12,
+      "rej": 1
+     },
+     "ProbeOtherPlatform": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "FreezeCustomer": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "JourneyPayeeChange": {
+      "n": 6,
+      "ok": 1,
+      "rej": 5
+     },
+     "OfficerRejectCustomer": {
+      "n": 5,
+      "ok": 0,
+      "rej": 5
+     },
+     "ChangePlatformFee": {
+      "n": 4,
+      "ok": 1,
+      "rej": 3
+     },
+     "ReuseAccountReference": {
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     "ReuseIdempotencyKey": {
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     "RACE AddNominatedAccount + AddNominatedAccount": {
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     "RACE AddNominatedAccount + AddUnverifiableNominatedAccount": {
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     "CloseAccount": {
+      "n": 3,
+      "ok": 2,
+      "rej": 1
+     },
+     "ClearMaturityDestination": {
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     "SetMaturityDestination": {
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     "CancelAccountOpening": {
+      "n": 3,
+      "ok": 2,
+      "rej": 1
+     },
+     "TransferToProduct": {
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     "NoticeFallsDue": {
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     "ReadAccount": {
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     "PlaceBatchPayment": {
+      "n": 4,
+      "ok": 4,
+      "rej": 0
+     },
+     "PayBatchPart": {
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     "SettleWorld": {
+      "n": 4,
+      "ok": 4,
+      "rej": 0
+     },
+     "CancelAllocation": {
+      "n": 3,
+      "ok": 2,
+      "rej": 1
+     },
+     "ReuseInstructionReference": {
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     "ReuseBatchReference": {
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     "CancelWithdrawal": {
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     }
+    },
+    "byPair": [
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 14,
+      "ok": 14,
+      "rej": 0
+     },
+     {
+      "action": "RACE CreateCustomer + CreateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     {
+      "action": "OpenAccount",
+      "key": [
+       "account",
+       "absent"
+      ],
+      "n": 12,
+      "ok": 12,
+      "rej": 0
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "JourneyTermBeforeMaturity",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 4,
+      "ok": 1,
+      "rej": 3
+     },
+     {
+      "action": "AddUnverifiableNominatedAccount",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 12,
+      "ok": 12,
+      "rej": 0
+     },
+     {
+      "action": "JourneyFeeMidPeriod",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 6,
+      "ok": 1,
+      "rej": 5
+     },
+     {
+      "action": "JourneyDateFlipUnderLoad",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "ReadCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 12,
+      "ok": 12,
+      "rej": 0
+     },
+     {
+      "action": "UnfreezeCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "CreateKycFailedCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "JourneyMultiProduct",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "CloseCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "AddNominatedAccount",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "JourneySoftClose",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "JourneyReadModels",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "ProbeParameters",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 8,
+      "ok": 3,
+      "rej": 5
+     },
+     {
+      "action": "JourneyPlatformFeeWithdrawal",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "WeirdCall",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 4,
+      "ok": 0,
+      "rej": 4
+     },
+     {
+      "action": "UpdateCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "ReplayLastCall",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "ReuseCustomerReference",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "JourneyTermMaturity",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "SetMaturityToNotice",
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyFrozenLifecycle",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 4,
+      "ok": 1,
+      "rej": 3
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReadInstructions",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetKycStatus",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 12,
+      "ok": 12,
+      "rej": 0
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "JourneyPayeeReview",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "ReadBalances",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "ProbeOtherPlatform",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "FreezeCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "JourneyPayeeChange",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 4,
+      "ok": 1,
+      "rej": 3
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 11,
+      "ok": 11,
+      "rej": 0
+     },
+     {
+      "action": "JourneyFeeMidPeriod",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyDateFlipUnderLoad",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "CreateKycFailedCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyMultiProduct",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "AddNominatedAccount",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "JourneySoftClose",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyReadModels",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ProbeParameters",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyPlatformFeeWithdrawal",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "WeirdCall",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyTermBeforeMaturity",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "UpdateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReplayLastCall",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReuseCustomerReference",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyTermMaturity",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyFrozenLifecycle",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReadInstructions",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetKycStatus",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyPayeeReview",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReadBalances",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ProbeOtherPlatform",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "FreezeCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyPayeeChange",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "AddUnverifiableNominatedAccount",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReadCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "JourneyFeeMidPeriod",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 3,
+      "ok": 0,
+      "rej": 3
+     },
+     {
+      "action": "JourneyDateFlipUnderLoad",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "CreateKycFailedCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyMultiProduct",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneySoftClose",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyReadModels",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyPlatformFeeWithdrawal",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReuseCustomerReference",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyTermMaturity",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "WeirdCall",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 2,
+      "ok": 0,
+      "rej": 2
+     },
+     {
+      "action": "JourneyFrozenLifecycle",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyPayeeReview",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ProbeOtherPlatform",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "FreezeCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyPayeeChange",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "AddUnverifiableNominatedAccount",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReadCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "UnfreezeCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "AddNominatedAccount",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ProbeParameters",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "JourneyTermBeforeMaturity",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "UpdateCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReplayLastCall",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReadInstructions",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReadBalances",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ChangePlatformFee",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReuseAccountReference",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReuseIdempotencyKey",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CloseCustomer",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "UnfreezeCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "RACE AddNominatedAccount + AddNominatedAccount",
+      "key": [
+       "account",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "RACE AddNominatedAccount + AddUnverifiableNominatedAccount",
+      "key": [
+       "account",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetKycStatus",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CloseCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CloseAccount",
+      "key": [
+       "account",
+       "OPEN",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "OpenAccount",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 3,
+      "ok": 1,
+      "rej": 2
+     },
+     {
+      "action": "RACE AddNominatedAccount + AddNominatedAccount",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ClearMaturityDestination",
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetMaturityDestination",
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "RACE AddNominatedAccount + AddUnverifiableNominatedAccount",
+      "key": [
+       "customer",
+       "CLOSED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CancelAccountOpening",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "TransferToProduct",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 5,
+      "ok": 5,
+      "rej": 0
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 2,
+      "ok": 0,
+      "rej": 2
+     },
+     {
+      "action": "NoticeFallsDue",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReadAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PlaceBatchPayment",
+      "key": [
+       "batch",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PayBatchPart",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "unpaid"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SettleWorld",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "part"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CancelAllocation",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "part"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReuseInstructionReference",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PayBatchPart",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "some",
+       "part"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SettleWorld",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "some",
+       "part"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CancelAllocation",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "some",
+       "part"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PayBatchPart",
+      "key": [
+       "batch",
+       "CANCELLED",
+       "zero",
+       "many",
+       "some",
+       "over"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SettleWorld",
+      "key": [
+       "batch",
+       "CANCELLED",
+       "zero",
+       "many",
+       "some",
+       "over"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 5,
+      "ok": 5,
+      "rej": 0
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 2,
+      "ok": 0,
+      "rej": 2
+     },
+     {
+      "action": "ReuseBatchReference",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "CancelWithdrawal",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "SetMaturityToNotice",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ChangePlatformFee",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReuseAccountReference",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "RACE AddNominatedAccount + AddNominatedAccount",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CloseAccount",
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ClearMaturityDestination",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetMaturityDestination",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "CancelAccountOpening",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "TransferToProduct",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "NoticeFallsDue",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ReadAccount",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetMaturityToNotice",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "FundAccount",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 7,
+      "ok": 7,
+      "rej": 0
+     },
+     {
+      "action": "SetMaturityDestination",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "PlaceBatchPayment",
+      "key": [
+       "batch",
+       "REJECTED",
+       "zero",
+       "one",
+       "none",
+       "unpaid"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ChangePlatformFee",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 2,
+      "ok": 0,
+      "rej": 2
+     },
+     {
+      "action": "ReuseAccountReference",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "CloseAccount",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "ClearMaturityDestination",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CancelAccountOpening",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "TransferToProduct",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "NoticeFallsDue",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "CancelAllocation",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "unpaid"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     },
+     {
+      "action": "RACE AddNominatedAccount + AddUnverifiableNominatedAccount",
+      "key": [
+       "customer",
+       "ACTIVATED",
+       "present"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ReadAccount",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PlaceBatchPayment",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "some",
+       "unpaid"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SetMaturityToNotice",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "SettleWorld",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "unpaid"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "PlaceBatchPayment",
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "unpaid"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "OpenAccount",
+      "key": [
+       "account",
+       "OPEN",
+       "TERM",
+       "positive",
+       "none",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "ChangePlatformFee",
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "n": 1,
+      "ok": 0,
+      "rej": 1
+     }
+    ],
+    "raceFindings": [],
+    "refusals": [
+     {
+      "action": "JourneyFeeMidPeriod",
+      "message": "a journey ran 2 trials ago",
+      "count": 2,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyDateFlipUnderLoad",
+      "message": "a journey ran 3 trials ago",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "CreateKycFailedCustomer",
+      "message": "too many live customers already sit outside ACTIVATED",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyMultiProduct",
+      "message": "a journey ran 7 trials ago",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "message": "the customer is 36s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneySoftClose",
+      "message": "a journey ran 12 trials ago",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyReadModels",
+      "message": "a journey ran 13 trials ago",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyPlatformFeeWithdrawal",
+      "message": "a journey ran 15 trials ago",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "empty text in customerReference on CreateCustomer: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'size must be between 3 and 2147483647', 'description': 'createCustomer.request.customerRequest.externalRef'}, {'message': 'size must be between ",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ReuseCustomerReference",
+      "message": "clean reuse of customerReference: 400 The provided external reference already exists",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyTermMaturity",
+      "message": "journeys have used more than 30% of the run",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "SetMaturityToNotice",
+      "message": "only a TERM account has a maturity destination",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "NOTICE",
+        "zero",
+        "present",
+        "PENDING",
+        "none"
+       ],
+       [
+        "account",
+        "CLOSING",
+        "NOTICE",
+        "positive",
+        "none",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyFrozenLifecycle",
+      "message": "journeys have used more than 30% of the run",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "message": "Requested amount: 3.00 is greater than available balance: 0",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "NOTICE",
+        "zero",
+        "present",
+        "PENDING",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "message": "the customer is 38s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyPayeeReview",
+      "message": "journeys have used more than 30% of the run",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeOtherPlatform",
+      "message": "no other platform has shared a customer yet",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "FreezeCustomer",
+      "message": "too many customers are already outside ACTIVATED",
+      "count": 3,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyPayeeChange",
+      "message": "journeys have used more than 30% of the run",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "message": "the customer is 38s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyFeeMidPeriod",
+      "message": "journeys have used more than 30% of the run",
+      "count": 6,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyDateFlipUnderLoad",
+      "message": "journeys have used more than 30% of the run",
+      "count": 4,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "unknown field on OpenAccount: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'Unrecognized field', 'description': 'in field simulationExplorerUnknownField'}], 'message': 'Validation error', 'logref': None, 'path': None, '_",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyMultiProduct",
+      "message": "journeys have used more than 30% of the run",
+      "count": 4,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "message": "the customer is 39s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneySoftClose",
+      "message": "journeys have used more than 30% of the run",
+      "count": 4,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyReadModels",
+      "message": "journeys have used more than 30% of the run",
+      "count": 4,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a word for a date for query valueDateFrom on /direct/v1/customers/efe5ec33-a132-44b7-834e-6b973610abc0/accounts/transactions: {'message': 'Bad Request', 'logref': None, 'path': None, '_links': {'self': {'href': '/direct/v1/customers/efe5ec33-a132-44b7-834e-6b973610abc0/accounts/transactions?valueDateFrom=yesterday', 'templat",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyPlatformFeeWithdrawal",
+      "message": "journeys have used more than 30% of the run",
+      "count": 4,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyTermBeforeMaturity",
+      "message": "journeys have used more than 30% of the run",
+      "count": 5,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ],
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ],
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "message": "the customer is 40s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "message": "the customer is 40s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "message": "the customer is 44s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a uuid of nothing the platform owns for path customerId on /direct/v1/customers/2f261bbc-4199-49b3-b548-df7426513088/balances: {'status': 'BAD_REQUEST', 'errorDetails': None, 'message': 'Customer not found', 'logref': None, 'path': None, '_links': {}, '_embedded': {}}",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "a right-to-left override in text in accountReference on OpenAccount: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'Invalid accountReference, expecting up to 64 characters from A-Z a-z 0-9 space / . _ -', 'description': 'openSavingsAccount.productOrder.account",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "message": "the customer is 45s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "FreezeCustomer",
+      "message": "Cannot transition customer from PENDING to FROZEN",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "message": "the customer is 43s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "PENDING",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "message": "the customer reads CLOSED, which CANCEL is not tried from",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "text of 5000 characters in nominatedAccount.accountName on AddNominatedAccount: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'size must be between 0 and 255', 'description': 'addNominatedAccount.updateNominatedAccountRequest.nominatedAccount.accountName'}], 'message': '",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "message": "the customer reads CLOSED, which CLOSE is not tried from",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "FreezeCustomer",
+      "message": "Cannot transition customer from CLOSED to FROZEN",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "message": "the customer reads CLOSED, which REJECT is not tried from",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a word for a number for query skip on /direct/v1/products: {'message': 'Bad Request', 'logref': None, 'path': None, '_links': {'self': {'href': '/direct/v1/products?skip=abc', 'templated': False, 'profile': None, 'deprecation': None, 'title': None, 'hreflang'",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ReadInstructions",
+      "message": "Customer not found",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ReadBalances",
+      "message": "Customer not found",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ChangePlatformFee",
+      "message": "Cannot update the rate of a term product",
+      "count": 3,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "PENDING",
+        "none"
+       ],
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ],
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "unknown field on AddNominatedAccount: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'Unrecognized field', 'description': 'in field simulationExplorerUnknownField'}], 'message': 'Validation error', 'logref': None, 'path': None, '_",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ReuseAccountReference",
+      "message": "clean reuse of accountReference: 400 The provided account reference already exists for this platform",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "PENDING",
+        "none"
+       ],
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCancelCustomer",
+      "message": "the customer is 51s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerCloseCustomer",
+      "message": "the customer is 52s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "OfficerRejectCustomer",
+      "message": "the customer is 52s old and its onboarding check may still be running",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a huge page for query take on /direct/v1/batches: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'must be less than or equal to 1000', 'description': 'listBatches.queryBean.take'}], 'message': 'Validation Exception', 'logref': None, 'path': N",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a number past int32 for query skip on /direct/v1/customers: {'message': 'Bad Request', 'logref': None, 'path': None, '_links': {'self': {'href': '/direct/v1/customers?skip=2147483648', 'templated': False, 'profile': None, 'deprecation': None, 'title': None, 'h",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a uuid with a trailing space for path customerId on /direct/v1/customers/f085f63c-6396-4473-b1e8-6791243ea9c9%20: {'message': 'Bad Request', 'logref': None, 'path': None, '_links': {'self': {'href': '/direct/v1/customers/f085f63c-6396-4473-b1e8-6791243ea9c9%20', 'templated': False, 'profile': None, 'deprecation':",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "required field missing on CreateCustomer: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'must not be null', 'description': 'createCustomer.customerRequest.customerReference'}], 'message': 'Validation Exception', 'logref': None, 'path",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "CLOSED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "SetMaturityDestination",
+      "message": "Unable to find direct customer account for product 52b14f90-f177-4ae3-863f-4b97a369ddb2",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "NOTICE",
+        "zero",
+        "present",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "TransferToProduct",
+      "message": "the source account reads REQUESTED holding 0.00, and a transfer needs an OPEN account holding 1.00",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "INSTANT",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "message": "Requested amount: 99.99 is greater than available balance: 0",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "INSTANT",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "NoticeFallsDue",
+      "message": "only a NOTICE account has a notice withdrawal to fall due",
+      "count": 3,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "INSTANT",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ],
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ],
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "message": "Requested amount: 0.50 is greater than available balance: 0",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "INSTANT",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ],
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "JourneyFeeMidPeriod",
+      "message": "a journey ran 1 trials ago",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "ProbeParameters",
+      "message": "a negative amount for query depositRequirementMax on /direct/v1/products: {'status': 'BAD_REQUEST', 'errorDetails': None, 'message': 'Monetary amount must not be negative.', 'logref': None, 'path': None, '_links': {}, '_embedded': {}}",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "WeirdCall",
+      "message": "text of spaces only in customerReference on CreateCustomer: {'status': 'BAD_REQUEST', 'errorDetails': None, 'message': 'The provided external reference already exists', 'logref': None, 'path': None, '_links': {}, '_embedded': {}}",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "message": "Account is not accepting instructions",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "CLOSING",
+        "NOTICE",
+        "positive",
+        "none",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "OpenAccount",
+      "message": "An open account already exists for platform product 52b14f90-f177-4ae3-863f-4b97a369ddb2",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "CLOSING",
+        "NOTICE",
+        "positive",
+        "none",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "ReuseBatchReference",
+      "message": "clean reuse of batchReference: 409 Batch reference has already been used",
+      "count": 1,
+      "states": [
+       [
+        "customer",
+        "ACTIVATED",
+        "present"
+       ]
+      ]
+     },
+     {
+      "action": "CancelWithdrawal",
+      "message": "Instructions cannot be cancelled when the account is CLOSING",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "CLOSING",
+        "NOTICE",
+        "positive",
+        "none",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "ReuseAccountReference",
+      "message": "clean reuse of accountReference: 400 An amount is required when opening a fixed-term account",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "CLOSING",
+        "NOTICE",
+        "positive",
+        "none",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "SetMaturityDestination",
+      "message": "Unable to find direct customer account for product 5a5291de-202a-4839-bfc6-b6c6b8670f57",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "PENDING",
+        "one"
+       ]
+      ]
+     },
+     {
+      "action": "TransferToProduct",
+      "message": "a TERM account is not a transfer source the run tries",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "REQUESTED",
+        "TERM",
+        "zero",
+        "present",
+        "ACTIVATED",
+        "none"
+       ],
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "SetMaturityDestination",
+      "message": "Unable to find direct customer account for product a7a48b47-fbc0-4bb5-b364-78bcb4f972cb",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "PlaceWithdrawal",
+      "message": "Request is not supported for non Easy Access or Notice products",
+      "count": 2,
+      "states": [
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "CloseAccount",
+      "message": "Only Instant or Notice accounts can be closed; account product type is TERM",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "CancelAccountOpening",
+      "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state",
+      "count": 1,
+      "states": [
+       [
+        "account",
+        "OPEN",
+        "TERM",
+        "positive",
+        "none",
+        "ACTIVATED",
+        "none"
+       ]
+      ]
+     },
+     {
+      "action": "CancelAllocation",
+      "message": "An unexpected error occurred - please contact support with the logRef below",
+      "count": 1,
+      "states": [
+       [
+        "batch",
+        "PARTIALLY_ACCEPTED",
+        "partial",
+        "many",
+        "none",
+        "unpaid"
+       ]
+      ]
+     }
+    ]
+   },
+   "violations": [
+    {
+     "rule": "a terminal status is not left",
+     "subject": "c32c51ee-4589-439f-9ceb-973b9053602e",
+     "detail": "customer moved from CLOSED to ACTIVATED",
+     "expected": "CLOSED",
+     "actual": "ACTIVATED",
+     "n": 157,
+     "action": "AddNominatedAccount",
+     "beforeId": "c32c51ee-4589-439f-9ceb-973b9053602e",
+     "afterId": "c32c51ee-4589-439f-9ceb-973b9053602e",
+     "body": {
+      "currency": "GBP",
+      "ukAccountDetails": {
+       "sortCode": "100000",
+       "accountNumber": "41610008",
+       "accountReference": null
+      }
+     },
+     "leadUp": [
+      {
+       "n": 149,
+       "action": "JourneyPayeeReview",
+       "status": 412,
+       "message": "journeys have used more than 30% of the run"
+      },
+      {
+       "n": 150,
+       "action": "ProbeOtherPlatform",
+       "status": 412,
+       "message": "no other platform has shared a customer yet"
+      },
+      {
+       "n": 151,
+       "action": "FreezeCustomer",
+       "status": 400,
+       "message": "Cannot transition customer from CLOSED to FROZEN"
+      },
+      {
+       "n": 152,
+       "action": "JourneyPayeeChange",
+       "status": 412,
+       "message": "journeys have used more than 30% of the run"
+      },
+      {
+       "n": 153,
+       "action": "OfficerRejectCustomer",
+       "status": 412,
+       "message": "the customer reads CLOSED, which REJECT is not tried from"
+      },
+      {
+       "n": 154,
+       "action": "AddUnverifiableNominatedAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 155,
+       "action": "ReadCustomer",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 156,
+       "action": "UnfreezeCustomer",
+       "status": 200,
+       "message": null
+      }
+     ],
+     "inFlight": [
+      {
+       "kind": "compliance",
+       "what": "an unfreeze releasing held instructions",
+       "subject": "c32c51ee-4589-439f-9ceb-973b9053602e",
+       "trial": 156
+      }
+     ],
+     "attribution": "the run cannot attribute this to AddNominatedAccount, because an unfreeze releasing held instructions was also in flight",
+     "count": 1,
+     "lastSeenAt": 157
+    },
+    {
+     "rule": "a terminal status is not left",
+     "subject": "c32c51ee-4589-439f-9ceb-973b9053602e",
+     "detail": "customer moved from CLOSED to ACTIVATED",
+     "expected": "CLOSED",
+     "actual": "ACTIVATED",
+     "n": 255,
+     "action": "SetKycStatus",
+     "beforeId": "c32c51ee-4589-439f-9ceb-973b9053602e",
+     "afterId": "c32c51ee-4589-439f-9ceb-973b9053602e",
+     "body": {
+      "customerId": "c32c51ee-4589-439f-9ceb-973b9053602e",
+      "customerReference": "5ylnstcust0009",
+      "customerName": "Sim Explorer Idv",
+      "accountHolderType": "INDIVIDUAL",
+      "customerStatus": "ACTIVATED",
+      "nominatedAccounts": [
+       {
+        "currency": "GBP",
+        "ukAccountDetails": {
+         "sortCode": "100000",
+         "accountNumber": "41610008",
+         "accountReference": null
+        }
+       }
+      ],
+      "persons": [
+       {
+        "personId": "8bb217fa-827c-4eed-a529-fc10ea8347c1",
+        "personReference": "8bb217fa-827c-4eed",
+        "title": "MR",
+        "firstName": "Sim",
+        "middleName": null,
+        "lastName": "Explorer Idv",
+        "dateOfBirth": "1995-03-07",
+        "address": {
+         "addressLine1": "7 Second Street",
+         "addressLine2": "Flat 1",
+         "town": "Manchester",
+         "county": "Greater Manchester",
+         "postCode": "M1 1AE",
+         "country": "GBR"
+        },
+        "nationality": [
+         "GBR"
+        ],
+        "sourceOfFunds": "INSURANCE",
+        "annualIncome": "50000.00",
+        "industry": "TECHNOLOGY_SOFTWARE_DEVELOPMENT",
+        "nino": "XP332310B",
+        "email": "5ylnstupd0098@example.com",
+        "phoneNumber": "07783746575",
+        "employmentStatus": null,
+        "employerName": null
+       }
+      ],
+      "createdAt": "2028-11-21T07:04:51.023048Z",
+      "tags": {
+       "simUpdate": "0"
+      }
+     },
+     "leadUp": [
+      {
+       "n": 247,
+       "action": "SetKycStatus",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 248,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 249,
+       "action": "RACE AddNominatedAccount + AddUnverifiableNominatedAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 250,
+       "action": "OpenAccount",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 251,
+       "action": "CloseCustomer",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 252,
+       "action": "WeirdCall",
+       "status": 400,
+       "message": "required field missing on CreateCustomer: {'status': 'BAD_REQUEST', 'errorDetails': [{'message': 'must not be null', 'description': 'createCustomer.customerRequest.customerReference'}], 'message': 'Validation Exception', 'logref': None, 'path"
+      },
+      {
+       "n": 253,
+       "action": "JourneyFeeMidPeriod",
+       "status": 412,
+       "message": "journeys have used more than 30% of the run"
+      },
+      {
+       "n": 254,
+       "action": "JourneyFeeMidPeriod",
+       "status": 412,
+       "message": "journeys have used more than 30% of the run"
+      }
+     ],
+     "inFlight": [
+      {
+       "kind": "compliance",
+       "what": "a KYC recheck after a details update",
+       "subject": "2472cb0f-eec9-4929-a012-ee5d0279544e",
+       "trial": 243
+      },
+      {
+       "kind": "compliance",
+       "what": "a compliance status change to ACTIVATED",
+       "subject": "2472cb0f-eec9-4929-a012-ee5d0279544e",
+       "trial": 247
+      },
+      {
+       "kind": "compliance",
+       "what": "a compliance status change to ACTIVATED",
+       "subject": "c32c51ee-4589-439f-9ceb-973b9053602e",
+       "trial": 255
+      }
+     ],
+     "attribution": "the run cannot attribute this to SetKycStatus, because a KYC recheck after a details update, a compliance status change to ACTIVATED was also in flight",
+     "count": 1,
+     "lastSeenAt": 255
+    },
+    {
+     "rule": "over its life a customer's deposits are what it funded",
+     "subject": "0c52f53b-9c08-46c6-b7e0-29c7e5f0fe76",
+     "detail": "termer customer joined 2028-10-18 has DEPOSIT rows summing to 120.18 against 70.00 funded",
+     "expected": "70.00",
+     "actual": "120.18",
+     "n": 322,
+     "action": "LongLife",
+     "body": null,
+     "inFlight": [
+      {
+       "kind": "compliance",
+       "what": "a compliance status change to ACTIVATED",
+       "subject": "c5c0c695-8d19-4368-8d9c-1e5e60e1709c",
+       "trial": 315
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 320
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 321
+      },
+      {
+       "kind": "fee",
+       "what": "a platform fee change from 2029-01-05",
+       "subject": null,
+       "trial": 321
+      }
+     ],
+     "attribution": "the run cannot attribute this to LongLife, because a compliance status change to ACTIVATED, a platform fee change from 2029-01-05, a settlement sweep was also in flight",
+     "leadUp": [
+      {
+       "n": 314,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 315,
+       "action": "SetKycStatus",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 316,
+       "action": "PayBatchPart",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 317,
+       "action": "SettleWorld",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 318,
+       "action": "CancelAllocation",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 319,
+       "action": "PayBatchPart",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 320,
+       "action": "SettleWorld",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 321,
+       "action": "JourneyFeeMidPeriod",
+       "status": 200,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 322
+    },
+    {
+     "rule": "a read answers promptly",
+     "subject": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+     "detail": "SetMaturityToNotice took 2.93s",
+     "expected": "under 1s",
+     "actual": "2.93s",
+     "n": 352,
+     "action": "SetMaturityToNotice",
+     "beforeId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+     "afterId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+     "body": {
+      "message": "TERM account maturing 2029-11-21 now matures into NOTICE account 9f387d96"
+     },
+     "leadUp": [
+      {
+       "n": 344,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 345,
+       "action": "SetMaturityDestination",
+       "status": 400,
+       "message": "Unable to find direct customer account for product 5a5291de-202a-4839-bfc6-b6c6b8670f57"
+      },
+      {
+       "n": 346,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 347,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Requested amount: 0.50 is greater than available balance: 0"
+      },
+      {
+       "n": 348,
+       "action": "CancelAccountOpening",
+       "status": 204,
+       "message": null
+      },
+      {
+       "n": 349,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 350,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      },
+      {
+       "n": 351,
+       "action": "ReadAccount",
+       "status": 200,
+       "message": null
+      }
+     ],
+     "inFlight": [
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 352
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 352
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 352
+      },
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 352
+      }
+     ],
+     "attribution": "the run cannot attribute this to SetMaturityToNotice, because a settlement sweep was also in flight",
+     "count": 2,
+     "lastSeenAt": 375
+    },
+    {
+     "rule": "a read answers promptly",
+     "subject": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+     "detail": "ClearMaturityDestination took 4.45s",
+     "expected": "under 1s",
+     "actual": "4.45s",
+     "n": 364,
+     "action": "ClearMaturityDestination",
+     "beforeId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+     "afterId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+     "body": {
+      "accountId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+      "accountReference": "5ylnstacct0114",
+      "taxWrapper": "NONE",
+      "customerId": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+      "balance": "50.00",
+      "currency": "GBP",
+      "status": "OPEN",
+      "openedAt": "2028-11-21T07:14:18.036498Z",
+      "maturityDate": "2029-11-21",
+      "topUpDeadline": null,
+      "projectedMaturityValue": "52.25",
+      "maturityDestination": null,
+      "bank": {
+       "bankName": "Harness Direct Bank",
+       "colorHexCode": "#0066CC",
+       "logoUrl": "https://bondsmith.co.uk/logo.svg"
+      },
+      "product": {
+       "productId": "a7a48b47-fbc0-4bb5-b364-78bcb4f972cb",
+       "name": "Harness no fee",
+       "productType": "TERM",
+       "rateDetails": [
+        {
+         "aerRate": 0.045,
+         "grossRate": 0.045,
+         "bonusRate": null,
+         "leaverRate": null,
+         "startDate": "2028-10-06",
+         "endDate": null,
+         "announcedAt": "2028-10-06T14:22:01.256270Z"
+        }
+       ],
+       "period": {
+        "noticePeriod": null,
+        "termPeriod": 12,
+        "coolOffPeriod": "NONE",
+        "topUpWindowDays": null
+       }
+      },
+      "ukAccountDetail": null,
+      "paymentReference": "46KJ314BGCB4S",
+      "depositInfo": null,
+      "totalAccruedInterestToDate": null,
+      "lastAccrualDate": null,
+      "nextInterestRealisationDate": "2029-11-21"
+     },
+     "leadUp": [
+      {
+       "n": 356,
+       "action": "JourneyPayeeChange",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 357,
+       "action": "ChangePlatformFee",
+       "status": 400,
+       "message": "Cannot update the rate of a term product"
+      },
+      {
+       "n": 358,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 359,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 360,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 361,
+       "action": "ReuseAccountReference",
+       "status": 400,
+       "message": "clean reuse of accountReference: 400 The provided account reference already exists for this platform"
+      },
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      }
+     ],
+     "inFlight": [],
+     "attribution": "ClearMaturityDestination alone",
+     "count": 1,
+     "lastSeenAt": 364
+    },
+    {
+     "rule": "over its life a customer's deposits are what it funded",
+     "subject": "4550daad-2488-4f36-b53d-896d8c3e17e4",
+     "detail": "spender customer joined 2028-10-07 has DEPOSIT rows summing to 21.00 against 20.00 funded",
+     "expected": "20.00",
+     "actual": "21.00",
+     "n": 368,
+     "action": "LongLife",
+     "body": null,
+     "inFlight": [],
+     "attribution": "LongLife alone",
+     "leadUp": [
+      {
+       "n": 360,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 361,
+       "action": "ReuseAccountReference",
+       "status": 400,
+       "message": "clean reuse of accountReference: 400 The provided account reference already exists for this platform"
+      },
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 368
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "aa4f4ed8-2e11-492a-9418-a5de0ddee1f1",
+     "detail": "the Direct API prints openedAt of 2028-11-05 10:15:28.171125+00:00 for OPEN TERM account aa4f4ed8-2e11-492a-9418-a5de0ddee1f1, and core's tables give 2028-11-05 10:18:50.568762+00:00; the account row was created at 2028-11-05 10:15:28.171125+00:00, the first transaction booked at 2028-11-05 10:18:50.568762+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-05 10:18:50.568762+00:00",
+     "actual": "2028-11-05 10:15:28.171125+00:00",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 370
+    },
+    {
+     "rule": "a pooled account has no payment reference",
+     "subject": "aa4f4ed8-2e11-492a-9418-a5de0ddee1f1",
+     "detail": "paymentReference is documented as null for pooled accounts, and pooled account aa4f4ed8-2e11-492a-9418-a5de0ddee1f1 on a platform that does not pay by reference prints P6SWHDWW7AJY5",
+     "expected": "null",
+     "actual": "P6SWHDWW7AJY5",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 10,
+     "lastSeenAt": 382
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "1244e2a6-fa32-40e0-8994-b4602d9589dc",
+     "detail": "the Direct API prints openedAt of 2028-10-15 12:09:56.753600+00:00 for OPEN INSTANT account 1244e2a6-fa32-40e0-8994-b4602d9589dc, and core's tables give 2028-10-15 13:00:07.343431+00:00; the account row was created at 2028-10-15 12:09:56.753600+00:00, the first transaction booked at 2028-10-15 13:00:07.343431+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-15 13:00:07.343431+00:00",
+     "actual": "2028-10-15 12:09:56.753600+00:00",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 370
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "e540a438-e091-47df-a60e-8c9384233126",
+     "detail": "the Direct API prints openedAt of 2028-11-04 17:05:56.747750+00:00 for REQUESTED TERM account e540a438-e091-47df-a60e-8c9384233126, and core's tables give None; the account row was created at 2028-11-04 17:05:56.747750+00:00, the first transaction booked at null; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "null",
+     "actual": "2028-11-04 17:05:56.747750+00:00",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 382
+    },
+    {
+     "rule": "a pooled account has no depositInfo",
+     "subject": "e540a438-e091-47df-a60e-8c9384233126",
+     "detail": "depositInfo is documented as always null for pooled customers, and pooled account e540a438-e091-47df-a60e-8c9384233126 on a platform that does not pay by reference prints it",
+     "expected": "null",
+     "actual": "{\"minimumDeposit\": \"1.00\", \"instructedAmount\": \"50.00\", \"depositedAmount\": \"0.00\", \"requiredAmount\": \"1.00\"}",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 382
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "6145f049-7963-485f-b8bf-ab516b078b6d",
+     "detail": "the Direct API prints openedAt of 2028-10-20 19:36:29.939556+00:00 for OPEN NOTICE account 6145f049-7963-485f-b8bf-ab516b078b6d, and core's tables give 2028-10-20 19:39:04.542645+00:00; the account row was created at 2028-10-20 19:36:29.939556+00:00, the first transaction booked at 2028-10-20 19:39:04.542645+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-20 19:39:04.542645+00:00",
+     "actual": "2028-10-20 19:36:29.939556+00:00",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 370
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "761c9229-944d-469c-8bbf-75b42b5904b5",
+     "detail": "the Direct API prints openedAt of 2028-11-20 17:26:15.343277+00:00 for CLOSING INSTANT account 761c9229-944d-469c-8bbf-75b42b5904b5, and core's tables give 2028-11-20 18:13:02.597299+00:00; the account row was created at 2028-11-20 17:26:15.343277+00:00, the first transaction booked at 2028-11-20 18:13:02.597299+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-20 18:13:02.597299+00:00",
+     "actual": "2028-11-20 17:26:15.343277+00:00",
+     "n": 370,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 370
+    },
+    {
+     "rule": "no unexplained 5xx",
+     "subject": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+     "detail": "CancelAllocation answered 500",
+     "expected": "a 2xx or a 4xx",
+     "actual": "500",
+     "n": 370,
+     "action": "CancelAllocation",
+     "beforeId": "c9dacf5d-1ae3-4e68-a05d-aee4591e5fb1",
+     "afterId": "c9dacf5d-1ae3-4e68-a05d-aee4591e5fb1",
+     "body": {
+      "status": "INTERNAL_SERVER_ERROR",
+      "errorDetails": null,
+      "message": "An unexpected error occurred - please contact support with the logRef below",
+      "logref": null,
+      "path": null,
+      "_links": {},
+      "_embedded": {}
+     },
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "inFlight": [],
+     "attribution": "CancelAllocation alone",
+     "count": 1,
+     "lastSeenAt": 370
+    },
+    {
+     "rule": "a read answers promptly",
+     "subject": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+     "detail": "CancelAllocation took 10.03s",
+     "expected": "under 1s",
+     "actual": "10.03s",
+     "n": 370,
+     "action": "CancelAllocation",
+     "beforeId": "c9dacf5d-1ae3-4e68-a05d-aee4591e5fb1",
+     "afterId": "c9dacf5d-1ae3-4e68-a05d-aee4591e5fb1",
+     "body": {
+      "status": "INTERNAL_SERVER_ERROR",
+      "errorDetails": null,
+      "message": "An unexpected error occurred - please contact support with the logRef below",
+      "logref": null,
+      "path": null,
+      "_links": {},
+      "_embedded": {}
+     },
+     "leadUp": [
+      {
+       "n": 362,
+       "action": "CloseAccount",
+       "status": 400,
+       "message": "Only Instant or Notice accounts can be closed; account product type is TERM"
+      },
+      {
+       "n": 363,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 364,
+       "action": "ClearMaturityDestination",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      }
+     ],
+     "inFlight": [],
+     "attribution": "CancelAllocation alone",
+     "count": 1,
+     "lastSeenAt": 370
+    },
+    {
+     "rule": "a read answers promptly",
+     "subject": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+     "detail": "ReadAccount took 2.91s",
+     "expected": "under 1s",
+     "actual": "2.91s",
+     "n": 373,
+     "action": "ReadAccount",
+     "beforeId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+     "afterId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+     "body": {
+      "accountId": "088f8fb9-e8b6-40e4-80f3-26edfb29fb07",
+      "accountReference": "5ylnstacct0114",
+      "taxWrapper": "NONE",
+      "customerId": "dc16ad65-204a-448f-afe2-f2f2fbd5e2b8",
+      "balance": "50.00",
+      "currency": "GBP",
+      "status": "OPEN",
+      "openedAt": "2028-11-21T07:14:18.036498Z",
+      "maturityDate": "2029-11-21",
+      "topUpDeadline": null,
+      "projectedMaturityValue": "52.25",
+      "maturityDestination": null,
+      "bank": {
+       "bankName": "Harness Direct Bank",
+       "colorHexCode": "#0066CC",
+       "logoUrl": "https://bondsmith.co.uk/logo.svg"
+      },
+      "product": {
+       "productId": "a7a48b47-fbc0-4bb5-b364-78bcb4f972cb",
+       "name": "Harness no fee",
+       "productType": "TERM",
+       "rateDetails": [
+        {
+         "aerRate": 0.045,
+         "grossRate": 0.045,
+         "bonusRate": null,
+         "leaverRate": null,
+         "startDate": "2028-10-06",
+         "endDate": null,
+         "announcedAt": "2028-10-06T14:22:01.256270Z"
+        }
+       ],
+       "period": {
+        "noticePeriod": null,
+        "termPeriod": 12,
+        "coolOffPeriod": "NONE",
+        "topUpWindowDays": null
+       }
+      },
+      "ukAccountDetail": null,
+      "paymentReference": "46KJ314BGCB4S",
+      "depositInfo": null,
+      "totalAccruedInterestToDate": null,
+      "lastAccrualDate": null,
+      "nextInterestRealisationDate": "2029-11-21"
+     },
+     "leadUp": [
+      {
+       "n": 365,
+       "action": "CancelAccountOpening",
+       "status": 400,
+       "message": "Account 088f8fb9-e8b6-40e4-80f3-26edfb29fb07 is not in a cancellable state"
+      },
+      {
+       "n": 366,
+       "action": "TransferToProduct",
+       "status": 412,
+       "message": "a TERM account is not a transfer source the run tries"
+      },
+      {
+       "n": 367,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 368,
+       "action": "PlaceWithdrawal",
+       "status": 400,
+       "message": "Request is not supported for non Easy Access or Notice products"
+      },
+      {
+       "n": 369,
+       "action": "NoticeFallsDue",
+       "status": 412,
+       "message": "only a NOTICE account has a notice withdrawal to fall due"
+      },
+      {
+       "n": 370,
+       "action": "CancelAllocation",
+       "status": 500,
+       "message": "An unexpected error occurred - please contact support with the logRef below"
+      },
+      {
+       "n": 371,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 372,
+       "action": "RACE AddNominatedAccount + AddUnverifiableNominatedAccount",
+       "status": 200,
+       "message": null
+      }
+     ],
+     "inFlight": [],
+     "attribution": "ReadAccount alone",
+     "count": 1,
+     "lastSeenAt": 373
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "77c28632-c4b0-47d1-aa4d-0180c526e651",
+     "detail": "the Direct API prints openedAt of 2028-10-15 07:54:38.981333+00:00 for OPEN TERM account 77c28632-c4b0-47d1-aa4d-0180c526e651, and core's tables give 2028-10-15 07:58:07.208657+00:00; the account row was created at 2028-10-15 07:54:38.981333+00:00, the first transaction booked at 2028-10-15 07:58:07.208657+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-15 07:58:07.208657+00:00",
+     "actual": "2028-10-15 07:54:38.981333+00:00",
+     "n": 382,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 378
+      }
+     ],
+     "attribution": "the run cannot attribute this to ReadOracle, because a settlement sweep was also in flight",
+     "leadUp": [
+      {
+       "n": 374,
+       "action": "PlaceBatchPayment",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 375,
+       "action": "SetMaturityToNotice",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 376,
+       "action": "JourneyFrozenLifecycle",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 377,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 378,
+       "action": "SettleWorld",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 379,
+       "action": "PlaceBatchPayment",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 380,
+       "action": "OpenAccount",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 381,
+       "action": "ChangePlatformFee",
+       "status": 400,
+       "message": "Cannot update the rate of a term product"
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 382
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "fc734f97-571b-455b-af41-e5162ba542a4",
+     "detail": "the Direct API prints openedAt of 2028-10-17 12:21:35.593002+00:00 for CLOSING INSTANT account fc734f97-571b-455b-af41-e5162ba542a4, and core's tables give 2028-10-17 12:47:29.084777+00:00; the account row was created at 2028-10-17 12:21:35.593002+00:00, the first transaction booked at 2028-10-17 12:47:29.084777+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-17 12:47:29.084777+00:00",
+     "actual": "2028-10-17 12:21:35.593002+00:00",
+     "n": 382,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [
+      {
+       "kind": "settlement",
+       "what": "a settlement sweep",
+       "subject": null,
+       "trial": 378
+      }
+     ],
+     "attribution": "the run cannot attribute this to ReadOracle, because a settlement sweep was also in flight",
+     "leadUp": [
+      {
+       "n": 374,
+       "action": "PlaceBatchPayment",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 375,
+       "action": "SetMaturityToNotice",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 376,
+       "action": "JourneyFrozenLifecycle",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 377,
+       "action": "FundAccount",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 378,
+       "action": "SettleWorld",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 379,
+       "action": "PlaceBatchPayment",
+       "status": 200,
+       "message": null
+      },
+      {
+       "n": 380,
+       "action": "OpenAccount",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 381,
+       "action": "ChangePlatformFee",
+       "status": 400,
+       "message": "Cannot update the rate of a term product"
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 382
+    }
+   ],
+   "why_counts": {
+    "shape gap": 28,
+    "least tried": 306,
+    "route": 47
+   },
+   "reach": {
+    "edges_within_kind": 24,
+    "edges_across_kinds": 0,
+    "targets": [
+     {
+      "key": [
+       "account",
+       "OPEN",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "none"
+      ],
+      "visits": 1,
+      "untried": [
+       "CancelAccountOpening",
+       "ChangePlatformFee",
+       "ClearMaturityDestination",
+       "FundAccount",
+       "NoticeFallsDue",
+       "OpenAccount",
+       "PlaceWithdrawal",
+       "ReadAccount",
+       "ReuseAccountReference",
+       "SetMaturityDestination",
+       "SetMaturityToNotice",
+       "TransferToProduct"
+      ],
+      "is_landing": false,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "some",
+       "unpaid"
+      ],
+      "visits": 1,
+      "untried": [
+       "CancelAllocation",
+       "PayBatchPart",
+       "SettleWorld"
+      ],
+      "is_landing": false,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "visits": 2,
+      "untried": [
+       "CancelAccountOpening",
+       "ClearMaturityDestination",
+       "CloseAccount",
+       "FundAccount",
+       "NoticeFallsDue",
+       "OpenAccount",
+       "PlaceWithdrawal",
+       "ReadAccount",
+       "SetMaturityDestination",
+       "SetMaturityToNotice",
+       "TransferToProduct"
+      ],
+      "is_landing": true,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "none",
+       "part"
+      ],
+      "visits": 2,
+      "untried": [
+       "PayBatchPart",
+       "PlaceBatchPayment"
+      ],
+      "is_landing": true,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "none"
+      ],
+      "visits": 3,
+      "untried": [
+       "CancelAccountOpening",
+       "ChangePlatformFee",
+       "ClearMaturityDestination",
+       "CloseAccount",
+       "NoticeFallsDue",
+       "OpenAccount",
+       "ReadAccount",
+       "ReuseAccountReference",
+       "SetMaturityDestination",
+       "TransferToProduct"
+      ],
+      "is_landing": true,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "REQUESTED",
+       "NOTICE",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "visits": 3,
+      "untried": [
+       "CancelAccountOpening",
+       "CancelWithdrawal",
+       "ChangePlatformFee",
+       "CloseAccount",
+       "NoticeFallsDue",
+       "OpenAccount",
+       "PlaceWithdrawal",
+       "ReadAccount",
+       "ReuseAccountReference",
+       "SetMaturityToNotice",
+       "TransferToProduct"
+      ],
+      "is_landing": true,
+      "set_aside": true
+     },
+     {
+      "key": [
+       "batch",
+       "PARTIALLY_ACCEPTED",
+       "partial",
+       "many",
+       "some",
+       "part"
+      ],
+      "visits": 3,
+      "untried": [
+       "PlaceBatchPayment"
+      ],
+      "is_landing": true,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "visits": 5,
+      "untried": [
+       "CancelAccountOpening",
+       "ClearMaturityDestination",
+       "CloseAccount",
+       "FundAccount",
+       "OpenAccount",
+       "PlaceWithdrawal",
+       "ReuseAccountReference",
+       "SetMaturityDestination"
+      ],
+      "is_landing": true,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "REQUESTED",
+       "TERM",
+       "zero",
+       "present",
+       "PENDING",
+       "one"
+      ],
+      "visits": 5,
+      "untried": [
+       "ChangePlatformFee",
+       "CloseAccount",
+       "NoticeFallsDue",
+       "OpenAccount",
+       "ReadAccount",
+       "ReuseAccountReference",
+       "SetMaturityToNotice",
+       "TransferToProduct"
+      ],
+      "is_landing": false,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "REQUESTED",
+       "INSTANT",
+       "zero",
+       "present",
+       "ACTIVATED",
+       "none"
+      ],
+      "visits": 11,
+      "untried": [
+       "ChangePlatformFee",
+       "ClearMaturityDestination",
+       "CloseAccount",
+       "OpenAccount",
+       "ReuseAccountReference",
+       "SetMaturityDestination",
+       "SetMaturityToNotice"
+      ],
+      "is_landing": true,
+      "set_aside": false
+     },
+     {
+      "key": [
+       "account",
+       "CLOSING",
+       "NOTICE",
+       "positive",
+       "none",
+       "PENDING",
+       "one"
+      ],
+      "visits": 15,
+      "untried": [
+       "CancelAccountOpening",
+       "ClearMaturityDestination",
+       "NoticeFallsDue",
+       "ReadAccount",
+       "SetMaturityDestination",
+       "TransferToProduct"
+      ],
+      "is_landing": false,
+      "set_aside": false
+     }
+    ]
+   },
+   "faults": {
+    "boundary": null,
+    "available": [],
+    "daysAdvanced": 0,
+    "lastInterruption": null,
+    "interruptions": 0,
+    "trialsSinceRestart": null,
+    "faultShare": 0.0,
+    "duplicatingQueue": null,
+    "messagesCopied": 0
+   },
+   "journeys": [
+    {
+     "journey": "JourneyTermBeforeMaturity",
+     "trial": 23,
+     "customerId": "1c5e49e0-90d2-4e71-b192-5861389c33f0",
+     "status": 200,
+     "violations": 0,
+     "steps": [
+      {
+       "step": "create a customer and wait for ACTIVATED",
+       "outcome": "ACTIVATED",
+       "at": 0.4
+      },
+      {
+       "step": "wait for the payee to pass Confirmation of Payee",
+       "outcome": "usable",
+       "at": 0.4
+      },
+      {
+       "step": "open a TERM account",
+       "outcome": "201",
+       "at": 0.6
+      },
+      {
+       "step": "fund the TERM account with 50.00",
+       "outcome": "200",
+       "at": 1.4
+      },
+      {
+       "step": "maturity date",
+       "outcome": "2028-12-21",
+       "at": 18.0
+      },
+      {
+       "step": "open a NOTICE account",
+       "outcome": "201",
+       "at": 18.2
+      },
+      {
+       "step": "set the maturity destination to NOTICE",
+       "outcome": "200",
+       "at": 18.6
+      },
+      {
+       "step": "top up the funded TERM account with 5.00",
+       "outcome": "200",
+       "at": 19.5
+      },
+      {
+       "step": "withdraw from the TERM account",
+       "outcome": "400",
+       "at": 23.5
+      },
+      {
+       "step": "close the TERM account",
+       "outcome": "400",
+       "at": 23.5
+      },
+      {
+       "step": "wait for the accrual job to advance the business date",
+       "outcome": "not waited: the next 20:00 London is more than 300s of real time away",
+       "at": 23.6
+      },
+      {
+       "step": "interest oracle at a day on",
+       "outcome": "0 accruals, 0 realisations, 0 findings",
+       "at": 24.1
+      }
+     ],
+     "seconds": 24.1,
+     "note": null
+    },
+    {
+     "journey": "JourneyFeeMidPeriod",
+     "trial": 321,
+     "customerId": "a594b6a4-5b4c-464f-b65d-35ad09b8a42a",
+     "status": 200,
+     "violations": 0,
+     "steps": [
+      {
+       "step": "create a customer and wait for ACTIVATED",
+       "outcome": "ACTIVATED",
+       "at": 0.5
+      },
+      {
+       "step": "wait for the payee to pass Confirmation of Payee",
+       "outcome": "usable",
+       "at": 0.6
+      },
+      {
+       "step": "open a INSTANT account",
+       "outcome": "201",
+       "at": 0.9
+      },
+      {
+       "step": "wait for the accrual job to advance the business date",
+       "outcome": "not waited: the next 20:00 London is more than 300s of real time away",
+       "at": 44.1
+      },
+      {
+       "step": "change the platform fee",
+       "outcome": "200 raised the platform fee to 0.0050 from 2029-01-05: proposal 200, approval 200",
+       "at": 44.6
+      },
+      {
+       "step": "wait for the accrual job to advance the business date",
+       "outcome": "not waited: the next 20:00 London is more than 300s of real time away",
+       "at": 44.7
+      },
+      {
+       "step": "wait for the accrual job to advance the business date",
+       "outcome": "not waited: the next 20:00 London is more than 300s of real time away",
+       "at": 44.8
+      },
+      {
+       "step": "interest oracle at two days after the fee change",
+       "outcome": "0 accruals, 0 realisations, 0 findings",
+       "at": 45.3
+      },
+      {
+       "step": "realised interest",
+       "outcome": "0 via the API, 0 in core; 0 accruals judged",
+       "at": 45.4
+      }
+     ],
+     "seconds": 45.4,
+     "note": null
+    },
+    {
+     "journey": "JourneyPayeeChange",
+     "trial": 356,
+     "customerId": "b9839ee1-a69a-4da7-af48-c38a4acd9be2",
+     "status": 200,
+     "violations": 0,
+     "steps": [
+      {
+       "step": "create a customer and wait for ACTIVATED",
+       "outcome": "ACTIVATED",
+       "at": 0.5
+      },
+      {
+       "step": "wait for the payee to pass Confirmation of Payee",
+       "outcome": "usable",
+       "at": 0.5
+      },
+      {
+       "step": "open a INSTANT account",
+       "outcome": "201",
+       "at": 0.8
+      },
+      {
+       "step": "nominate 'Payee A lnst02'",
+       "outcome": "200",
+       "at": 11.5
+      },
+      {
+       "step": "withdraw 2.17",
+       "outcome": "201",
+       "at": 18.1
+      },
+      {
+       "step": "payout dues for 2.17",
+       "outcome": "[('92ed501e-6137-4432-8267-e271922e85cc', '2.17', 'PRODUCED', '{\"type\": \"GB_SCAN\", \"value\": \"08999966374958\", \"countryCode\": \"GB\"} Payee A lnst02', 'VERIFIED', '1858405818.108482')]",
+       "at": 60.5
+      },
+      {
+       "step": "the 2.17 withdrawal",
+       "outcome": "completed",
+       "at": 60.5
+      },
+      {
+       "step": "nominate 'Payee B NOMATCH lnst02'",
+       "outcome": "200",
+       "at": 60.6
+      },
+      {
+       "step": "withdraw 0.50 with an unverified payee",
+       "outcome": "400",
+       "at": 67.0
+      },
+      {
+       "step": "nominate 'Payee C lnst02'",
+       "outcome": "200",
+       "at": 67.1
+      },
+      {
+       "step": "withdraw 1.23",
+       "outcome": "201",
+       "at": 73.5
+      },
+      {
+       "step": "payout dues for 1.23",
+       "outcome": "[('fc5e9a6e-832f-4247-a4dc-116150a757f7', '1.23', 'PRODUCED', '{\"type\": \"GB_SCAN\", \"value\": \"20295963748472\", \"countryCode\": \"GB\"} Payee C lnst02', 'VERIFIED', '1858406370.787311')]",
+       "at": 122.3
+      },
+      {
+       "step": "the 1.23 withdrawal",
+       "outcome": "completed",
+       "at": 122.3
+      }
+     ],
+     "seconds": 122.3,
+     "note": null
+    },
+    {
+     "journey": "JourneyFrozenLifecycle",
+     "trial": 376,
+     "customerId": "8d2b2f5a-6d9d-44ec-9728-4253f6d68a1f",
+     "status": 200,
+     "violations": 0,
+     "steps": [
+      {
+       "step": "create a customer and wait for ACTIVATED",
+       "outcome": "ACTIVATED",
+       "at": 0.6
+      },
+      {
+       "step": "wait for the payee to pass Confirmation of Payee",
+       "outcome": "usable",
+       "at": 0.8
+      },
+      {
+       "step": "open a INSTANT account",
+       "outcome": "201",
+       "at": 1.1
+      },
+      {
+       "step": "freeze the customer",
+       "outcome": "200 -> FROZEN",
+       "at": 12.1
+      },
+      {
+       "step": "nominate 'Frozen payee lnst'",
+       "outcome": "400",
+       "at": 12.2
+      },
+      {
+       "step": "withdraw 1.00 while FROZEN",
+       "outcome": "400",
+       "at": 12.2
+      },
+      {
+       "step": "open a NOTICE account while FROZEN",
+       "outcome": "400",
+       "at": 12.2
+      },
+      {
+       "step": "transfer 1.00 to NOTICE while FROZEN",
+       "outcome": "400",
+       "at": 12.2
+      },
+      {
+       "step": "change the nominated account while FROZEN",
+       "outcome": "400",
+       "at": 12.2
+      },
+      {
+       "step": "deposit 4.00 while FROZEN",
+       "outcome": "batch answered 200, 0 pending deposit, deposits booked 10.00",
+       "at": 19.4
+      },
+      {
+       "step": "the frozen deposit's batch line",
+       "outcome": "REJECTED",
+       "at": 19.4
+      },
+      {
+       "step": "wait for the accrual job to advance the business date",
+       "outcome": "not waited: the next 20:00 London is more than 300s of real time away",
+       "at": 19.5
+      },
+      {
+       "step": "interest oracle at a frozen day",
+       "outcome": "0 accruals, 0 realisations, 0 findings",
+       "at": 20.0
+      },
+      {
+       "step": "unfreeze the customer",
+       "outcome": "200",
+       "at": 20.1
+      },
+      {
+       "step": "money conserved at the unfreeze",
+       "outcome": "10.00 = 10.00 - 0 + 0 + 0",
+       "at": 26.7
+      },
+      {
+       "step": "withdraw 1.00 after the unfreeze",
+       "outcome": "201",
+       "at": 26.7
+      }
+     ],
+     "seconds": 26.7,
+     "note": null
+    }
+   ],
+   "webhooks": {
+    "deliveries": 238,
+    "redelivered": 0,
+    "byType": {
+     "ACCOUNT_CLOSED": 4,
+     "ACCOUNT_CREATED": 18,
+     "CUSTOMER_DATA_CHANGED": 50,
+     "CUSTOMER_DOCUMENT_CREATED": 2,
+     "CUSTOMER_STATE_CHANGED": 51,
+     "NOMINATED_ACCOUNT_ADDED": 54,
+     "NOMINATED_ACCOUNT_STATE_CHANGED": 40,
+     "SAVINGS_TRANSACTION": 19
+    },
+    "apiTransactions": 15,
+    "tiedToMintedReference": 15,
+    "accountsBalanced": 18,
+    "unreadableCustomers": 10,
+    "youngAccountsSkipped": 0,
+    "findings": 0,
+    "outstandingTransactions": 0,
+    "depositsAsked": 51,
+    "depositsCompleted": 7,
+    "withdrawalsAsked": 4,
+    "tiedToInstruction": 15,
+    "depositOnlyAccountsJudged": 3,
+    "failedPayoutsOwed": 0,
+    "answeredThenRedelivered": 0,
+    "customerStateRepeats": 12,
+    "oracleFindings": 0,
+    "accountCreatedJudged": 18,
+    "customerDataChangedJudged": 37,
+    "nominatedAccountAddedJudged": 54,
+    "final": true,
+    "awaitingResponse": 0,
+    "drainWaitSeconds": 0.0
+   },
+   "operatorDecisions": [],
+   "longLived": {
+    "clock": null,
+    "population": {
+     "live": 40,
+     "left": 0,
+     "joinedThisRun": 0,
+     "personas": {
+      "termer": 5,
+      "saver": 10,
+      "changer": 5,
+      "mover": 5,
+      "leaver": 5,
+      "quiet": 5,
+      "spender": 5
+     },
+     "lastDay": "2028-11-21",
+     "recent": []
+    }
+   },
+   "interestOracle": null,
+   "clock": {
+    "fake": true,
+    "spec": "@2028-10-06 13:26:00 x10",
+    "rate": 10.0,
+    "fakeStart": "2028-10-06T13:26:00+00:00",
+    "realStart": "2026-10-12T11:15:33.396215+00:00",
+    "boundary": {
+     "name": "cron at 17:45 London",
+     "at": "2028-10-06T16:45:00+00:00",
+     "atLondon": "2028-10-06T17:45:00+01:00",
+     "offsetSeconds": 11940
+    },
+    "fakeNow": "2028-11-21T09:42:42.658741+00:00"
+   }
+  }
+ },
+ "clock": {
+  "fake": true,
+  "spec": "@2028-10-06 13:26:00 x10",
+  "rate": 10.0,
+  "fakeStart": "2028-10-06T13:26:00+00:00",
+  "realStart": "2026-10-12T11:15:33.396215+00:00",
+  "boundary": {
+   "name": "cron at 17:45 London",
+   "at": "2028-10-06T16:45:00+00:00",
+   "atLondon": "2028-10-06T17:45:00+01:00",
+   "offsetSeconds": 11940
+  },
+  "fakeNow": "2028-11-21T09:42:42.658741+00:00"
+ },
+ "mi": {
+  "files": [
+   "FLAGGED_PAYMENTS_2028-11-01.csv",
+   "MI_RECON_2028-10-06.csv",
+   "MI_RECON_2028-10-07.csv",
+   "MI_RECON_2028-10-08.csv",
+   "MI_RECON_2028-10-09.csv",
+   "MI_RECON_2028-10-10.csv",
+   "MI_RECON_2028-10-11.csv",
+   "MI_RECON_2028-10-12.csv",
+   "MI_RECON_2028-10-13.csv",
+   "MI_RECON_2028-10-14.csv",
+   "MI_RECON_2028-10-15.csv",
+   "MI_RECON_2028-10-16.csv",
+   "MI_RECON_2028-10-17.csv",
+   "ONBOARDING_2028-11-01.csv"
+  ],
+  "findings": [
+   {
+    "rule": "every MI_RECON item is an EXCEPTION",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "RETURN_TO_REMITTER",
+    "row": {
+     "Item Category": "RETURN_TO_REMITTER",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "2.37",
+     "Account Identifier": "GB72INVC40565601000001",
+     "Payment Reference": "8449egrt0534",
+     "Payment ID": "66b48002-9ad4-46c6-9e87-6c79ea2d1e24",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Returned to remitter"
+    }
+   },
+   {
+    "rule": "every MI_RECON item is an EXCEPTION",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "RETURN_TO_REMITTER",
+    "row": {
+     "Item Category": "RETURN_TO_REMITTER",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "2.37",
+     "Account Identifier": "GB72INVC40565601000001",
+     "Payment Reference": "993zgtrt0054",
+     "Payment ID": "f741cebe-2295-4144-9a41-67bae8e1dd53",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Returned to remitter"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB07INVC18042263522909",
+     "Payment Reference": "NONREF",
+     "Payment ID": "09a1961d-84c3-4df0-985a-e28495a0405f",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB02INVC18042218285109",
+     "Payment Reference": "NONREF",
+     "Payment ID": "166af61f-d1dd-43ff-9971-a0b1f5e7ca26",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB44INVC18042253940098",
+     "Payment Reference": "NONREF",
+     "Payment ID": "18a4fbb5-0e0f-46c4-b92f-47cda800828d",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB45INVC18042288538428",
+     "Payment Reference": "NONREF",
+     "Payment ID": "1c095c69-ca86-42f5-a1f9-4835e587aee5",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB41INVC18042275859048",
+     "Payment Reference": "NONREF",
+     "Payment ID": "2ce2f834-1db0-4eaf-9b46-77598643f3ed",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB13INVC18042294480060",
+     "Payment Reference": "NONREF",
+     "Payment ID": "33027cf6-d43f-4919-bf17-f798d86a6149",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB98INVC18042223947793",
+     "Payment Reference": "NONREF",
+     "Payment ID": "478362c3-83b0-4a71-976a-7c86d5807e50",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB10INVC18042280534812",
+     "Payment Reference": "NONREF",
+     "Payment ID": "525431ec-35b0-466e-8bbb-185c6118ba09",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB33INVC18042279431120",
+     "Payment Reference": "NONREF",
+     "Payment ID": "5a5f9c2c-c376-4ca5-a42f-9a829efca9d4",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB77INVC18042242165062",
+     "Payment Reference": "NONREF",
+     "Payment ID": "643d2a75-334e-4a5d-810f-08a3bb6b2cbb",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB57INVC18042277442285",
+     "Payment Reference": "NONREF",
+     "Payment ID": "6d423ef1-7ea0-4447-a208-c4dedcb65471",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB48INVC18042211125584",
+     "Payment Reference": "NONREF",
+     "Payment ID": "813c3ece-145a-478e-8983-55ea7ef44da8",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB61INVC18042237077409",
+     "Payment Reference": "NONREF",
+     "Payment ID": "8b386f15-725f-48ff-9e12-038ccec50d1a",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB74INVC18042269109582",
+     "Payment Reference": "NONREF",
+     "Payment ID": "8d551053-1085-44be-99ed-dd8ea033d7b6",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB69INVC18042210513039",
+     "Payment Reference": "NONREF",
+     "Payment ID": "90ac8583-cb05-47cd-8c14-c320d9d98fc0",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB90INVC18042218764257",
+     "Payment Reference": "NONREF",
+     "Payment ID": "90da6056-cdcd-429a-accb-de635d9f73c6",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB77INVC18042222654482",
+     "Payment Reference": "NONREF",
+     "Payment ID": "a3bbdd2f-5c2b-4690-ae04-a951167b1b16",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB64INVC18042288111286",
+     "Payment Reference": "NONREF",
+     "Payment ID": "ac91e752-6933-4ec1-9648-20b0b28d59b9",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB47INVC18042218659689",
+     "Payment Reference": "NONREF",
+     "Payment ID": "b6d348ca-49e5-4f8b-bcf0-810bb1b6b270",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB61INVC18042217599227",
+     "Payment Reference": "NONREF",
+     "Payment ID": "b8b686fc-18f6-48f4-9d18-688d33a806cd",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "37.27",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0411",
+     "Payment ID": "961cc3e1-7893-46f0-a784-f0b3065c42de",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "35.02",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0411",
+     "Payment ID": "3bada26c-7b2b-4387-a521-a2d9be13f329",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "29h48vp0077",
+     "Payment ID": "33087b87-cbb4-4177-9770-8f5c7b1e5a45",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "ckx9kop0452",
+     "Payment ID": "509f2552-4ce2-4be1-bc97-2284c2ab59ea",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0463",
+     "Payment ID": "819ea7c9-e42a-4862-86fd-a94503c0cfcf",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0434",
+     "Payment ID": "98809c21-1bfc-4689-8d2a-7ed49f3d35d2",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0430",
+     "Payment ID": "a6f070c7-9231-4a2d-8579-f6a779dac9fc",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "ckx9kop0473",
+     "Payment ID": "d4eb5237-500f-4bed-9b04-da338bdc364e",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "ckx9kop0463",
+     "Payment ID": "e11aaea4-5347-47f2-a125-d774e2f9c34a",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0466",
+     "Payment ID": "f7754a3c-e83f-4bac-a5c5-2b6f2d16645d",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: 33 rows in all, the first 20 listed",
+    "row": null
+   }
+  ]
+ },
+ "feed": {
+  "failed": 26,
+  "byRule": {
+   "an account's customer was sent first": 12,
+   "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance": 11,
+   "a transaction's account was sent first": 2,
+   "UpdatedBalance is the previous UpdatedBalance plus the amount": 1
+  },
+  "samples": {
+   "an account's customer was sent first": [
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20281022T070002Z.csv",
+     "detail": "account 285173fe-d1ff-4c32-b096-313a132fd536 names customer 2fbb987a-0745-430a-91ea-6a7da76c9265",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "285173fe-d1ff-4c32-b096-313a132fd536",
+      "CustomerId": "2fbb987a-0745-430a-91ea-6a7da76c9265",
+      "AccountNumber": "01002993",
+      "SortCode": "405656",
+      "ProductId": "bf653ac6-fa97-4ce5-ae9c-f562a133d1ba",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2028-10-22",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2028-10-22",
+      "AccountOpenDate": "2028-10-22",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2028-10-22T06:55:24Z"
+     }
+    },
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20281026T060002Z.csv",
+     "detail": "account 21b18721-350f-4251-a142-c795fb4ee30e names customer 40eda149-af97-4dc8-b160-4ef62a2279b2",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "21b18721-350f-4251-a142-c795fb4ee30e",
+      "CustomerId": "40eda149-af97-4dc8-b160-4ef62a2279b2",
+      "AccountNumber": "01004482",
+      "SortCode": "405656",
+      "ProductId": "a658fcfa-432b-40e8-830b-b1705952dc30",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2028-10-26",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2028-10-26",
+      "AccountOpenDate": "2028-10-26",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2028-10-26T05:55:15Z"
+     }
+    },
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20281029T080002Z.csv",
+     "detail": "account c1d9bedf-ca00-47ff-b9e9-9808343783e6 names customer 8c1527e8-c345-4ade-9d65-fba69e3bba3b",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "c1d9bedf-ca00-47ff-b9e9-9808343783e6",
+      "CustomerId": "8c1527e8-c345-4ade-9d65-fba69e3bba3b",
+      "AccountNumber": "01005787",
+      "SortCode": "405656",
+      "ProductId": "7354df40-b80d-449a-b2cd-47962dc89181",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2028-10-29",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2028-10-29",
+      "AccountOpenDate": "2028-10-29",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2028-10-29T07:55:35Z"
+     }
+    }
+   ],
+   "a transaction's account was sent first": [
+    {
+     "rule": "a transaction's account was sent first",
+     "file": "TRANSACTION_20281110T090002Z.csv",
+     "detail": "transaction 7755c666-4a09-4dfc-8582-a1351cdc53d9 names account 606195bf-187b-4312-86cd-e95911313123",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "7755c666-4a09-4dfc-8582-a1351cdc53d9",
+      "AccountId": "606195bf-187b-4312-86cd-e95911313123",
+      "BookingDateTime": "2028-11-10T08:28:17Z",
+      "ValueDate": "2028-11-10T00:00:00Z",
+      "TransactionType": "Deposit",
+      "Amount": "10.00",
+      "PaymentReference": "ky19gyp0052",
+      "UpdatedBalance": "10.00"
+     }
+    },
+    {
+     "rule": "a transaction's account was sent first",
+     "file": "TRANSACTION_20281115T000000Z.csv",
+     "detail": "transaction 7515462b-e4df-48fb-a968-8f895c8e1ae8 names account 606195bf-187b-4312-86cd-e95911313123",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "7515462b-e4df-48fb-a968-8f895c8e1ae8",
+      "AccountId": "606195bf-187b-4312-86cd-e95911313123",
+      "BookingDateTime": "2028-11-14T20:24:24Z",
+      "ValueDate": "2028-11-15T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.01",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "10.01"
+     }
+    }
+   ],
+   "UpdatedBalance is the previous UpdatedBalance plus the amount": [
+    {
+     "rule": "UpdatedBalance is the previous UpdatedBalance plus the amount",
+     "file": "TRANSACTION_20281022T230001Z.csv",
+     "detail": "account 1d07d8fa-6708-461c-a3a2-14c6466ab9b8: 3.00 -> 3.06 for amount 0.01 (Interest)",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "a38c09e7-e5bb-4746-8efc-7b113d4ef07d",
+      "AccountId": "1d07d8fa-6708-461c-a3a2-14c6466ab9b8",
+      "BookingDateTime": "2028-10-22T19:06:13Z",
+      "ValueDate": "2028-10-23T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.01",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "3.06"
+     }
+    }
+   ],
+   "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance": [
+    {
+     "rule": "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
+     "file": "RECON_20281110T230007Z.csv",
+     "detail": "RECON says 494787.54, the TRANSACTION files give 494797.54",
+     "row": {
+      "BusinessEffectiveDate": "2028-11-10",
+      "TotalCustomerCount": "32593",
+      "TotalAccountCount": "13271",
+      "TotalProductCount": "317",
+      "DailyTransactionCount": "2944",
+      "TotalBalanceAtEndOfDay": "494787.54",
+      "TotalAccruedInterest": "122.72"
+     }
+    },
+    {
+     "rule": "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
+     "file": "RECON_20281111T230026Z.csv",
+     "detail": "RECON says 507887.57, the TRANSACTION files give 507897.57",
+     "row": {
+      "BusinessEffectiveDate": "2028-11-11",
+      "TotalCustomerCount": "33420",
+      "TotalAccountCount": "13592",
+      "TotalProductCount": "325",
+      "DailyTransactionCount": "3188",
+      "TotalBalanceAtEndOfDay": "507887.57",
+      "TotalAccruedInterest": "128.13"
+     }
+    },
+    {
+     "rule": "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
+     "file": "RECON_20281112T230008Z.csv",
+     "detail": "RECON says 520979.82, the TRANSACTION files give 520989.82",
+     "row": {
+      "BusinessEffectiveDate": "2028-11-12",
+      "TotalCustomerCount": "34262",
+      "TotalAccountCount": "13914",
+      "TotalProductCount": "335",
+      "DailyTransactionCount": "2963",
+      "TotalBalanceAtEndOfDay": "520979.82",
+      "TotalAccruedInterest": "133.14"
+     }
+    }
+   ]
+  }
+ }
+}
