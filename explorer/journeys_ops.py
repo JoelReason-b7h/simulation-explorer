@@ -717,7 +717,7 @@ def _judge_customer(j, customer):
 
 
 def _judge_products(j):
-    listed = j.client.call("GET", "/direct/v1/products")
+    listed = j.client.call("GET", "/direct/v1/products", params={"take": 1000})
     rows = _rows(listed.body) if listed.ok else []
     differ = []
     for row in rows:
@@ -734,7 +734,7 @@ def _judge_products(j):
             return sorted(k for k in set(listed_row or {}) & set(body)
                           if (listed_row or {}).get(k) != body.get(k))
         if differing(row):
-            again = j.client.call("GET", "/direct/v1/products")
+            again = j.client.call("GET", "/direct/v1/products", params={"take": 1000})
             now = next((r for r in _rows(again.body) if r.get("productId") == product_id), None)
             if differing(now):
                 differ.append((product_id, differing(now)))

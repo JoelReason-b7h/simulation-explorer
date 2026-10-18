@@ -4874,7 +4874,7 @@ def main():
     print("  platform {} · virtual account {} · product {}".format(
         platform_uid, virtual_iban, found_product))
 
-    products = client.call("GET", "/direct/v1/products")
+    products = client.call("GET", "/direct/v1/products", params={"take": 1000})
     rows = (products.body.get("content") or []) if products.ok else []
     # Keyed by productId, because every product in this cohort answers with the same `name` —
     # the read returns the fee alias, "Harness no fee", not the product name. Keying by type

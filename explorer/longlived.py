@@ -120,7 +120,7 @@ def unusable(saved, count, settings):
             direct = DirectClient(settings["base_url"], settings["auth_token_url"],
                                   cohort["clientId"], "local", settings.get("auth_scope"))
             try:
-                products = direct.call("GET", "/direct/v1/products")
+                products = direct.call("GET", "/direct/v1/products", params={"take": 1000})
             finally:
                 direct.close()
             kinds = {row.get("productType") for row in (

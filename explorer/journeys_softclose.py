@@ -67,7 +67,7 @@ def soft_close(run):
         return j.refuse("the statement poll window is shut, so no deposit or payout can settle")
     product = getattr(run, "soft_close", None)
     if product is None:
-        product = _new_product(j)
+        product = _leftover_product(j) or _new_product(j)
         if product is None:
             return j.refuse("could not make a product to close")
         run.soft_close = product
@@ -393,7 +393,28 @@ def _new_product(j):
     j.step("find the platform product", found)
     if not found:
         return None
-    return {"productId": found, "alias": alias, "madeAt": clock.now(), "holders": [],
+    return _tracked(found, alias)
+
+
+def _leftover_product(j):
+    """An ACTIVE product an earlier run on this pooled platform made and ended before closing.
+
+    Taking it over keeps the platform at one ACTIVE product of this journey's, where making a new
+    one each run grew the list by one per run until the platform's own products fell off the first
+    page of GET /direct/v1/products. Its earlier holders are not tracked, so only holders this run
+    opens are judged.
+    """
+    listed = j.run.client.call("GET", "/direct/v1/products", params={"take": 1000})
+    row = next((row for row in (_rows(listed.body) if listed.ok else [])
+                if is_soft_close_product(row)), None)
+    if row is None:
+        return None
+    j.step("take over a product an earlier run left ACTIVE", row.get("name"))
+    return _tracked(row.get("productId"), row.get("name"))
+
+
+def _tracked(product_id, alias):
+    return {"productId": product_id, "alias": alias, "madeAt": clock.now(), "holders": [],
             "withdrewWhileActive": False, "closedOn": None, "graceEnd": None,
             "judgedWithinGrace": False, "judgedAfterGrace": False, "callsAfterClose": 0}
 
