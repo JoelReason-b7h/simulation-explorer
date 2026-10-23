@@ -1,0 +1,3456 @@
+{
+ "name": "fleet2555",
+ "progress": {
+  "name": "fleet2555",
+  "at": "2026-10-23 13:09:16",
+  "seconds": 900,
+  "clock": {
+   "fake": true,
+   "spec": "@2028-10-06 13:26:00 x10",
+   "rate": 10.0,
+   "fakeStart": "2028-10-06T13:26:00+00:00",
+   "realStart": "2026-10-12T11:15:33.396215+00:00",
+   "boundary": {
+    "name": "cron at 17:45 London",
+    "at": "2028-10-06T16:45:00+00:00",
+    "atLondon": "2028-10-06T17:45:00+01:00",
+    "offsetSeconds": 11940
+   },
+   "fakeNow": "2029-01-24T22:23:07.200038+00:00"
+  },
+  "runs": {
+   "fleet2555-p0": {
+    "trials": 4,
+    "races": 0,
+    "raceFindings": 0,
+    "unattributed": 0,
+    "violations": 17,
+    "rules": [
+     "a pooled account has no depositInfo",
+     "a pooled account has no payment reference",
+     "a read answers promptly",
+     "a statement covers a period in which the account existed",
+     "a transaction booked after an accrual's cutoff is dated after that day",
+     "clearing's bank reconciliation passes",
+     "core's Direct reconciliation with clearing passes",
+     "every eligible account has a statement for the month",
+     "openedAt is when the account's first deposit completed",
+     "the service's own integrity check passes"
+    ]
+   },
+   "fleet2555-p1": {
+    "trials": 4,
+    "races": 0,
+    "raceFindings": 0,
+    "unattributed": 0,
+    "violations": 10,
+    "rules": [
+     "a pooled account has no depositInfo",
+     "a pooled account has no payment reference",
+     "a transaction booked after an accrual's cutoff is dated after that day",
+     "openedAt is when the account's first deposit completed"
+    ]
+   },
+   "fleet2555-p2": {
+    "trials": 4,
+    "races": 0,
+    "raceFindings": 0,
+    "unattributed": 0,
+    "violations": 11,
+    "rules": [
+     "a pooled account has no depositInfo",
+     "a pooled account has no payment reference",
+     "a read answers promptly",
+     "a transaction booked after an accrual's cutoff is dated after that day",
+     "openedAt is when the account's first deposit completed"
+    ]
+   },
+   "fleet2555-p3": {
+    "trials": 4,
+    "races": 0,
+    "raceFindings": 0,
+    "unattributed": 0,
+    "violations": 11,
+    "rules": [
+     "a pooled account has no depositInfo",
+     "a pooled account has no payment reference",
+     "a read answers promptly",
+     "a transaction booked after an accrual's cutoff is dated after that day",
+     "openedAt is when the account's first deposit completed"
+    ]
+   }
+  },
+  "sanity": [
+   "fleet2555-p0 made 4 trials in 15 minutes, under 1.0 a minute",
+   "fleet2555-p1 made 0.3 trials a minute, under half the usual 9.0",
+   "fleet2555-p1 made 4 trials in 15 minutes, under 3.0 a minute",
+   "fleet2555-p2 made 0.3 trials a minute, under half the usual 9.0",
+   "fleet2555-p2 made 4 trials in 15 minutes, under 3.0 a minute",
+   "fleet2555-p3 made 0.3 trials a minute, under half the usual 9.0",
+   "fleet2555-p3 made 4 trials in 15 minutes, under 3.0 a minute"
+  ],
+  "serviceErrors": 214,
+  "newServiceErrors": [],
+  "deadlocks": [],
+  "newDeadlocks": [],
+  "tableGrowth": {
+   "now": {
+    "core": {
+     "rows": 18173210,
+     "megabytes": 4693.1,
+     "tables": {
+      "platform_webhook_event": 1178942,
+      "interest_accrual": 1681733,
+      "interest_accrual_amount": 5048396,
+      "interest_realised": 779328,
+      "sqs_message": 201189,
+      "customer_product_account_eod_rollups_default": 906827,
+      "interest_realised_amount": 2337999,
+      "platform_person_history": 114774,
+      "investec_file_account_entry": 1152717,
+      "account_transaction": 353326,
+      "account_publish_outbox": 116804,
+      "expectation_outbox": 123351
+     }
+    },
+    "clearing": {
+     "rows": 5841448,
+     "megabytes": 4194.1,
+     "tables": {
+      "account_statement_file": 736373,
+      "account_statement_line_history": 702419,
+      "poll_response_history": 337583,
+      "account_statement_balance": 1330348,
+      "partner_payment_audit": 181543,
+      "payment_information_outbox": 174661,
+      "partner_payment": 181496,
+      "account_statement_line": 264686,
+      "account_statement_file_batch": 330989,
+      "partner_payment_due": 181981,
+      "funding_record": 176630,
+      "external_account": 90253
+     }
+    },
+    "hsb": {
+     "rows": 130128,
+     "megabytes": 70.3,
+     "tables": {
+      "transaction_entry": 89414,
+      "payment_file": 15350,
+      "payment_transaction_status": 15349,
+      "virtual_account": 4992,
+      "virtual_account_numbers": 4992,
+      "profile": 3,
+      "real_account": 15,
+      "flyway_schema_history": 4,
+      "application_configuration": 9
+     }
+    }
+   },
+   "sinceLastCycle": {
+    "core": {
+     "rows": 146584,
+     "megabytes": 32.4,
+     "tables": {
+      "platform_webhook_event": 4677,
+      "interest_accrual": 21572,
+      "interest_accrual_amount": 64716,
+      "interest_realised": 10304,
+      "sqs_message": 0,
+      "customer_product_account_eod_rollups_default": 0,
+      "interest_realised_amount": 30912,
+      "platform_person_history": 16,
+      "investec_file_account_entry": 0,
+      "account_transaction": -90,
+      "account_publish_outbox": 16,
+      "expectation_outbox": 0
+     }
+    },
+    "clearing": {
+     "rows": 7346,
+     "megabytes": 5.8,
+     "tables": {
+      "account_statement_file": 1768,
+      "account_statement_line_history": 1,
+      "poll_response_history": 899,
+      "account_statement_balance": 3536,
+      "partner_payment_audit": 0,
+      "payment_information_outbox": 0,
+      "partner_payment": 0,
+      "account_statement_line": 0,
+      "account_statement_file_batch": 884,
+      "partner_payment_due": 0,
+      "funding_record": 0,
+      "external_account": 16
+     }
+    },
+    "hsb": {
+     "rows": 0,
+     "megabytes": 0.0,
+     "tables": {
+      "transaction_entry": 0,
+      "payment_file": 0,
+      "payment_transaction_status": 0,
+      "virtual_account": 0,
+      "virtual_account_numbers": 0,
+      "profile": 0,
+      "real_account": 0,
+      "flyway_schema_history": 0,
+      "application_configuration": 0
+     }
+    }
+   }
+  },
+  "exceptionCopies": {
+   "lines": "",
+   "entries": "0",
+   "mostCopied": ""
+  },
+  "repeatsIgnored": "74582 exception lines read, 0 ignored as repeats, 0 refused",
+  "feed": {
+   "exit": 1,
+   "result": "108 checks failed",
+   "files": "6079 files: {'PRODUCT': 1502, 'CUSTOMER': 1502, 'ACCOUNT': 1502, 'TRANSACTION': 1502, 'RECON': 71}"
+  },
+  "mi": {
+   "exit": 1,
+   "result": "33 checks failed",
+   "files": "18 MI files; MI_RECON rows 30346"
+  },
+  "feedValues": {
+   "exit": 0,
+   "result": "0 checks failed",
+   "files": null
+  },
+  "newRules": [
+   "a pooled account has no depositInfo (ReadOracle)",
+   "a pooled account has no payment reference (ReadOracle)",
+   "a statement covers a period in which the account existed (DocumentOracle)",
+   "a transaction booked after an accrual's cutoff is dated after that day (InterestOracle)",
+   "clearing's bank reconciliation passes (TransitionChainSweep)",
+   "every eligible account has a statement for the month (DocumentOracle)",
+   "openedAt is when the account's first deposit completed (ReadOracle)"
+  ],
+  "quiet": false,
+  "databases": "/home/joel/sim/simulation-explorer/archive/fleet2555-db",
+  "next": 900
+ },
+ "runs": {
+  "fleet2555-p0": {
+   "summary": {
+    "trials": 4,
+    "races": 0,
+    "race findings": 0,
+    "distinct states": 3,
+    "rejections": 0,
+    "unattributed changes": 0,
+    "frontier": 0
+   },
+   "trialTotals": {
+    "byAction": {
+     "CreateCustomer": {
+      "n": 4,
+      "ok": 4,
+      "rej": 0
+     }
+    },
+    "byPair": [
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     }
+    ],
+    "raceFindings": [],
+    "refusals": []
+   },
+   "violations": [
+    {
+     "rule": "the service's own integrity check passes",
+     "subject": "NOMINATED_ACCOUNT_SYNC_CHECK",
+     "detail": "core failed its own check NOMINATED_ACCOUNT_SYNC_CHECK",
+     "expected": "NOMINATED_ACCOUNT_SYNC_CHECK passes",
+     "actual": "[\"b05ff9e0-427c-45f4-be6f-9acae30e6317\", \"629503e8-2486-4f93-a340-768e63fa2ba7\", \"1d807caa-f4aa-4701-9e06-4912af1b6c01\", \"bd3e957e-cbac-4b3b-a94b-cf0048ab3413\", \"226ad275-14f2-4b6b-bf47-524342472000\", \"713f3b1a-ebb6-4ed5-9225-19a5e583c424\", \"faf834b5-550d-4c49-8b2f-79fb7cae75c7\", \"cb832288-0e8e-4055-b0ab-b703f00b9d72\", \"9f880e24-f89d-4052-b898-dd32e3bb532f\", \"9e1435d6-2927-4b70-8f22-fe95030681b5\",",
+     "n": 1,
+     "action": "TransitionChainSweep",
+     "table": "core NOMINATED_ACCOUNT_SYNC_CHECK",
+     "row": [
+      "NOMINATED_ACCOUNT_SYNC_CHECK",
+      "[\"b05ff9e0-427c-45f4-be6f-9acae30e6317\", \"629503e8-2486-4f93-a340-768e63fa2ba7\", \"1d807caa-f4aa-4701-9e06-4912af1b6c01\", \"bd3e957e-cbac-4b3b-a94b-cf0048ab3413\", \"226ad275-14f2-4b6b-bf47-524342472000\", \"713f3b1a-ebb6-4ed5-9225-19a5e583c424\", \"faf834b5-550d-4c49-8b2f-79fb7cae75c7\", \"cb832288-0e8e-4055-b0ab-b703f00b9d72\", \"9f880e24-f89d-4052-b898-dd32e3bb532f\", \"9e1435d6-2927-4b70-8f22-fe95030681b5\", \"fb6b4bf2-e0aa-437e-a823-d53dda5622bc\", \"513155be-d203-40ec-8cae-06fc7c1234ba\", \"f7e79711-fa16-4a38-b917-92db594069c4\", \"3ebce7e9-d9a2-4689-a929-46650313dee1\", \"45b67327-75b8-47cc-ab0a-7f1a861ab61b\", \"f77a9c81-4368-4d94-aca2-8d8d34836be4\", \"5515932a-6096-416c-9f32-c3fb2fb96ed1\", \"a54906e8-abf1-4197-b21e-aac46a89ea61\", \"73d1eb9e-1fa6-43bc-9838-7b4d8bb90d7f\", \"663a7ec5-579c-4004-9472-643641989159\", \"35a94ba3-69c8-42a9-9e2b-0a946d49a4db\", \"708c4017-17d4-454b-997a-9b66983317e2\", \"a6eef455-02b5-410f-88ed-e1779c392e32\", \"d16186f5-d87a-48f1-88b6-01756ca119a6\", \"b92fca28-5ac5-44a0-b464-bdf48b26701e\", \"a64371cb-7fd8-42da-8574-cec107298ed0\", \"86205294-4b15-4f4f-ae2e-3980569ada8a\", \"6094d388-d8d8-43e5-9900-3ae484d802a3\", \"dedd4744-7fa2-4ae5-b8b2-c4790cfb1ac2\", \"797a1569-03be-43e6-9905-a8fa5ed43c31\", \"71051d97-2312-46fc-acae-b4273e37f71e\", \"c281064e-f5f1-4ab2-a4ac-dc9145736f68\", \"0afcb471-0199-4be9-a393-adcdf710622d\", \"5b27c929-65e9-4538-adf3-8863b0b178d6\", \"8cf24589-1006-4eab-bf79-b4d40f73d3ff\", \"7522e075-b986-43da-83c1-a513b4aaf3b7\", \"ea85db05-f0c6-414d-a6fb-d9aedc7f2d6b\", \"7985640e-1ebe-426f-9584-aa34685fe285\", \"42ca2558-d387-4d13-abca-79d56d5dc2b4\", \"ba7a678d-0523-4d6f-a7d6-0254a4c200f2\", \"7e6412b8-6030-4a99-86c0-270e38ade5b9\", \"f7552728-2f8b-4db6-93c9-1c2607590285\", \"355e6357-501d-4413-b3ce-9606af497fd4\", \"40d8a7c0-fb41-4b2b-92c9-d0df72019729\", \"cd270343-a3ef-41cf-a4ea-2ed5735c1b88\", \"cb015012-976b-47d1-bda4-82840b91791e\", \"e3fe4d83-4963-4f74-874b-771f06571803\", \"ce611a36-be1a-4f29-9539-4b8117c7cf5c\", \"c2ccd1d6-6682-4f26-8768-105421e06008\", \"361b473f-cea9-4e22-b2ca-ee77bb59081e\", \"d13f261e-0c9a-473e-a9a2-ef18c18c6e60\", \"7d133413-7538-4bf2-9c4a-721c72e2dfb5\", \"87101337-3e07-48f9-bb3e-3347bb5fd051\", \"76a18277-1db3-4d0c-a177-921d4d60853f\", \"21060c8d-e4d3-4d22-be37-7c29b129cc3c\", \"e2130646-0421-4339-8f50-9b66e58662f4\", \"965df0bd-809d-4bf3-a291-98e7c7689396\", \"bc5f1d58-9247-41ee-8bfd-3e9d88035649\", \"20a456a9-d5e7-4833-b31b-4086d89e3a92\", \"92e88572-d348-40a9-bbd4-b61db1dd80aa\", \"db72c51b-40ba-42b2-af24-88579b273275\", \"ae03bd92-f52d-4d17-b681-8398ef5c24ce\", \"7f060e19-25ca-4110-b3e2-78e767a0c9cd\", \"29d14a8a-a902-4608-aca5-cb5323f99081\", \"a27b8a4f-ad31-4c53-bdad-9dc449224901\", \"2f45c764-bcf8-463c-847e-ca0ae1422750\", \"57bb5c4a-898a-44f6-b27f-57d282a03561\", \"cfa48f69-4e07-4018-9547-8df7e67e7e70\", \"2fd917ae-73c8-4aa1-824d-d31f2952f432\", \"bead3399-9b33-4edd-bdc5-003420edfa4b\", \"b7c270c9-706d-4a70-874f-285b551e2217\", \"8a9e32e9-12ec-4f8f-9306-145495dc6669\", \"a1139248-648f-419a-9428-69ba489a86d4\", \"650ceaca-ea4c-46cf-88b7-95ab9b0ce6e0\", \"0a15741e-6f44-411d-a51e-6b44f000545b\", \"f24fceae-2707-4438-98f5-9bb809d59a9b\", \"4ced478e-2937-41f6-af77-1282dfebeb65\", \"24f2c3e1-7dff-4037-a958-2646e40ca691\", \"1a22c95a-c0c3-4067-b98f-161f41586547\", \"f19a6355-b28f-4b17-98cf-d23b1f4ac6b5\", \"25c70835-8dde-4005-9fcf-0e490f527917\", \"1d971da6-6bdd-464f-9ac0-1d28f3065bd9\", \"295f68e8-552c-447d-a3d4-45c075483676\", \"6e64f47d-e728-4a3a-b9ac-9ad8f733db46\", \"d50f4cb7-860f-42fb-9138-9e17a5b263c2\", \"90dbc469-fa10-4318-ba1c-8a58c26db117\", \"d7a2016d-e66f-4ce0-9ad1-11e5d8e24b68\", \"96213212-d145-49d2-85d7-1c619f41f1e5\", \"7898e9df-b76b-4978-8b5c-1f43a325eac3\", \"c046a128-a0b0-4a8e-91f9-a6e766cd6a04\", \"b9c6e9eb-9bcf-4bad-af1f-6de97db18fdf\", \"c04a41e4-85f8-4173-9ad6-c7b073e9ed8f\", \"24ddc8c8-5a18-42ae-a045-638df9f0fa0b\", \"ce1e0288-45b8-4136-9faa-2c1d8574b5e7\", \"9509f1b6-32eb-4bbc-8cbe-525426733818\", \"bb8ff30c-aa33-43c2-a426-b574ece3a189\", \"c76ebc21-0513-4b36-ba0a-bb5a5ee21440\", \"2b87c517-bf16-4a27-b145-a9c03f25a5a0\", \"b6a0b58e-ed79-4b66-b480-53e6d75e8579\", \"b80c4427-e196-41a7-8a1b-1b08f1c6b439\", \"b56e2984-3e95-4c4d-86d1-d464d7801f84\", \"3a459e95-c327-43fd-986e-565d4e2ea652\", \"afa51650-0715-4fc9-a8b4-d73f4748cad0\", \"9cdd311d-5459-499f-92bd-5fb552293b25\", \"14839b59-adb8-47c2-b064-00aaecca187f\", \"2fdb9057-7571-4239-92ff-1d46b87fa47c\", \"fee415f7-a6cd-4793-81bd-5d73b0f56126\", \"d26fc855-d033-4431-8619-ee4073d71ab5\", \"0db48d3b-7116-416e-b126-aec63af74a7e\", \"409a64d1-a0b9-4615-ae10-2826e1ba1366\", \"2c216c9f-7ee2-480b-9c4e-aeb1996fa540\", \"9183b2ab-f8a7-4ba8-a29f-ef1e4a99861c\", \"297eacb5-ddc5-48e6-bcc3-e186c39c105b\", \"ca3f60de-ff94-4b69-ab89-6976c22b50e4\", \"d21d9868-d0b2-4d33-b40d-3f63d8f75300\", \"5a4604b0-b1b9-447a-9026-62931895260e\", \"b3ccf3b4-c15b-4384-bb2d-3ebeb322c58e\", \"54cdb5e2-8787-4c95-ad30-8e73e6d459e9\", \"bec28878-46e0-44e3-8370-ca2a25957ad5\", \"470aae75-f214-4972-ac34-a5b9b027e7ea\", \"12cd7c75-a929-46e4-927d-3df1c9187061\", \"b92e80bc-cc02-49df-9c4e-089e6c473dfb\", \"b96122d3-14f4-4688-820f-856ed7d03b16\", \"b5bd9217-a133-45b1-836a-6fa39dfc548d\", \"3bd8f54b-5e0b-4fb0-beb2-96973470a799\", \"d161a2f5-6892-44c6-b68a-075ef2ec2333\", \"545b2da9-4529-4378-ac7e-1b7fb811ee09\", \"c3d6d943-4744-43bf-baaf-51423ae5bc20\", \"1d1eb773-e9bf-4fab-8d0c-7b70e8452d23\", \"26878e13-dad3-4d26-bfe0-de54b5278692\", \"dd66f10d-b382-4ac2-a8d8-359b8238e77f\", \"89a36c9a-3f78-4ed7-83aa-85490379b700\", \"a0b53d0b-8ea9-4f83-9927-216ff79ee40a\", \"88b9475d-a6e0-4fff-8a53-b43c93a49824\", \"8e2286f5-a32b-4702-9aff-5f47545b21e4\", \"1322bacc-3813-4850-9da6-baf038deeefc\", \"4268bda8-ea25-407d-825d-a43a4521b269\", \"9d1b99ca-f0d6-4883-82af-fca3b01fdc37\", \"75fda2e7-73ba-4b38-86bb-c198b3c74ef2\", \"c9a8ecc1-8bf4-48c1-874f-adfa8244872f\", \"a5870980-5f3f-48e2-a887-e377db24802b\", \"cb04c6d4-a5a5-453c-b2a8-0c808c0e3905\", \"7b74bd1b-fa2e-45a8-bb58-426cb5ce6350\", \"1d10e5ef-0f58-427d-abb8-22426d46653b\", \"ae98b756-c4d2-4ed0-9b79-97a8e73110be\", \"fc5305a9-088d-4a55-aa8c-9e628cdd9203\", \"ac84f8b3-2d34-4ab9-9201-43df6e4c9639\", \"cdb2f74d-94e2-4c77-8f3e-80ca99359bf7\", \"12bc7d1f-73de-4d65-808b-ac0a40f12515\", \"688da3ab-4fe7-4ff2-9e63-4689f95909ef\", \"54a53674-e1c4-4992-ab40-1fd6cf107a29\", \"a49f2865-9d07-4684-a84c-e5f339a605e2\", \"58fa0718-0241-4361-9d4e-c072ad0341c2\", \"5b6a07d3-48c8-46a5-8be4-0dcdb52a3cbb\", \"3e9f0dd5-e0cd-440f-89ab-3d2f3f06c96d\", \"ed5a7027-ec38-4356-9ccf-847045d0559f\", \"0d6e5669-46d4-430b-a369-e3cafc741c2f\", \"5c6ddd08-bb54-4276-acaa-2424647d8e13\", \"72a880e0-75cf-4d6c-a006-b199f99ea1dd\", \"aa442fcc-221d-4c2a-91e7-630bfcfff8d0\", \"17d9791b-509f-4df0-8f3a-0c06c6228ed5\", \"6aacdebb-73db-4888-b343-96ef9c279f17\", \"adedf878-0a8a-4431-a62e-d5b667b6b5ec\", \"c50d2db2-ffba-4610-8d74-0aa68f8299e7\", \"29528800-8390-4e3d-aa09-00e1f324f51d\", \"cf5ebfea-49f5-471b-b538-327003c8393b\", \"f37199da-6706-4f80-ac95-3355a556e581\", \"017160df-ffdc-4664-8377-47cb4e78181d\", \"7bdd57af-b80a-4c32-8385-ff577fc237c5\", \"4a84053f-8031-445d-b907-447026e2757c\", \"31e0b240-238c-4105-a41a-97f3cd41576e\", \"4110b32d-7769-47b1-9000-61e32cd72384\", \"84e62e26-a869-4a0e-a18d-a17b417f703d\", \"ea86d2ba-03aa-4342-abfa-d7286f6a52d2\", \"5f76818c-4688-4d22-a3d3-d18c5f56207c\", \"d7a5baf0-fdf3-43d0-9b42-defccd5f9b6b\", \"557a138d-3d5a-4152-8afe-b575a12bef95\", \"666bcbb0-8a7f-4b34-bbbb-6149bbcd584d\", \"8d2f0eda-dbf1-4b99-9400-004615992f3f\", \"3aa28797-1273-4873-9560-68c95068da90\", \"d4f2aac4-19fe-4dc9-94e1-497998143a8f\", \"6e561de0-19cf-42a1-a29f-a8b19dd91f2e\", \"7975371b-a958-42e0-9ccd-1df26a59ee79\", \"a33667d9-0e53-43ec-ad27-61b15ca06878\", \"3eeaabd3-6aa1-4c2b-8d80-0ac7c9ef260e\", \"753e435d-73c3-4fba-a042-ef76bb34555c\", \"1cdfb2b4-5f0c-4576-8d98-052dc41f2b0d\", \"8702dceb-f5fd-45f7-8527-799415df191a\", \"3d3c3292-42f9-4d81-9508-aae017face2a\", \"db3f8bb5-d4ce-464a-887d-6bb9108145d9\", \"37cbab1a-a9b4-4856-b23c-4505efec57a7\", \"18764c0a-c5dd-42bf-befd-3a252f1f711d\", \"d78edc8f-e84f-49be-b11e-85b6e8d64d30\", \"e442080d-a249-49ee-99d5-2d5b076a0625\", \"c0a4f37e-021f-4803-9e83-bf57f6c970c3\", \"611527a2-090a-4b74-a709-e12a07d5b3ea\", \"1d83cf64-a8e8-488f-9863-7be60f2a742f\", \"95f32a0b-2949-4264-8ac8-c058accaad15\", \"a5152b0d-51c1-400d-8cae-275a6ad4132a\", \"3b1b765e-9c1d-48f5-976c-b2e10f945eec\", \"2e9fe592-8ca1-4ccf-ac66-64c00af096d9\", \"ee648c0d-6121-4ae6-badd-3879fa99f2a1\", \"df53474f-71d9-4e5b-9991-217e3185c578\", \"7d116e15-3a92-4e76-9b33-db3931392145\", \"ceed47ad-9204-444d-80c1-6dd42b7241df\", \"a70b7b75-3444-4b13-814c-72c92ad94c2c\", \"6e98aa50-8d2a-4a81-abc7-54e3bd8a7df7\", \"a79c6fc6-588d-4721-baf9-52c2048f456e\", \"8919a1a4-923c-478f-85ce-f3008812be1c\", \"2cd1ab7e-d577-4a96-adda-17cfdc9d4a00\", \"ed039d07-bcfa-4e17-95cd-8aaad53e46f5\", \"456de6fb-3cd0-4ae4-9542-ef6e764280e8\", \"223334b4-d6bd-4153-b096-d2c2b8595739\", \"d7a1d5e2-028c-4ad2-81af-25f6335d5b61\", \"0147ee1c-5c50-4c15-8698-3a52ad281eb6\", \"6031bc34-3bbf-46de-a7da-748d3f6200bf\", \"ada4ec88-3eb4-4500-b159-633f28e1e498\", \"ae46a3c6-d6ab-401d-a703-7d30a8063eec\", \"fb9c0db6-56c9-4175-aa87-cce82b6cafa0\", \"fd284ae2-a4aa-40c2-8aa8-f5b405f43863\", \"2871d7d0-a6e1-4ecc-aab8-6d65184b2d9b\", \"fdd3c0e4-f208-468d-916e-23af5c916c4f\", \"c14566f3-d00c-48e6-bb18-07f6a91d4626\", \"60e92013-a8f9-448e-9856-f050fab30471\", \"b4bec49a-9803-4689-815e-59e4f6313756\", \"65e70dce-95ce-47db-a965-1c9d80209f2f\", \"a11f145c-0026-4b3c-8665-ae2c466a84c5\", \"bf36ceac-4a7b-417e-86b9-5592ff70dbc2\", \"ba3219bc-a628-4656-a0a9-45424e6c629a\", \"42b2a2e2-3e7e-40d7-b1c4-239bad9b9d10\", \"257bac05-d9fc-4067-bac0-fd4950e3c816\", \"cd4fbe91-9b9d-46b5-af6d-615f498f772e\", \"e0249bba-1790-4139-9e95-e0b3be9a4781\", \"cd3307af-5d19-4e0f-9514-900eace24c1a\", \"370cd81a-1af3-403d-9ff1-6839006bdb87\", \"14d11970-1406-42f3-987e-96dac811f4c0\", \"1123a97c-d727-47f9-a5ca-e0d5d83087d6\", \"1bf041e2-4ba9-46b7-ab04-7bc0d1113e73\", \"ee9c07dd-80fe-40e5-9a33-d672bec00b87\", \"48e707aa-f14f-482a-8b4e-3f9bcd69b723\", \"b9b6635f-c406-4020-8ba6-df71fb551958\", \"256dfe05-ab8e-4dd3-9de0-3654b4a329b9\", \"2ffbbc29-22cd-46f9-8ed6-9090f097f008\", \"5802ea8b-36d9-45df-8d13-f7f555024902\", \"d7ee0af6-b750-440f-b6e7-502658906444\", \"c5952958-6077-4db9-adbb-4a4c59b718c3\", \"4b726432-3f6f-4e82-a019-268f0fbf5ab9\", \"443d6ef3-2ca1-414b-9876-8d3517b9ae94\", \"f7f784a6-bf73-4811-923e-c7ca8935e1b7\", \"2a879255-0076-4525-99d0-fadfb898dbeb\", \"a719d374-30e9-42e6-8019-1fd12bece5b6\", \"54441b8f-9236-47aa-a86f-0ce3be167b43\", \"8885619b-00b9-4236-b940-85daad12b03d\", \"6e12a8f6-6ede-4ba0-a188-e314617476db\", \"3659c17b-df7a-4dc3-b50f-0f6a35748dc8\", \"4e982392-479d-418a-b406-b3f82c3e84a6\", \"856cc437-a3a5-43fd-8012-a6e6f67f0cbe\", \"d4d092d4-596a-47bf-8165-91e3cead45c7\", \"165eebc2-e73e-46e5-8055-7bb02947c61f\", \"6fbdc6bc-66f9-4a48-bb28-5f5d409d138e\", \"0ca5bf01-c880-4eb8-9b3d-18745b76350d\", \"7a748cc1-5ce9-45c8-9816-e06ad3ab1ad6\", \"ae710114-cd47-4e8d-a752-449a31041162\", \"570ac8d7-3836-4875-ad81-55ee1edb02f3\", \"7d5350a8-b8c2-4d39-ac89-ee1027f3c9c5\", \"0be5a9f3-9aa6-41aa-b7ae-1e24bc5f1e4b\", \"75a3a09c-0c26-476b-8bf0-38e44593baed\", \"52508c93-2bee-4bd7-9c6d-85d972c0ad1d\", \"5e7c5f90-f348-4d04-8353-9051b1e25753\", \"c9e6210d-32af-47d9-8459-e9bf25525967\", \"81a47a4a-44c3-472a-a340-3e8b47175d54\", \"6ea6cf57-0f42-4c51-beae-fcaa2b62ba73\", \"5b7cbc5a-4bff-4d95-947e-1e86c1a3a1c7\", \"5d0a92ea-ac53-4c7a-ad0c-46254e44f1a7\", \"e8fbb0ed-f94c-456f-bf02-98f58a1bc37a\", \"3956b3cb-98c0-45f5-b93f-3515a325816b\", \"7a0279c5-9cb8-4ca5-a2af-a82e32364ca1\", \"7bc321ef-5fa8-4d97-8df2-40f7a56ab9ec\", \"2f3c0208-f302-4991-b96e-77a8afe2e57c\", \"f042234f-f130-4216-9aaa-f4450ac0d4e9\", \"8c48e0f2-254b-49fc-98d7-c19279819b00\", \"35a6a7a2-4152-4755-acb4-3d1e3c892d1e\", \"79780cf0-70d3-401e-9623-38d733d6d49e\", \"91cd8645-1992-4d8d-8a46-0a2e2bc42129\", \"f9243f0b-c409-44f6-9e83-5a533e2f6e02\", \"e1518585-26ad-4ccc-b5ee-319aec37ae9a\", \"47ffe0bf-d271-4bdb-ba72-b71e935f1367\", \"6fbca08a-cd9d-4268-84b8-2c4641e06393\", \"1bdcbe93-aa9d-43bc-bcdd-a632101cacf8\", \"e4e003b4-bca1-42b1-932c-b21d8d0e4e59\", \"f2199941-9ef2-45e2-a401-a1a4fd454e78\", \"ff04f7ce-6455-4e1d-b53d-2ed5ccdfbdd0\", \"9092c728-bbe6-4e30-a8db-b4ce8f655f91\", \"276209c8-2483-427e-ab60-3762101df778\", \"47a05571-1ad4-49e6-ad43-6a0b6287a003\", \"bcd4b98a-d2be-4d4f-9639-64a067978a50\", \"514a73de-cd20-4bc3-b589-bb1f22b26db7\", \"0bfb4acc-c2e6-43de-a24b-5920e5cd9a4c\", \"312fea1a-b68a-4056-ad7f-2336c96cb2b0\", \"48a4c98e-40aa-4291-be41-1bde6b956fbb\", \"196d24ba-0ff5-4e0d-9e0b-ffbe61d15cd4\", \"f56ca2fd-292f-4383-9e0d-77af02350ca0\", \"42f6e00d-1801-471a-af82-a66cce95f39f\", \"1cf16cdb-2c57-4d06-8130-bf30a4ddd8f3\", \"676eb13d-5394-4b79-9054-60483b0d062c\", \"7ae95372-4e34-46b4-8be7-dd181c26add6\", \"173ac90d-2e3f-4197-a66a-60962a8e6fd3\", \"14386d57-84a3-4d89-b733-79cb621a38fc\", \"78ddf34e-d1c4-4e63-a9d8-c193340922f0\", \"c111028e-5db2-4afb-afa8-dc364a958a06\", \"44ea0a1b-2833-4938-8e72-582d0d6bdf94\", \"751ca41e-f041-415f-9fd2-cca15975b51e\", \"6d1e2f19-d653-4b52-bebb-ad00186cb2e9\", \"a552eca3-43b1-4de4-8b42-f2e327b0ca1a\", \"3d5b366f-2714-42ac-a991-b35aa624ddad\", \"81c0bea5-fb41-44e4-ac7e-037ea156c2aa\", \"3c39880b-c625-4001-bc95-e4f54d371cdd\", \"56b7a7fe-473c-4d3b-92bd-3976cdb61aa7\", \"057665af-bd8a-427c-af3f-05a43e78acb7\", \"ab5a179f-248c-4cb1-a2b0-85ceea53e7cc\", \"faecc878-d8e6-4337-b7ae-879486164c5a\", \"5a06d7e6-0881-43c3-bff3-4c548bdc7b7f\", \"a89291a7-cbb4-4d24-ba5d-dde75026b253\", \"03c0e2dd-135d-4cf9-869c-fddb00f550c8\", \"0440a9f8-ae27-450a-b83b-9effac66e19f\", \"fb657ab5-9edb-4862-bc7a-9d4d06f2d2cf\", \"bcc2740c-85c0-4aa0-95b4-ef8dfd398702\", \"1a8954d1-5294-4e72-98b4-49e9963cdc29\", \"6af4b939-738a-4d45-bb29-ea43f1963dc1\", \"323e5e31-f1ee-439e-ba88-3949a95feb8a\", \"ebeabbc4-31d6-447a-9278-c9c9177a5a24\", \"8d339cbb-35dc-4ea1-9072-321e60945094\", \"65202b27-5f53-4638-a0d6-f90adf1e29ef\", \"560d7fd5-b1a8-4940-bb39-edee5b3aa896\", \"b6d19eb9-5b41-4237-a73e-3ca999d89bb3\", \"d2961637-194b-4aff-9a3e-7a4fecc4b832\", \"67d34881-f482-4fda-90c8-d1ce33084703\", \"d0b27c64-4622-4db2-9b0b-2ed6b8af6321\", \"dbc868ab-810b-4d76-aebd-b3e33142f223\", \"dc00cea6-45c6-4de7-b142-a32c8d8fed18\", \"8fdef160-ed0b-4e3d-87ae-9bf494aa2362\", \"eeb7f05b-5dbc-4f12-bba6-6d46c5f511e5\", \"61bee155-be80-4788-b9a7-bef90c059b1f\", \"93ea4b2e-196a-4885-b032-bf903011eaa5\", \"d759bde2-1352-4563-a211-0724490c678b\", \"cc272f26-ac5a-47c5-90e9-a57633a1a7b4\", \"1f82acd9-eadc-4c1b-9737-33e6bc571467\", \"64448557-83d2-463b-b6de-4215e8044237\", \"95e4efe4-3a6f-499c-9a22-89ffa5622c56\", \"db1095cc-9e6d-4ac3-b00f-5e8a77d5dec6\", \"b509f4cb-ae95-4767-95ed-366afece993c\", \"e0042166-90c4-4b86-a03c-2d02a8a10ae6\", \"f46bb187-5ebb-4e9a-ab2b-23209c3e79b5\", \"65d6da12-6cca-4de0-8e63-d970700f074d\", \"2f8972c8-d77a-44e1-8e68-1b7928d84260\", \"69ae93d8-86be-488e-bba9-5749018692be\", \"d448b007-b092-44b9-9b76-7c47eeca18c5\", \"36c538b7-58d7-4a8c-8a87-07c6c85a3b72\", \"9eb4f045-e07f-4a49-9a22-1eb78d3cce12\", \"5250fcff-983e-4554-92dd-26f24f7250a8\", \"0211a203-09f8-4537-b684-d890f2b66a87\", \"7dbd30f2-903c-4a98-b118-4f15dd69a230\", \"6338fe1f-a01d-4944-898e-9ba2cd09e547\", \"461c5ab5-affc-49a7-aef2-419c13c1ab12\", \"b28031b2-2d1e-405e-a5be-3b600f763f00\", \"6a48b473-137d-4f24-ac14-4d97a3f13ad4\", \"b0b2d29b-182b-4768-931b-92a1b5525317\", \"bc705636-df01-4eff-ae2b-daff2f9f7b92\", \"d66629be-92ac-400f-9671-05352da2d9eb\", \"7fa942e9-5d8f-462d-b72c-8fac4bae389c\", \"b3c5cfb4-b5ef-4876-b367-dcb3faf6f045\", \"9716a9b8-0ddd-429b-868f-e7f2c9246847\", \"196fe4a3-c160-4e6f-b0da-b25cd6eb9eb4\", \"5a577e95-16b4-4675-b2a8-d85e43c51261\", \"85622f43-40ed-4e93-b389-09eb4c48c4c9\", \"6d381396-4a55-428d-beb7-8ba821b024a7\", \"df843546-7a68-4609-8d48-51b69b39d2d3\", \"cdc7e090-fc9f-4374-ba9b-a74a1de27e1c\", \"e3f68098-e781-4164-b54d-8906b58dc49c\", \"fce92a82-0e74-4415-9d05-88dbf3fffde0\", \"7043ce58-6641-4af0-a828-b310de88d51a\", \"1d17d517-a589-4ade-be0b-01be60d11caa\", \"053d3a48-2e14-4ef5-8fc2-ba86911626bb\", \"d5a13a88-96c1-46c0-9920-d445e9963402\", \"ab79b6d0-ac4b-40aa-beee-4d799690f71a\", \"776264b8-f058-4a39-9eb4-a8f98a636da5\", \"8653b1af-db5e-4068-88a0-76566916e4db\", \"058d2fdd-8180-4040-8a4a-543c2cd4ab01\", \"778429f7-fe4d-4436-a85d-d14b0c3f9c34\", \"d31e1977-8d56-4cd9-ac12-d22b00a2504f\", \"16eafd0c-d677-494a-bed4-ed9358874ae7\", \"1fdc9e62-3d7a-4a6f-98f6-a3920375d9c2\", \"c62c351c-fa9c-457c-a84c-f128098bc0f7\", \"47715f18-37f7-488d-aca5-14db90b61de7\", \"1541df4f-1069-4219-92e9-d103350ce953\", \"c4d0522b-d93a-4cbb-b5e6-25bf5f0285f4\", \"4846ecde-6c24-44f6-9242-c6178dd03b74\", \"baa691a2-34e1-45a0-b7db-290c67a83ed0\", \"2f01fa02-6982-4679-927c-c3a8661fbbca\", \"3da3cedb-702b-47b8-b823-3fd228f7b49e\", \"4bdebd6e-4a2c-4cee-a140-36158866ec74\", \"87f9c174-af90-427c-962e-cc970ad4b9ad\", \"af7c11a2-9d5d-4273-a054-6ec02ae64b24\", \"75af1516-44e0-4148-848e-892811696a3a\", \"40a87d05-eb16-4cd9-b715-de4e73ad9e20\", \"e627e859-67ec-465c-a735-42c984d4d79e\", \"f80d3e7a-e827-42da-bde8-64e230a6963c\", \"4f7a4e47-8e21-412c-acbd-f3eac3202140\", \"b4fa8552-5bfb-4ccf-bdbf-fa5e2aeb0d24\", \"f55934b4-859f-4a58-b549-894fecdc700d\", \"fcc6439a-edcd-44ec-b187-e7c6c512eabc\", \"54319614-5f18-462c-b076-37eac0e526d1\", \"a607e345-ba9e-4481-a660-8123d687fc2f\", \"4662aff7-88c1-4028-ba98-abf57442c3b2\", \"5062bcdd-953b-4e5a-80de-f50bb3a5baff\", \"5f884551-c186-4527-b104-e19d30f69554\", \"dfb39a21-38ae-4410-940e-1fe5182f0440\", \"5ccddef2-9e47-4d13-9cf1-4d8a70f143f7\", \"f650a3a4-29be-4c27-aac2-08f1e01c9542\", \"acf7e119-7e86-4178-ab6e-4c08940db24e\", \"9c6a3064-afb4-483d-a575-478a3fd91b1c\", \"b1a0c04e-ea5d-4b45-af54-2ba32f4033c1\", \"51303291-b37d-4037-abe5-4b1df6263292\", \"fd77b547-d127-4472-9072-840a48ebacd6\", \"f3d8e8f8-00d4-46a8-8d09-2105d99f0cfd\", \"576a853e-518a-40b2-9e75-ad99b5c37e59\", \"b61f76d9-bead-41da-8a34-dd904f78faf2\", \"29a7b517-3cbc-43a5-806b-c68a35d422cc\", \"68f8ee3a-5632-4646-95b5-a2f6df287804\", \"76a8ea6a-bdc3-466d-91c6-1b8ff3c82e44\", \"31ecb1df-25f3-491d-8ed3-c1bed161f47a\", \"b2628795-20c4-4c0b-bdef-abfd6dd8f3ad\", \"ae1e35ba-be00-4220-aa2d-7577284003a1\", \"55092b41-3fbd-4191-8b56-cb411215f5e9\", \"2afad776-b9c0-4027-bd46-67f681362142\", \"d6bca7f6-0ef9-41a6-8258-2511e1b27754\", \"dad12534-fb6e-4f55-9f36-00e7dd09bd27\", \"1cc1f87c-f46c-480f-b84f-2db4f485553e\", \"1b4109df-b6c2-437c-bc13-c4721293d8bc\", \"e5f5e51a-8a73-4384-8205-3d6da37e26d4\", \"3f9982a1-1f33-46c9-ad76-5cad34488751\", \"c9cfb964-d66c-41c3-a5f4-0185555d7188\", \"b334e258-39ca-4b43-9469-beef23d7f4ba\", \"2ef0b5bd-f319-45e7-aa30-c42256225a89\", \"0abfb2d4-664d-42d6-9c32-64259cd5c5c8\", \"3fe1b9a9-c17d-4362-829b-89bbb8e810da\", \"dc89e725-ee3f-4e23-9964-e25ae934babe\", \"0a96b9cb-a534-4b81-997b-003f527ce5f4\", \"56fb2564-b556-425f-99db-3db4154c8197\", \"2a0e5a98-b3a2-4e0e-a9df-a9db309732a5\", \"483d297c-9771-4860-b325-1ece9db32b57\", \"07007481-5175-426e-8944-ce808f2fb247\", \"8ade3da3-e01b-4669-85de-ffe902a6ab4f\", \"f2e7b632-4d60-417d-b688-ee378969629c\", \"1651e67f-8872-445d-b6f0-215c784c4011\", \"9a54f9be-3608-4f1d-8b03-c446aa77f185\", \"cbb9a334-a720-4424-b5ae-947bf9dd5fb4\", \"322d1dbf-7669-4fc0-92a0-e7bdd18bc237\", \"91d75f5d-fc2b-4b4e-b22d-92a1aa9b797b\", \"fbccb5b4-ec01-417c-b96e-4446bedf4ecd\", \"73f19e43-a405-4dc5-8253-04bdac16a794\", \"6400e4d0-ccc5-4cee-9d84-703e6d8664cd\", \"0576bd75-1cd3-4350-985d-7c42fb132754\", \"4155997f-df59-4bba-84d0-a8438cad785f\", \"9e410218-d656-416a-953e-8c60de1d019f\", \"fbc60537-3944-4a2a-931a-0d8844a4d6fe\", \"57f11465-e787-4927-aab7-2b60f44e44a6\", \"b85c1f45-0388-42d3-b0cc-3e7f0bb01176\", \"11dd090a-90c9-405e-a44e-a8bc8c9db6cf\", \"ad554168-7563-4180-bd9d-aa0f922c97d6\", \"c8f49f0f-d8db-4ef6-b8fb-a825ccc4039e\", \"490392d3-9950-46e7-b24d-41d0e245cc7b\", \"f95e2872-1419-4479-81ac-1b52ff46b9cc\", \"abafc890-45d3-4ed0-a58e-d124585dd8ff\", \"5777b7f4-568c-49f6-9bdd-f65b4b3df513\", \"746c6731-375d-4dff-b26f-ed644819f2e0\", \"cb9f0799-9cde-4ece-a791-1603f094baee\", \"a7aa9067-f547-4dec-9a50-f06c1d9be636\", \"8e7e2f36-6980-4e4a-b6be-311380e314ed\", \"a8291fde-8b3a-4d7d-88be-5a6e1ff2f421\", \"bdfc3c45-9dca-405f-9137-573edb5b3043\", \"cdea0779-2fa3-426b-8833-b00a4abf42a7\", \"e3d60644-3bef-4eda-9ff7-2e651c9b8f56\", \"3084540d-b99b-4d20-a210-d6b9140fa4b5\", \"526f0122-b59a-4305-8674-672cdfa67910\", \"5bdada4f-c8cb-4448-b176-b136045a1d49\", \"ef3e5da5-6ae7-4dd8-90d1-138fa79bbbbb\", \"df005cb7-7bd2-4d97-89e7-5de103c3f6c2\", \"2544fcfd-6aea-4a20-b9f0-5a11d67a7102\", \"0547e799-504f-4f67-af19-aa0c41cfd5bc\", \"dc049b66-3181-490e-858a-cf22f3a992a0\", \"28cf4b81-b543-4ae7-9b68-e6cbe7519488\", \"e18fd707-dfda-4f2d-9796-8687c471bf49\", \"1994c4b1-6afb-49ad-b858-dac23431f949\", \"5a42c066-b859-4ef0-a3cf-f435b7e61246\", \"4bedc96a-cdcc-4f8f-a2c4-9f8ac6ca935a\", \"9b7f6201-e859-4ce3-963a-91940a889844\", \"9072b92c-7706-43fb-b35b-ae857b28a25b\", \"9e5981bf-b654-4016-8dc0-58b309fd6c4b\", \"77a3c55f-2237-4b50-885a-7619dfe87819\", \"301c3518-7fa1-4468-8471-db721777d0c0\", \"6008ab70-6299-4f30-bfb0-016598c192bd\", \"f3c0474e-fa10-4a6a-97a5-eacffd634c9c\", \"2ec95957-2455-4e2d-837c-a4be88b20a49\", \"f00a4a4f-f84a-4faa-bc6e-f61d0f84f3cc\", \"0f4f044b-2a01-4e33-9063-1ff7d6e99455\", \"9dc151d4-7f7c-4c53-a55a-bffe4849ad6c\", \"9ee5e923-3a5e-408a-9b2c-1b72394d778e\", \"c5d258c7-0e9b-4af0-89c4-89f5ba056fd4\", \"ec9a74bb-8d6a-47db-91ca-e0941115e765\", \"7084db9e-b993-44cc-bb6d-3d72fb45562e\", \"24f2cc60-dcc6-4f72-b4ca-45712b056d32\", \"454c0bf7-5321-4831-9a0f-c2b94b689d69\", \"3b152f04-dfb1-4355-8f12-a502a7ba4d77\", \"4337a37d-f3b4-45df-8d15-7428c8816567\", \"8c1fbf4f-6aad-4c9c-8bb6-ce3fbbdec650\", \"a355c46d-7031-46b6-aa0d-dc8bed159722\", \"ba186487-59d4-4994-a048-1872a9a188e8\", \"b8d8f8d8-8fab-4cfb-b113-e68bcaebb974\", \"b14de424-61d0-45fd-8c71-9bbd75a550d7\", \"f0e905d9-1c75-4a9b-8591-3b338e16b4da\", \"3e402e20-f6a7-4a82-969f-dce7954878e5\", \"8a028fc6-e0e5-4aba-b56f-1b291fa9906c\", \"a20a0dfb-0ccc-458a-b100-a1da503097a0\", \"8f8d0572-c231-4bb9-8fe5-52d25a9688c9\", \"135d8150-eb18-4553-a88b-eb340fa54b59\", \"db929251-3a56-4bbf-8f34-4828ffd82c27\", \"4ad74592-4a6b-419e-9ed8-a352c4d1312f\", \"d7d9657c-5e7d-40bc-bdb3-e34f4a85c0b1\", \"a5b97706-1a8a-4c64-802f-f71af5c3afd9\", \"32f0fa9a-349e-4e91-8aeb-b3dc789b4c86\", \"b538c2a5-c404-4a34-8f14-1ce43ed97507\", \"2998114e-0f72-426a-9070-b0eeda35d820\", \"cc2b1839-8a53-4c11-a6bd-2ecb57db3983\", \"646fb56d-7f68-4fe5-957e-b086644ba3f1\", \"86e2c114-12bd-46b6-83a3-e01bbbcf14ce\", \"bf48f405-a9d8-4707-9cc9-854cabf53b13\", \"85587f23-9c7c-42d5-987d-e328941d1d30\", \"6da57ff4-4a6d-437d-912d-d9cf0426a690\", \"23589379-2a5e-4066-bd14-c79acc4eb2e9\", \"44bac83d-3350-4af4-95a0-b21a29b03e12\", \"5f8ca9e9-1f97-44e7-9be7-b5d07662e2ef\", \"29ac0c23-e985-4b37-8def-ae3d068abc31\", \"4d3b6ff1-77cd-429f-be3a-82e715bf72d9\", \"cf6d699d-74e9-4345-a57b-47cc4a8c55d5\", \"430b49a2-27e2-4691-b981-dfe60eb3d95b\", \"6a989144-81a6-40df-b7be-bbfca3e2e8b3\", \"680339f5-d153-41ed-9bf9-50a12ab59b92\", \"7a95936d-4687-452c-838c-fe4223396de3\", \"e22f3f43-0d46-4815-928a-72238aead890\", \"92a4cdf2-7ec9-4e25-9a9c-eee1ce38e2f4\", \"66975fc1-cbba-49ef-b507-fd1511a86abf\", \"ad1b543e-ebae-40a2-abcb-e0b559e52a7a\", \"a539dfa5-4df5-45e0-a851-50645e4a00ad\", \"2ec83ae4-a055-4a48-ae46-69be6b018b87\", \"c52153b3-63b8-47d1-890a-41a70b5c8b11\", \"6bf92e7d-21ff-4d50-9a84-e588a7ca1d65\", \"3c313c81-4369-41f1-b936-0469b53a26ad\", \"c055ae50-2261-4675-be97-36390cd3adc9\", \"69cedf17-5c8c-49e3-993b-333ef9e2e47d\", \"6f9338a1-fea7-4e50-bb94-74d7f148e63d\", \"2792085f-7f16-4eb4-b951-effd8c31767c\", \"851620df-ef7c-4cf8-959d-34e38ebe62fa\", \"adad7bb7-e77e-441a-815d-3e5df48a10ec\", \"10140166-e3d5-487b-bcd5-65271d389c73\", \"67f0287a-04c8-43c5-b31b-4fefccb0dd74\", \"4fb8fdf0-4347-4eaa-b656-5ff64efcb216\", \"cd3eddb3-55dd-495d-8346-6aaca7742bb9\", \"183e3aa5-33bf-46fd-a39a-42600cd345ea\", \"6526546c-4d02-4573-be5e-7551f3fc479b\", \"b43e8e41-3730-4e0a-a571-a3c750c9000c\", \"8e085f07-139c-4bc0-ade2-3adc17b74781\", \"42ec8f7a-5470-4d6e-a0c0-68e59d814603\", \"ed3613e6-278d-41e1-9ab9-e4a108ef2adb\", \"eab677b0-a21c-4ba1-9891-3e6b45ac3102\", \"0c884cb1-4336-4c2b-a349-6f58807012cb\", \"cc9a53e1-c7f6-4705-9a8b-5ae31236f69d\", \"395e1b86-4dfa-45c3-85a8-e1d754f7938f\", \"04d775a0-5cd8-4f1a-8b4d-61df05059247\", \"53d1a791-5ca1-4b7b-bb56-5b69c3a9f077\", \"482a6086-c248-40ab-a7a3-9eec02743b5d\", \"88f59ef0-13be-4095-884e-04db9219d46c\", \"9fc21a2e-ce97-4b1f-b9e8-c2dc62e633fe\", \"2a16962d-f34b-4fdf-b30f-5dbf7cb0c5c4\", \"9bff4575-3ac6-4872-ae8d-0e5acdeabb1f\", \"8793b00a-4a15-4d69-83a5-7033d1322f8b\", \"54e29339-cee1-4cb0-b37b-129d6efc7dda\", \"6a69416d-9e12-4e7a-8e4a-427564b1fdae\", \"93c01056-aba4-42df-939a-b0b940b5d978\", \"fc4f7304-563a-478f-9ee3-71d2bccab7e7\", \"7a22dd4d-bdbc-4ec7-bc0d-1925f8681eab\", \"f9e5dc9a-7e9c-42a3-ab77-89900ccf610d\", \"092bcd70-1eef-4927-86b0-66b62eafe8f8\", \"5a9236cc-9203-498f-af10-14e894fa33f9\", \"54fe4c98-2160-4b1b-a4cc-27c4ef57365e\", \"f0781418-d6af-48e3-9068-253ea54398f4\", \"72c20ebc-2d6a-4b8a-88c8-a03a70186e20\", \"756bd16b-0423-4963-b879-c93a48ac9950\", \"3f0f4169-3574-4489-a6d0-7cd9c7789b01\", \"e071ffd9-23fc-4c53-b75c-77d74f7cfc57\", \"06e55720-7597-4928-8bba-26cf9376bef2\", \"73b027ad-e7d2-4b44-8acb-d8ad002e83f8\", \"6cba545c-27b6-4238-bff1-790527d63ce2\", \"720ffc09-ac84-4fa4-9fa7-4bc74529fdd9\", \"b0506ff5-073e-4436-9a7e-cf639ad7b83a\", \"eacdcf67-1d9b-46ba-8be9-e46aef5d613f\", \"880913bf-a30c-4631-8744-c8ef2e0f061d\", \"4f949173-f251-4e68-9f3f-3a4efec9c0c9\", \"08257238-267b-4a2b-bdbf-f3f14f746cc8\", \"6ce3c547-3fe9-4c96-88ab-3928ee9099b3\", \"d5d3a1f9-eb05-4c18-8874-db250e046deb\", \"7ab0c508-33f1-4c9a-aae7-1a935b5fc898\", \"0426cd13-c62b-4f0c-bd51-adcff86f72e1\", \"0687b5ae-419f-438f-8089-da2d32793677\", \"7aeecde2-e170-4468-93d3-58492191bb33\", \"d375a418-d615-4313-ae6b-6b4213f25703\", \"a196a2ce-d0ea-4504-8213-acba71d02c03\", \"593e6e28-43c5-46b8-8f9f-dbf3e4427b95\", \"376edccd-3828-49da-bfff-0cca4fa665cb\", \"f9a1e3aa-3467-4ada-9f6f-36e15d8d7794\", \"ecf281be-afe6-491f-832f-a324d2238135\", \"4cc539d4-685f-4e7c-a1e1-b2906865373a\", \"6552073d-6f84-4022-ab0f-d0abdb988bf1\", \"511a48ea-74cc-4775-920b-476359b3431f\", \"242d81cb-c490-4637-a232-d2c6ac33209e\", \"e9fbf343-626a-4163-896e-13bfe48f516b\", \"3297a2b7-50c5-48e4-8ff2-1296bdff1497\", \"4cab191e-9a2d-493e-8b09-db33d0453e04\", \"443190c8-3e15-4b9c-a52e-a1a5e6c8defc\", \"3bb467c2-98f9-4534-a70f-631bafbc719a\", \"9d7a5d69-2a15-4c03-8db5-22ac48e13dfc\", \"10524c55-d852-4474-8b10-8fff8ecf749b\", \"267f8cd2-6af3-4479-9fb1-58d1a74f6a98\", \"b761c539-7151-403a-8ce6-f6fe7d8d1cf9\", \"ad989508-fef4-4509-a62f-5edf29ff727d\", \"30a8eb54-ba5e-4e2d-ba9d-b4b48f397b17\", \"c7bc1c56-49f6-4d1d-bcde-fbd8a1208884\", \"d0d7c5a8-e010-427c-abd2-b9d833d0b902\", \"bea2b24f-8aa5-4765-84bb-870c884e7bb7\", \"924cb78e-9907-49d0-862f-272081dcc470\", \"39e168d3-31a1-458a-af8f-dbda69c54877\", \"0988f2ac-07ab-4a81-98dd-a1a6bf8b5225\", \"bb076390-e3ff-4f99-8f03-6fe56bc3f312\", \"79d6b253-9d21-486b-a53e-513177b41b1f\", \"d083163a-f40e-4e71-a273-2608f76a9f8e\", \"0c5a5bcf-7347-43fe-afa2-7afe165dff49\", \"a9268d9f-4658-4a90-a51d-6657ce66465b\", \"1e2e3aaa-f240-4d8b-bf6f-45d85f6eb8f6\", \"37d878e3-bcb2-463e-9120-7f8442011799\", \"3dc9f473-953c-4710-9339-25417f2ce0d5\", \"b08a63c9-67f0-4868-b139-c7b7dc365363\", \"055d6bd8-bf94-4802-a43a-b38090a77889\", \"d27b6126-0ba1-47c0-b19f-03d1fd9d4ae2\", \"6778eb76-131e-4591-b8d8-10f6b29771dd\", \"f82c3b35-47cd-4366-bb6c-764446519e99\", \"544a0841-04dd-4fa7-8919-3b3f14c68fbb\", \"573e32a7-00f2-4f54-b5dd-48dce1ed758d\", \"00ce2338-db02-48bf-9649-f58814bb467c\", \"1f46d61d-895f-40bf-8606-1f20a45fb16c\", \"8e4c906c-fd25-492b-bd93-f2309d38d2bb\", \"4820ffb8-65f1-4a81-9bca-0c298d2b8d58\", \"7ee3476a-815b-4dcd-b32d-c0c0b505ea30\", \"f21064ed-50cd-4954-b8b2-77328a7fd9f4\", \"269cf905-2595-4721-abf2-72f74cbae1f0\", \"50c5638e-997c-4fce-b106-2f872be63655\", \"3baa61a4-d64f-4d8c-859a-c947779b90d8\", \"42b32fff-cd86-4893-bcac-01f5ccf48d3a\", \"06e458a6-e15f-427c-84fa-50c13d83ff19\", \"dd0fd052-73ce-41b6-b0f5-57166feb247b\", \"02057d16-2f66-4604-a633-745dfc51a925\", \"f6ec61f2-565f-40c4-bfa5-39996a4d7af4\", \"ca9c20b1-fbe4-4b90-be79-64de1e734ff5\", \"edda6e03-1f78-4192-9779-7c4dcfe60df8\", \"252efe13-de8d-4f5f-bed8-3669b73959c2\", \"6910ad94-dd68-47e8-b210-04fe951c3429\", \"c3d71c6d-8e5c-46f8-9b1e-b7a5d6a1d533\", \"0cf176b7-e419-4bc6-87c4-caa06be370f1\", \"591e5d21-7239-4ebf-b191-106419517af4\", \"9800f96c-b93d-4bd6-a472-929a93d72c26\", \"11370635-e49e-4d8a-9b19-ed036c6364bd\", \"63b010d0-e0c4-44a7-bde9-8b129e1539f3\", \"7dc8c211-3fc5-4e4d-9a18-34064c652e0e\", \"21a2a092-a609-4161-8ea4-a79f75e49303\", \"137011c5-093f-4a03-b316-36cf1571abf8\", \"3663381f-aac2-4ec3-89f9-e23b723934b7\", \"76e4ee38-8d23-486d-9566-b805b6d94d60\", \"0a077a54-93f7-4d26-838c-b096f952b9ed\", \"3129d173-d1b3-4b92-a638-6c6015f426e3\", \"ae09a01c-dad7-4a7c-a40a-b3cf7c2cca51\", \"bb92b9de-31f5-4563-a15b-c00bc584adba\", \"b743f3a9-dc33-4364-abca-e1f45be59b0a\", \"5039f245-4a96-4e53-bd71-890f22a6bc92\", \"ea782cce-73ee-4892-a254-cb61866d40b2\", \"61b084eb-d1cd-4873-b993-627c01fb1d69\", \"6125e83d-f359-4161-9941-84512037395f\", \"b60fb5f2-2068-480f-b69a-1cbe29db03f6\", \"876e54f2-166b-4533-87c4-707a69af886b\", \"42864ed4-9437-4963-b1ff-60466910c562\", \"1492ff04-2371-46a7-ad66-4f2dd7a80305\", \"51eb36cf-de77-4d54-90cb-c263b632e60e\", \"c41a644f-cf39-4393-a00f-285352df93ac\", \"885c01b4-1de7-4230-af1b-64b7a0ca534a\", \"187a47fa-370a-4a8b-aee1-77643122f204\", \"c4f27ded-cd80-4b52-879d-6af70fe674e9\", \"ab32bdc7-5030-456d-bf2a-b44ed5719e8c\", \"f025ae7a-6354-4fa4-a1e5-b9ce2bafc600\", \"825201fb-83eb-4b6a-8374-3e9afc936b39\", \"fdd20911-e14c-4d0e-a5d3-1321cc2123df\", \"b386042c-efdc-4cad-a73c-5239f82109d7\", \"927eee3a-60b9-4e2c-9dc3-51cb8c00ac8e\", \"4cae788e-c71a-410b-a287-24089ef79a52\", \"e7d3bb40-a099-4893-9dbc-3db47fde03a9\", \"56fdb8fb-4cd2-4a8f-8feb-6a2073b3b967\", \"cf4e362c-b7d1-4780-974d-02ac806934ac\", \"8c28a3e8-6efb-4558-be22-4d285eb90ec4\", \"89e8167f-7f93-41c2-a63f-34b8efed4d7a\", \"d5c7f5e1-5964-40f5-a3da-f2c9038a5f2a\", \"4d085ec2-b6ec-48e4-aa91-a90ed0f08697\", \"d6261623-3ef8-4a3b-9301-b23f329180ed\", \"4f550480-980e-4efe-8d8a-53a279f8232f\", \"a3993765-213d-4ed0-82b2-eb63c2dfc32f\", \"ad251baa-b0c5-4272-9dab-db10cecc5953\", \"9fd3dc44-7fe6-48e7-8c92-243edade49f2\", \"1bf37685-4e1f-463c-8614-5c7effd502e3\", \"5c331966-213a-4b3d-b0f2-bf9df364c3d1\", \"cf8f0549-1f9a-4476-9a0a-5094c6e7d16b\", \"c950a638-6d89-4b52-9e4e-994ea3525496\", \"e445591d-dfb9-4812-b1f8-484ad550ca63\", \"32b1e00b-fc28-4649-81fa-1d2a1b2801f8\", \"b4a55a6d-2e2a-4506-baa9-294bc493e8ec\", \"087babe2-59f5-479e-adfb-635533a31306\", \"c29ba275-04f9-413b-befb-44f9df6ffdae\", \"612c3efd-3d47-4de9-bd3b-d0b7c0e2b5dd\", \"134378ec-abe8-4ba0-845b-f33ce36466b6\", \"564d722c-db7e-4d6a-a947-566d4179ad0a\", \"06e8999c-4b61-49e6-87b0-b37176c6d718\", \"0e988e4b-30c1-4634-a55a-c55b4caf9c05\", \"73871f1e-5ebd-4c1c-a268-7a2701eb1822\", \"3c8a9678-fa38-4ac4-994a-aa1be74108b5\", \"ec109161-9b2f-414c-bd04-f9bee3f392b0\", \"d8123561-1f58-42d7-b9db-43b755562952\", \"e01e6c24-cfe2-4070-8287-369d0ba9fe6e\", \"bfc0a8cc-efbe-4f16-be5e-d995f4c46201\", \"7e330e17-023f-4c9f-b503-e5d7c32e7887\", \"ef261514-3100-48f1-ab98-d563cb3debae\", \"19d64df3-6253-4726-9dac-8c811be34118\", \"aab87b9b-f772-4c34-aa21-8b26b8fe8028\", \"500b027a-808e-48b3-9aec-2f2570be2f33\", \"38facb68-5d65-4ba2-87b1-609303ae155b\", \"b1eba856-2635-49ca-b175-3592da82eea2\", \"8ed01f97-7f11-4cd4-b9c6-e6ad22684402\", \"d4370c05-d008-422b-9b7d-2c700c6cb13e\", \"33390a0d-5c61-4c47-a03d-46a3006a9872\", \"7d2ffa0a-a836-4297-915e-42e732a88e9d\", \"26f51520-d502-4b21-aa11-aaef051743fd\", \"f7496183-54ce-44d3-87c2-e7c9a43165bb\", \"e7aa862f-fed8-46d7-8e12-c6f78c6d7893\", \"2a823601-39b8-4a69-b415-0b63f3dd6fda\", \"4afb929d-705d-4cdf-ab3b-19c795b4ad9f\", \"483ca6c8-33a7-4529-a56b-933793680ae9\", \"59d14fdd-41a9-406a-9751-a7510b8568c1\", \"b3d2ba06-1021-4245-a9c3-8fa29f8e9a22\", \"8358ccb3-9a8f-4320-b111-9f5dd7f666d4\", \"0933ba84-7ed1-4d7c-9faf-796d90c4799d\", \"482d1f81-eb05-43d0-981e-bcc07e21b3f8\", \"f5295a10-752e-4d68-b7d8-b71c1d5ceba4\", \"b48ee7dd-afea-490a-9592-72441643cdd3\", \"e6f03f55-0e91-40a2-9832-d014b3ef49e3\", \"1337bf5f-ae6e-4c96-8243-e19d04208b11\", \"70399376-97fd-46de-b48d-83449d5c6690\", \"19a7c36e-a85e-4e3e-b006-4d01fe870235\", \"93369941-b686-41bd-ae9a-d9a9fa84e17b\", \"a9484320-a4a4-419d-94c6-429e87275f66\", \"be528adc-0eef-4310-bb1a-657a2428b852\", \"44efd167-75c3-480f-a2e1-596527856ce4\", \"d189a528-641e-4d54-bc6a-09dde94cd59e\", \"dade21ee-8581-465d-9056-4da63a77747e\", \"84870eed-9f99-4f3e-a105-50c6967b4ab8\", \"8530ff96-77c3-4a8e-a488-e4cc89f9ef39\", \"ec543a07-7ed1-4e1e-87cb-6c60f854bde3\", \"4c1343d2-1f02-4c7c-acc0-f3c60d7e7417\", \"7a9ba4cc-0ebc-4347-afbe-d9e38e7acc77\", \"148609fa-98f0-4d58-ae84-0ea571fe2efa\", \"0390ee7b-fa53-49bc-b925-f249d199e2cc\", \"7cac6f14-e49b-4ed2-9159-c05c40c52881\", \"83a92874-74f0-4b7d-93d6-666a2a3f53af\", \"5503c33b-3553-479e-b2a6-60419de10f1f\", \"516d5e70-9956-409d-ace7-37f3b7181ea4\", \"e0396a80-a3ab-4231-a51a-b7801cf94ed0\", \"e9d7227c-2bfb-4e6d-80c2-655bf3d00b32\", \"ea72875f-5954-4087-a591-15879ae24052\", \"5e6e2173-3c9a-41d9-b7e4-2b1a84e2b6be\", \"2eca86a7-f62c-4505-ba06-bf2634f7183c\", \"38bea588-d9f1-49f1-b5bd-348e07a1075b\"]",
+      "2029-01-24 16:31:18.765195+00"
+     ],
+     "inFlight": [],
+     "leadUp": [],
+     "count": 29,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "clearing's bank reconciliation passes",
+     "subject": "external-1612",
+     "detail": "per-batch or fallback reconciliation of INVESTEC DIRECT GBP failed: clearing holds 1045980.33, the bank holds 1045993.33, difference -13.00 ()",
+     "expected": "clearing and the bank agree",
+     "actual": "difference -13.00",
+     "n": 1,
+     "action": "TransitionChainSweep",
+     "table": "clearing per-batch or fallback reconciliation",
+     "row": [
+      "external-1612",
+      "INVESTEC DIRECT GBP",
+      "1045980.33",
+      "1045993.33",
+      "-13.00",
+      ""
+     ],
+     "inFlight": [],
+     "leadUp": [],
+     "count": 13,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "core's Direct reconciliation with clearing passes",
+     "subject": "47359",
+     "detail": "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION failed in row 47359: {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "expected": "internal_reconciliation for 47359",
+     "actual": "47359 | INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION |  |  | {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "n": 2,
+     "action": "TransitionChainSweep",
+     "table": "internal_reconciliation",
+     "row": [
+      "47359",
+      "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION",
+      "",
+      "",
+      "{\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}"
+     ],
+     "inFlight": [],
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 4,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "core's Direct reconciliation with clearing passes",
+     "subject": "47375",
+     "detail": "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION failed in row 47375: {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "expected": "internal_reconciliation for 47375",
+     "actual": "47375 | INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION |  |  | {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "n": 3,
+     "action": "TransitionChainSweep",
+     "table": "internal_reconciliation",
+     "row": [
+      "47375",
+      "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION",
+      "",
+      "",
+      "{\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}"
+     ],
+     "inFlight": [],
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 3,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a read answers promptly",
+     "subject": "1d2da3e6-1c7d-4d3f-be34-f570767a2e7e",
+     "detail": "CreateCustomer took 1.13s",
+     "expected": "under 1s",
+     "actual": "1.13s",
+     "n": 3,
+     "action": "CreateCustomer",
+     "beforeId": "8bd63379-83aa-46cd-83c8-c3a915be1ed0",
+     "afterId": "1d2da3e6-1c7d-4d3f-be34-f570767a2e7e",
+     "body": {
+      "customerId": "1d2da3e6-1c7d-4d3f-be34-f570767a2e7e",
+      "customerReference": "ee785gcust0005",
+      "customerName": "Sim Explorer Pass",
+      "accountHolderType": "INDIVIDUAL",
+      "customerStatus": "PENDING",
+      "nominatedAccounts": [
+       {
+        "currency": "GBP",
+        "ukAccountDetails": {
+         "sortCode": "100000",
+         "accountNumber": "41610008",
+         "accountReference": null
+        }
+       }
+      ],
+      "persons": [
+       {
+        "personId": "9c1a3830-4b88-4cb4-9f59-d9ce77a0c91b",
+        "personReference": "9c1a3830-4b88-4cb4",
+        "title": "MR",
+        "firstName": "Sim",
+        "middleName": null,
+        "lastName": "Explorer Pass",
+        "dateOfBirth": "1995-03-07",
+        "address": {
+         "addressLine1": "123 Example Street",
+         "addressLine2": "Flat 4B",
+         "town": "London",
+         "county": "Greater London",
+         "postCode": "E54HNB",
+         "country": "GBR"
+        },
+        "nationality": [
+         "GBR"
+        ],
+        "sourceOfFunds": "INSURANCE",
+        "annualIncome": "50000.00",
+        "industry": "TECHNOLOGY_SOFTWARE_DEVELOPMENT",
+        "nino": "XP332310B",
+        "email": "ee785gsim0006@example.com",
+        "phoneNumber": "07783746574",
+        "employmentStatus": null,
+        "employerName": null
+       }
+      ],
+      "createdAt": "2029-01-24T20:05:57.582841Z",
+      "tags": null,
+      "account": null
+     },
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "inFlight": [],
+     "attribution": "CreateCustomer alone",
+     "count": 1,
+     "lastSeenAt": 3
+    },
+    {
+     "rule": "core's Direct reconciliation with clearing passes",
+     "subject": "47391",
+     "detail": "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION failed in row 47391: {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "expected": "internal_reconciliation for 47391",
+     "actual": "47391 | INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION |  |  | {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "n": 4,
+     "action": "TransitionChainSweep",
+     "table": "internal_reconciliation",
+     "row": [
+      "47391",
+      "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION",
+      "",
+      "",
+      "{\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}"
+     ],
+     "inFlight": [],
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "914f967f-1c45-46ff-a214-e1f5d9b21056",
+     "detail": "the Direct API prints openedAt of 2028-11-01 21:05:05.107291+00:00 for OPEN TERM account 914f967f-1c45-46ff-a214-e1f5d9b21056, and core's tables give 2028-11-01 21:16:30.907422+00:00; the account row was created at 2028-11-01 21:05:05.107291+00:00, the first transaction booked at 2028-11-01 21:16:30.907422+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-01 21:16:30.907422+00:00",
+     "actual": "2028-11-01 21:05:05.107291+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "a pooled account has no payment reference",
+     "subject": "914f967f-1c45-46ff-a214-e1f5d9b21056",
+     "detail": "paymentReference is documented as null for pooled accounts, and pooled account 914f967f-1c45-46ff-a214-e1f5d9b21056 on a platform that does not pay by reference prints WRJAGN18AXGN2",
+     "expected": "null",
+     "actual": "WRJAGN18AXGN2",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 10,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "1d9a5da4-dd07-4cfe-9e71-6fe1fe545e81",
+     "detail": "the Direct API prints openedAt of 2028-12-11 19:27:45.960936+00:00 for OPEN INSTANT account 1d9a5da4-dd07-4cfe-9e71-6fe1fe545e81, and core's tables give 2028-12-11 19:48:09.518379+00:00; the account row was created at 2028-12-11 19:27:45.960936+00:00, the first transaction booked at 2028-12-11 19:48:09.518379+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-12-11 19:48:09.518379+00:00",
+     "actual": "2028-12-11 19:27:45.960936+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "3de24203-0872-46f8-b0b8-28ac431393b5",
+     "detail": "the Direct API prints openedAt of 2028-12-27 04:18:03.649156+00:00 for REQUESTED TERM account 3de24203-0872-46f8-b0b8-28ac431393b5, and core's tables give None; the account row was created at 2028-12-27 04:18:03.649156+00:00, the first transaction booked at null; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "null",
+     "actual": "2028-12-27 04:18:03.649156+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a pooled account has no depositInfo",
+     "subject": "3de24203-0872-46f8-b0b8-28ac431393b5",
+     "detail": "depositInfo is documented as always null for pooled customers, and pooled account 3de24203-0872-46f8-b0b8-28ac431393b5 on a platform that does not pay by reference prints it",
+     "expected": "null",
+     "actual": "{\"minimumDeposit\": \"1.00\", \"instructedAmount\": \"50.00\", \"depositedAmount\": \"0.00\", \"requiredAmount\": \"1.00\"}",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "20ed4ccd-9705-446e-8851-166308317721",
+     "detail": "the Direct API prints openedAt of 2028-11-10 10:56:44.187658+00:00 for OPEN NOTICE account 20ed4ccd-9705-446e-8851-166308317721, and core's tables give 2028-11-10 15:26:07.989202+00:00; the account row was created at 2028-11-10 10:56:44.187658+00:00, the first transaction booked at 2028-11-10 15:26:07.989202+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-10 15:26:07.989202+00:00",
+     "actual": "2028-11-10 10:56:44.187658+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "core's Direct reconciliation with clearing passes",
+     "subject": "47407",
+     "detail": "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION failed in row 47407: {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "expected": "internal_reconciliation for 47407",
+     "actual": "47407 | INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION |  |  | {\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}",
+     "n": 5,
+     "action": "TransitionChainSweep",
+     "table": "internal_reconciliation",
+     "row": [
+      "47407",
+      "INVESTEC_GBP_DIRECT_PLATFORM_CASH_ACCOUNT_RECONCILIATION",
+      "",
+      "",
+      "{\"error\": \"HttpClientResponseException: Client 'clearing': Server Error\"}"
+     ],
+     "inFlight": [],
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a transaction booked after an accrual's cutoff is dated after that day",
+     "subject": "f77a7cbf-0f4e-400b-9664-b7fc24ad00db",
+     "detail": "INTEREST 0.01 a2bc7b8e-a7e7-4918-8e62-f007fe8c0b83 created 2029-01-24 21:12:43.490962+00 after the accrual for 2029-01-24 read the balance at 2029-01-21 02:38:20.930498+00, and carries value date 2029-01-24",
+     "expected": "after 2029-01-24",
+     "actual": "2029-01-24",
+     "n": 5,
+     "action": "InterestOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "InterestOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a statement covers a period in which the account existed",
+     "subject": "9b3668b7-6213-4600-953a-d76d0516db75",
+     "detail": "platform b217456a-c6fa-486e-aad0-732fd4168277 statements to 2028-10-31 has document a33c3823-a050-43b1-96fe-60281a88ff7b for period 2028-10-01 to 2028-10-31, and the account was created on 2028-11-01 (the stub query has no creation-date filter)",
+     "expected": "no document",
+     "actual": "a33c3823-a050-43b1-96fe-60281a88ff7b",
+     "n": 5,
+     "action": "DocumentOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "DocumentOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 64,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "every eligible account has a statement for the month",
+     "subject": "eb610715-5821-4abd-a2b5-7f337bdb01db",
+     "detail": "platform 751454ed-32c2-4dcc-88b9-a59f24ab7613 statements to 2028-10-31 has no document for account eb610715-5821-4abd-a2b5-7f337bdb01db (customer pawo98cust0540, Harness soft close pawo98sc05 pawo98acct0542, OPEN); no document row exists for it in the batch",
+     "expected": "a document",
+     "actual": "none",
+     "n": 5,
+     "action": "DocumentOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "DocumentOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 58,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "d04f0ea9-c5da-474b-a032-e78cb4d3c3c7",
+     "detail": "the Direct API prints openedAt of 2028-10-22 12:24:44.417225+00:00 for OPEN INSTANT account d04f0ea9-c5da-474b-a032-e78cb4d3c3c7, and core's tables give 2028-10-22 12:27:01.713932+00:00; the account row was created at 2028-10-22 12:24:44.417225+00:00, the first transaction booked at 2028-10-22 12:27:01.713932+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-22 12:27:01.713932+00:00",
+     "actual": "2028-10-22 12:24:44.417225+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    }
+   ],
+   "why_counts": {
+    "shape gap": 4
+   },
+   "reach": {
+    "edges_within_kind": 0,
+    "edges_across_kinds": 0,
+    "targets": []
+   },
+   "faults": {
+    "boundary": null,
+    "available": [
+     "clearing-to-bank",
+     "clearing-to-postgres",
+     "core-to-clearing",
+     "core-to-compliance",
+     "core-to-postgres",
+     "harness-bank"
+    ],
+    "daysAdvanced": 0,
+    "lastInterruption": null,
+    "interruptions": 0,
+    "trialsSinceRestart": null,
+    "faultShare": 0.0,
+    "duplicatingQueue": null,
+    "messagesCopied": 0
+   },
+   "journeys": [],
+   "webhooks": {
+    "deliveries": 1412,
+    "redelivered": 4,
+    "byType": {
+     "CUSTOMER_DATA_CHANGED": 4,
+     "CUSTOMER_DOCUMENT_CREATED": 2,
+     "CUSTOMER_STATE_CHANGED": 1,
+     "INTEREST_RATE_CHANGED": 1,
+     "INTEREST_REALISED": 700,
+     "NOMINATED_ACCOUNT_STATE_CHANGED": 4,
+     "SAVINGS_TRANSACTION": 700
+    },
+    "apiTransactions": 0,
+    "tiedToMintedReference": 0,
+    "accountsBalanced": 0,
+    "unreadableCustomers": 0,
+    "youngAccountsSkipped": 0,
+    "findings": 0,
+    "outstandingTransactions": 0,
+    "depositsAsked": 0,
+    "depositsCompleted": 0,
+    "withdrawalsAsked": 0,
+    "tiedToInstruction": 0,
+    "depositOnlyAccountsJudged": 0,
+    "failedPayoutsOwed": 0,
+    "answeredThenRedelivered": 4,
+    "customerStateRepeats": 0,
+    "oracleFindings": 0,
+    "customerDataChangedJudged": 4,
+    "interestRateChangedSkipped": 1,
+    "final": true,
+    "awaitingResponse": 0,
+    "drainWaitSeconds": 0.0
+   },
+   "operatorDecisions": [],
+   "longLived": {
+    "clock": null,
+    "population": {
+     "live": 40,
+     "left": 0,
+     "joinedThisRun": 0,
+     "personas": {
+      "termer": 5,
+      "quiet": 5,
+      "changer": 5,
+      "mover": 5,
+      "spender": 5,
+      "saver": 10,
+      "leaver": 5
+     },
+     "lastDay": "2029-01-24",
+     "recent": []
+    }
+   },
+   "interestOracle": {
+    "accounts": 5747,
+    "accrualsJudged": 1660,
+    "realisationsJudged": 1600,
+    "withPlatformFee": 1060,
+    "matchedBeforeARateCommitted": 0,
+    "newestSid": 1682785,
+    "realisations": 128034,
+    "findings": 1,
+    "apiChecked": 3,
+    "apiDisagreed": 0,
+    "final": true
+   },
+   "clock": {
+    "fake": true,
+    "spec": "@2028-10-06 13:26:00 x10",
+    "rate": 10.0,
+    "fakeStart": "2028-10-06T13:26:00+00:00",
+    "realStart": "2026-10-12T11:15:33.396215+00:00",
+    "boundary": {
+     "name": "cron at 17:45 London",
+     "at": "2028-10-06T16:45:00+00:00",
+     "atLondon": "2028-10-06T17:45:00+01:00",
+     "offsetSeconds": 11940
+    },
+    "fakeNow": "2029-01-24T22:22:55.642338+00:00"
+   }
+  },
+  "fleet2555-p1": {
+   "summary": {
+    "trials": 4,
+    "races": 0,
+    "race findings": 0,
+    "distinct states": 3,
+    "rejections": 0,
+    "unattributed changes": 0,
+    "frontier": 0
+   },
+   "trialTotals": {
+    "byAction": {
+     "CreateCustomer": {
+      "n": 4,
+      "ok": 4,
+      "rej": 0
+     }
+    },
+    "byPair": [
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     }
+    ],
+    "raceFindings": [],
+    "refusals": []
+   },
+   "violations": [
+    {
+     "rule": "a pooled account has no payment reference",
+     "subject": "1fe4afd3-18ca-4adb-95b7-a44367290847",
+     "detail": "paymentReference is documented as null for pooled accounts, and pooled account 1fe4afd3-18ca-4adb-95b7-a44367290847 on a platform that does not pay by reference prints 7WZBG14XMTY2T",
+     "expected": "null",
+     "actual": "7WZBG14XMTY2T",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 10,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "e2013da9-193d-4e2f-bf3f-7b4206d9bcf6",
+     "detail": "the Direct API prints openedAt of 2029-01-04 13:26:32.833145+00:00 for OPEN INSTANT account e2013da9-193d-4e2f-bf3f-7b4206d9bcf6, and core's tables give 2029-01-04 13:37:04.614068+00:00; the account row was created at 2029-01-04 13:26:32.833145+00:00, the first transaction booked at 2029-01-04 13:37:04.614068+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2029-01-04 13:37:04.614068+00:00",
+     "actual": "2029-01-04 13:26:32.833145+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "9cee3273-ec9c-4e06-bf2b-f58fedb80808",
+     "detail": "the Direct API prints openedAt of 2028-10-11 21:44:57.489427+00:00 for REQUESTED TERM account 9cee3273-ec9c-4e06-bf2b-f58fedb80808, and core's tables give None; the account row was created at 2028-10-11 21:44:57.489427+00:00, the first transaction booked at null; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "null",
+     "actual": "2028-10-11 21:44:57.489427+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a pooled account has no depositInfo",
+     "subject": "9cee3273-ec9c-4e06-bf2b-f58fedb80808",
+     "detail": "depositInfo is documented as always null for pooled customers, and pooled account 9cee3273-ec9c-4e06-bf2b-f58fedb80808 on a platform that does not pay by reference prints it",
+     "expected": "null",
+     "actual": "{\"minimumDeposit\": \"1.00\", \"instructedAmount\": \"50.00\", \"depositedAmount\": \"0.00\", \"requiredAmount\": \"1.00\"}",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "1c7f1ace-1373-4e96-8f8e-07c8bca34ca7",
+     "detail": "the Direct API prints openedAt of 2028-10-27 17:15:40.483829+00:00 for OPEN NOTICE account 1c7f1ace-1373-4e96-8f8e-07c8bca34ca7, and core's tables give 2028-10-27 17:25:00.941250+00:00; the account row was created at 2028-10-27 17:15:40.483829+00:00, the first transaction booked at 2028-10-27 17:25:00.941250+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-27 17:25:00.941250+00:00",
+     "actual": "2028-10-27 17:15:40.483829+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "a742c08a-9518-4744-8c72-964bd82e9346",
+     "detail": "the Direct API prints openedAt of 2028-11-27 19:57:05.368910+00:00 for CLOSING INSTANT account a742c08a-9518-4744-8c72-964bd82e9346, and core's tables give 2028-11-27 20:11:04.669813+00:00; the account row was created at 2028-11-27 19:57:05.368910+00:00, the first transaction booked at 2028-11-27 20:11:04.669813+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-27 20:11:04.669813+00:00",
+     "actual": "2028-11-27 19:57:05.368910+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "a transaction booked after an accrual's cutoff is dated after that day",
+     "subject": "1776eaa1-a581-47ea-8f0e-cd89442f9408",
+     "detail": "INTEREST 0.03 1f184fb5-3f26-48a5-b75d-b1e541ffc294 created 2029-01-24 21:09:12.610243+00 after the accrual for 2029-01-24 read the balance at 2029-01-23 21:15:25.178817+00, and carries value date 2029-01-24",
+     "expected": "after 2029-01-24",
+     "actual": "2029-01-24",
+     "n": 5,
+     "action": "InterestOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "InterestOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 7,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "9a012a1a-7ced-4a04-9ca0-5682d16b4c3e",
+     "detail": "the Direct API prints openedAt of 2028-10-19 03:20:11.435734+00:00 for OPEN TERM account 9a012a1a-7ced-4a04-9ca0-5682d16b4c3e, and core's tables give 2028-10-19 03:35:04.014925+00:00; the account row was created at 2028-10-19 03:20:11.435734+00:00, the first transaction booked at 2028-10-19 03:35:04.014925+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-19 03:35:04.014925+00:00",
+     "actual": "2028-10-19 03:20:11.435734+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "68a8424e-f53f-452a-a72a-742f04459f81",
+     "detail": "the Direct API prints openedAt of 2028-11-11 18:11:39.123175+00:00 for OPEN NOTICE account 68a8424e-f53f-452a-a72a-742f04459f81, and core's tables give 2028-11-11 18:14:03.458009+00:00; the account row was created at 2028-11-11 18:11:39.123175+00:00, the first transaction booked at 2028-11-11 18:14:03.458009+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-11 18:14:03.458009+00:00",
+     "actual": "2028-11-11 18:11:39.123175+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "638b6e8c-c48e-4f80-86cd-9321e95c5501",
+     "detail": "the Direct API prints openedAt of 2028-10-23 02:02:50.753923+00:00 for CLOSING INSTANT account 638b6e8c-c48e-4f80-86cd-9321e95c5501, and core's tables give 2028-10-23 02:15:09.246010+00:00; the account row was created at 2028-10-23 02:02:50.753923+00:00, the first transaction booked at 2028-10-23 02:15:09.246010+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-23 02:15:09.246010+00:00",
+     "actual": "2028-10-23 02:02:50.753923+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    }
+   ],
+   "why_counts": {
+    "shape gap": 4
+   },
+   "reach": {
+    "edges_within_kind": 0,
+    "edges_across_kinds": 0,
+    "targets": []
+   },
+   "faults": {
+    "boundary": null,
+    "available": [],
+    "daysAdvanced": 0,
+    "lastInterruption": null,
+    "interruptions": 0,
+    "trialsSinceRestart": null,
+    "faultShare": 0.0,
+    "duplicatingQueue": null,
+    "messagesCopied": 0
+   },
+   "journeys": [],
+   "webhooks": {
+    "deliveries": 2672,
+    "redelivered": 7,
+    "byType": {
+     "CUSTOMER_DATA_CHANGED": 4,
+     "CUSTOMER_DOCUMENT_CREATED": 2,
+     "CUSTOMER_STATE_CHANGED": 1,
+     "INTEREST_RATE_CHANGED": 1,
+     "INTEREST_REALISED": 1330,
+     "NOMINATED_ACCOUNT_STATE_CHANGED": 4,
+     "SAVINGS_TRANSACTION": 1330
+    },
+    "apiTransactions": 0,
+    "tiedToMintedReference": 0,
+    "accountsBalanced": 0,
+    "unreadableCustomers": 0,
+    "youngAccountsSkipped": 0,
+    "findings": 0,
+    "outstandingTransactions": 0,
+    "depositsAsked": 0,
+    "depositsCompleted": 0,
+    "withdrawalsAsked": 0,
+    "tiedToInstruction": 0,
+    "depositOnlyAccountsJudged": 0,
+    "failedPayoutsOwed": 0,
+    "answeredThenRedelivered": 7,
+    "customerStateRepeats": 0,
+    "oracleFindings": 0,
+    "customerDataChangedJudged": 4,
+    "interestRateChangedSkipped": 1,
+    "final": true,
+    "awaitingResponse": 0,
+    "drainWaitSeconds": 0.0
+   },
+   "operatorDecisions": [],
+   "longLived": {
+    "clock": null,
+    "population": {
+     "live": 40,
+     "left": 0,
+     "joinedThisRun": 0,
+     "personas": {
+      "termer": 5,
+      "saver": 10,
+      "changer": 5,
+      "mover": 5,
+      "leaver": 5,
+      "quiet": 5,
+      "spender": 5
+     },
+     "lastDay": "2029-01-25",
+     "recent": []
+    }
+   },
+   "interestOracle": {
+    "accounts": 10060,
+    "accrualsJudged": 3620,
+    "realisationsJudged": 3407,
+    "withPlatformFee": 2548,
+    "matchedBeforeARateCommitted": 0,
+    "newestSid": 1682451,
+    "realisations": 252948,
+    "findings": 7,
+    "apiChecked": 3,
+    "apiDisagreed": 0,
+    "final": true
+   },
+   "clock": {
+    "fake": true,
+    "spec": "@2028-10-06 13:26:00 x10",
+    "rate": 10.0,
+    "fakeStart": "2028-10-06T13:26:00+00:00",
+    "realStart": "2026-10-12T11:15:33.396215+00:00",
+    "boundary": {
+     "name": "cron at 17:45 London",
+     "at": "2028-10-06T16:45:00+00:00",
+     "atLondon": "2028-10-06T17:45:00+01:00",
+     "offsetSeconds": 11940
+    },
+    "fakeNow": "2029-01-24T22:23:03.827596+00:00"
+   }
+  },
+  "fleet2555-p2": {
+   "summary": {
+    "trials": 4,
+    "races": 0,
+    "race findings": 0,
+    "distinct states": 3,
+    "rejections": 0,
+    "unattributed changes": 0,
+    "frontier": 0
+   },
+   "trialTotals": {
+    "byAction": {
+     "CreateCustomer": {
+      "n": 4,
+      "ok": 4,
+      "rej": 0
+     }
+    },
+    "byPair": [
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     }
+    ],
+    "raceFindings": [],
+    "refusals": []
+   },
+   "violations": [
+    {
+     "rule": "a read answers promptly",
+     "subject": "4baa86d5-8338-4c18-bb79-b85de24569e8",
+     "detail": "CreateCustomer took 4.08s",
+     "expected": "under 1s",
+     "actual": "4.08s",
+     "n": 1,
+     "action": "CreateCustomer",
+     "beforeId": null,
+     "afterId": "4baa86d5-8338-4c18-bb79-b85de24569e8",
+     "body": {
+      "customerId": "4baa86d5-8338-4c18-bb79-b85de24569e8",
+      "customerReference": "w0p14bcust0001",
+      "customerName": "Sim Explorer Idv",
+      "accountHolderType": "INDIVIDUAL",
+      "customerStatus": "PENDING",
+      "nominatedAccounts": [
+       {
+        "currency": "GBP",
+        "ukAccountDetails": {
+         "sortCode": "100000",
+         "accountNumber": "41610008",
+         "accountReference": null
+        }
+       }
+      ],
+      "persons": [
+       {
+        "personId": "2e259d03-20f4-40a1-8978-b2dfec89bd91",
+        "personReference": "2e259d03-20f4-40a1",
+        "title": "MR",
+        "firstName": "Sim",
+        "middleName": null,
+        "lastName": "Explorer Idv",
+        "dateOfBirth": "1995-03-07",
+        "address": {
+         "addressLine1": "123 Example Street",
+         "addressLine2": "Flat 4B",
+         "town": "London",
+         "county": "Greater London",
+         "postCode": "E54HNB",
+         "country": "GBR"
+        },
+        "nationality": [
+         "GBR"
+        ],
+        "sourceOfFunds": "INSURANCE",
+        "annualIncome": "50000.00",
+        "industry": "TECHNOLOGY_SOFTWARE_DEVELOPMENT",
+        "nino": "XP332310B",
+        "email": "w0p14bsim0002@example.com",
+        "phoneNumber": "07783746574",
+        "employmentStatus": null,
+        "employerName": null
+       }
+      ],
+      "createdAt": "2029-01-24T18:58:48.750065Z",
+      "tags": null,
+      "account": null
+     },
+     "leadUp": [],
+     "inFlight": [],
+     "attribution": "CreateCustomer alone",
+     "count": 3,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "a pooled account has no payment reference",
+     "subject": "3f6ab00e-131b-4b39-bcb8-524e791c0cb6",
+     "detail": "paymentReference is documented as null for pooled accounts, and pooled account 3f6ab00e-131b-4b39-bcb8-524e791c0cb6 on a platform that does not pay by reference prints AZ4YJSZGR66E0",
+     "expected": "null",
+     "actual": "AZ4YJSZGR66E0",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 10,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "f68151b8-9dd2-4046-a8e1-f3c556d68de6",
+     "detail": "the Direct API prints openedAt of 2028-11-07 22:06:34.003947+00:00 for OPEN INSTANT account f68151b8-9dd2-4046-a8e1-f3c556d68de6, and core's tables give 2028-11-07 22:17:35.057704+00:00; the account row was created at 2028-11-07 22:06:34.003947+00:00, the first transaction booked at 2028-11-07 22:17:35.057704+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-07 22:17:35.057704+00:00",
+     "actual": "2028-11-07 22:06:34.003947+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "59e17a5a-10c6-4984-aea8-7766316d1232",
+     "detail": "the Direct API prints openedAt of 2028-12-29 02:34:09.953372+00:00 for REQUESTED TERM account 59e17a5a-10c6-4984-aea8-7766316d1232, and core's tables give None; the account row was created at 2028-12-29 02:34:09.953372+00:00, the first transaction booked at null; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "null",
+     "actual": "2028-12-29 02:34:09.953372+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a pooled account has no depositInfo",
+     "subject": "59e17a5a-10c6-4984-aea8-7766316d1232",
+     "detail": "depositInfo is documented as always null for pooled customers, and pooled account 59e17a5a-10c6-4984-aea8-7766316d1232 on a platform that does not pay by reference prints it",
+     "expected": "null",
+     "actual": "{\"minimumDeposit\": \"1.00\", \"instructedAmount\": \"50.00\", \"depositedAmount\": \"0.00\", \"requiredAmount\": \"1.00\"}",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "c9372c91-da76-4d8d-8ccd-5266e4cc07fe",
+     "detail": "the Direct API prints openedAt of 2029-01-06 12:39:56.338583+00:00 for OPEN NOTICE account c9372c91-da76-4d8d-8ccd-5266e4cc07fe, and core's tables give 2029-01-06 12:42:10.381644+00:00; the account row was created at 2029-01-06 12:39:56.338583+00:00, the first transaction booked at 2029-01-06 12:42:10.381644+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2029-01-06 12:42:10.381644+00:00",
+     "actual": "2029-01-06 12:39:56.338583+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "ca4262d2-e5cb-469b-a166-a2f1afb0248e",
+     "detail": "the Direct API prints openedAt of 2028-10-24 02:49:24.811586+00:00 for CLOSING INSTANT account ca4262d2-e5cb-469b-a166-a2f1afb0248e, and core's tables give 2028-10-24 03:23:17.132811+00:00; the account row was created at 2028-10-24 02:49:24.811586+00:00, the first transaction booked at 2028-10-24 03:23:17.132811+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-24 03:23:17.132811+00:00",
+     "actual": "2028-10-24 02:49:24.811586+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "a transaction booked after an accrual's cutoff is dated after that day",
+     "subject": "e3e532cd-317e-485a-b1e5-278a4ed3021c",
+     "detail": "INTEREST 0.03 d67383b3-dd18-48ea-8160-1e887fe3aa84 created 2029-01-24 21:02:56.623762+00 after the accrual for 2029-01-24 read the balance at 2029-01-23 21:46:25.655609+00, and carries value date 2029-01-24",
+     "expected": "after 2029-01-24",
+     "actual": "2029-01-24",
+     "n": 5,
+     "action": "InterestOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "InterestOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 5,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "5ae3f9b8-af2c-4079-890b-cbf429798a8e",
+     "detail": "the Direct API prints openedAt of 2028-11-04 00:05:01.077541+00:00 for OPEN INSTANT account 5ae3f9b8-af2c-4079-890b-cbf429798a8e, and core's tables give 2028-11-04 00:51:33.125966+00:00; the account row was created at 2028-11-04 00:05:01.077541+00:00, the first transaction booked at 2028-11-04 00:51:33.125966+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-04 00:51:33.125966+00:00",
+     "actual": "2028-11-04 00:05:01.077541+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "40037e67-8ec3-4157-a6e2-0ea31e28f3d1",
+     "detail": "the Direct API prints openedAt of 2028-11-10 13:51:43.936548+00:00 for OPEN NOTICE account 40037e67-8ec3-4157-a6e2-0ea31e28f3d1, and core's tables give 2028-11-10 14:57:56.154592+00:00; the account row was created at 2028-11-10 13:51:43.936548+00:00, the first transaction booked at 2028-11-10 14:57:56.154592+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-10 14:57:56.154592+00:00",
+     "actual": "2028-11-10 13:51:43.936548+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "85c248b7-3acc-4d0e-854a-e3de173a687f",
+     "detail": "the Direct API prints openedAt of 2028-10-07 15:59:26.844620+00:00 for CLOSING INSTANT account 85c248b7-3acc-4d0e-854a-e3de173a687f, and core's tables give 2028-10-07 16:45:24.843266+00:00; the account row was created at 2028-10-07 15:59:26.844620+00:00, the first transaction booked at 2028-10-07 16:45:24.843266+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-07 16:45:24.843266+00:00",
+     "actual": "2028-10-07 15:59:26.844620+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    }
+   ],
+   "why_counts": {
+    "shape gap": 4
+   },
+   "reach": {
+    "edges_within_kind": 0,
+    "edges_across_kinds": 0,
+    "targets": []
+   },
+   "faults": {
+    "boundary": null,
+    "available": [],
+    "daysAdvanced": 0,
+    "lastInterruption": null,
+    "interruptions": 0,
+    "trialsSinceRestart": null,
+    "faultShare": 0.0,
+    "duplicatingQueue": null,
+    "messagesCopied": 0
+   },
+   "journeys": [],
+   "webhooks": {
+    "deliveries": 2059,
+    "redelivered": 15,
+    "byType": {
+     "CUSTOMER_DATA_CHANGED": 4,
+     "CUSTOMER_DOCUMENT_CREATED": 2,
+     "CUSTOMER_STATE_CHANGED": 1,
+     "INTEREST_REALISED": 1024,
+     "NOMINATED_ACCOUNT_STATE_CHANGED": 4,
+     "SAVINGS_TRANSACTION": 1024
+    },
+    "apiTransactions": 0,
+    "tiedToMintedReference": 0,
+    "accountsBalanced": 0,
+    "unreadableCustomers": 0,
+    "youngAccountsSkipped": 0,
+    "findings": 0,
+    "outstandingTransactions": 0,
+    "depositsAsked": 0,
+    "depositsCompleted": 0,
+    "withdrawalsAsked": 0,
+    "tiedToInstruction": 0,
+    "depositOnlyAccountsJudged": 0,
+    "failedPayoutsOwed": 0,
+    "answeredThenRedelivered": 15,
+    "customerStateRepeats": 0,
+    "oracleFindings": 0,
+    "customerDataChangedJudged": 4,
+    "final": true,
+    "awaitingResponse": 0,
+    "drainWaitSeconds": 0.0
+   },
+   "operatorDecisions": [],
+   "longLived": {
+    "clock": null,
+    "population": {
+     "live": 40,
+     "left": 0,
+     "joinedThisRun": 0,
+     "personas": {
+      "spender": 5,
+      "termer": 5,
+      "changer": 5,
+      "quiet": 5,
+      "leaver": 5,
+      "saver": 10,
+      "mover": 5
+     },
+     "lastDay": "2029-01-24",
+     "recent": []
+    }
+   },
+   "interestOracle": {
+    "accounts": 8062,
+    "accrualsJudged": 3096,
+    "realisationsJudged": 2753,
+    "withPlatformFee": 2123,
+    "matchedBeforeARateCommitted": 0,
+    "newestSid": 1682526,
+    "realisations": 207679,
+    "findings": 5,
+    "apiChecked": 3,
+    "apiDisagreed": 0,
+    "final": true
+   },
+   "clock": {
+    "fake": true,
+    "spec": "@2028-10-06 13:26:00 x10",
+    "rate": 10.0,
+    "fakeStart": "2028-10-06T13:26:00+00:00",
+    "realStart": "2026-10-12T11:15:33.396215+00:00",
+    "boundary": {
+     "name": "cron at 17:45 London",
+     "at": "2028-10-06T16:45:00+00:00",
+     "atLondon": "2028-10-06T17:45:00+01:00",
+     "offsetSeconds": 11940
+    },
+    "fakeNow": "2029-01-24T22:16:36.694500+00:00"
+   }
+  },
+  "fleet2555-p3": {
+   "summary": {
+    "trials": 4,
+    "races": 0,
+    "race findings": 0,
+    "distinct states": 3,
+    "rejections": 0,
+    "unattributed changes": 0,
+    "frontier": 0
+   },
+   "trialTotals": {
+    "byAction": {
+     "CreateCustomer": {
+      "n": 4,
+      "ok": 4,
+      "rej": 0
+     }
+    },
+    "byPair": [
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "absent"
+      ],
+      "n": 1,
+      "ok": 1,
+      "rej": 0
+     },
+     {
+      "action": "CreateCustomer",
+      "key": [
+       "customer",
+       "PENDING",
+       "present"
+      ],
+      "n": 3,
+      "ok": 3,
+      "rej": 0
+     }
+    ],
+    "raceFindings": [],
+    "refusals": []
+   },
+   "violations": [
+    {
+     "rule": "a read answers promptly",
+     "subject": "67000618-1570-4139-922e-0ed14fdac016",
+     "detail": "CreateCustomer took 4.06s",
+     "expected": "under 1s",
+     "actual": "4.06s",
+     "n": 1,
+     "action": "CreateCustomer",
+     "beforeId": null,
+     "afterId": "67000618-1570-4139-922e-0ed14fdac016",
+     "body": {
+      "customerId": "67000618-1570-4139-922e-0ed14fdac016",
+      "customerReference": "s1z4thcust0001",
+      "customerName": "Sim Explorer Idv",
+      "accountHolderType": "INDIVIDUAL",
+      "customerStatus": "PENDING",
+      "nominatedAccounts": [
+       {
+        "currency": "GBP",
+        "ukAccountDetails": {
+         "sortCode": "100000",
+         "accountNumber": "41610008",
+         "accountReference": null
+        }
+       }
+      ],
+      "persons": [
+       {
+        "personId": "d0f12652-a89f-44ff-b728-2c2387fff823",
+        "personReference": "d0f12652-a89f-44ff",
+        "title": "MR",
+        "firstName": "Sim",
+        "middleName": null,
+        "lastName": "Explorer Idv",
+        "dateOfBirth": "1995-03-07",
+        "address": {
+         "addressLine1": "123 Example Street",
+         "addressLine2": "Flat 4B",
+         "town": "London",
+         "county": "Greater London",
+         "postCode": "E54HNB",
+         "country": "GBR"
+        },
+        "nationality": [
+         "GBR"
+        ],
+        "sourceOfFunds": "INSURANCE",
+        "annualIncome": "50000.00",
+        "industry": "TECHNOLOGY_SOFTWARE_DEVELOPMENT",
+        "nino": "XP332310B",
+        "email": "s1z4thsim0002@example.com",
+        "phoneNumber": "07783746574",
+        "employmentStatus": null,
+        "employerName": null
+       }
+      ],
+      "createdAt": "2029-01-24T18:58:48.750112Z",
+      "tags": null,
+      "account": null
+     },
+     "leadUp": [],
+     "inFlight": [],
+     "attribution": "CreateCustomer alone",
+     "count": 2,
+     "lastSeenAt": 2
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "9c860613-d9bf-48c6-aa90-2e3b0c13a422",
+     "detail": "the Direct API prints openedAt of 2028-11-13 09:11:38.717960+00:00 for OPEN TERM account 9c860613-d9bf-48c6-aa90-2e3b0c13a422, and core's tables give 2028-11-13 09:20:26.438888+00:00; the account row was created at 2028-11-13 09:11:38.717960+00:00, the first transaction booked at 2028-11-13 09:20:26.438888+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-13 09:20:26.438888+00:00",
+     "actual": "2028-11-13 09:11:38.717960+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "a pooled account has no payment reference",
+     "subject": "9c860613-d9bf-48c6-aa90-2e3b0c13a422",
+     "detail": "paymentReference is documented as null for pooled accounts, and pooled account 9c860613-d9bf-48c6-aa90-2e3b0c13a422 on a platform that does not pay by reference prints 23ETZ0Q9HADFK",
+     "expected": "null",
+     "actual": "23ETZ0Q9HADFK",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 10,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "f2d84066-51a9-4d40-9d6d-8b1eb77c66ff",
+     "detail": "the Direct API prints openedAt of 2028-11-07 08:50:23.852718+00:00 for OPEN INSTANT account f2d84066-51a9-4d40-9d6d-8b1eb77c66ff, and core's tables give 2028-11-07 08:56:18.623449+00:00; the account row was created at 2028-11-07 08:50:23.852718+00:00, the first transaction booked at 2028-11-07 08:56:18.623449+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-07 08:56:18.623449+00:00",
+     "actual": "2028-11-07 08:50:23.852718+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "d0fea680-d7eb-4c23-acc5-6cd5a08b8250",
+     "detail": "the Direct API prints openedAt of 2028-11-08 09:33:35.812823+00:00 for REQUESTED TERM account d0fea680-d7eb-4c23-acc5-6cd5a08b8250, and core's tables give None; the account row was created at 2028-11-08 09:33:35.812823+00:00, the first transaction booked at null; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "null",
+     "actual": "2028-11-08 09:33:35.812823+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "a pooled account has no depositInfo",
+     "subject": "d0fea680-d7eb-4c23-acc5-6cd5a08b8250",
+     "detail": "depositInfo is documented as always null for pooled customers, and pooled account d0fea680-d7eb-4c23-acc5-6cd5a08b8250 on a platform that does not pay by reference prints it",
+     "expected": "null",
+     "actual": "{\"minimumDeposit\": \"1.00\", \"instructedAmount\": \"50.00\", \"depositedAmount\": \"0.00\", \"requiredAmount\": \"1.00\"}",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 2,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "80633dec-58ce-4672-8447-a20016281ef7",
+     "detail": "the Direct API prints openedAt of 2028-10-08 17:09:06.894738+00:00 for CLOSING INSTANT account 80633dec-58ce-4672-8447-a20016281ef7, and core's tables give 2028-10-08 18:13:02.685697+00:00; the account row was created at 2028-10-08 17:09:06.894738+00:00, the first transaction booked at 2028-10-08 18:13:02.685697+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-10-08 18:13:02.685697+00:00",
+     "actual": "2028-10-08 17:09:06.894738+00:00",
+     "n": 4,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 4
+    },
+    {
+     "rule": "a transaction booked after an accrual's cutoff is dated after that day",
+     "subject": "28cc3206-ed1e-4926-8b6e-8eaa564de330",
+     "detail": "INTEREST 0.01 2797c642-9418-4d53-9b40-40b1252aa346 created 2029-01-24 21:10:09.631397+00 after the accrual for 2029-01-24 read the balance at 2029-01-11 20:53:13.05419+00, and carries value date 2029-01-24",
+     "expected": "after 2029-01-24",
+     "actual": "2029-01-24",
+     "n": 5,
+     "action": "InterestOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "InterestOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 8,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "d3cf0829-b94e-40b3-bbe5-5d5eab94232a",
+     "detail": "the Direct API prints openedAt of 2029-01-08 22:08:52.359627+00:00 for OPEN TERM account d3cf0829-b94e-40b3-bbe5-5d5eab94232a, and core's tables give 2029-01-08 22:15:17.767393+00:00; the account row was created at 2029-01-08 22:08:52.359627+00:00, the first transaction booked at 2029-01-08 22:15:17.767393+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2029-01-08 22:15:17.767393+00:00",
+     "actual": "2029-01-08 22:08:52.359627+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "3a55c22a-77ff-4249-96c3-8129b52cba30",
+     "detail": "the Direct API prints openedAt of 2028-11-08 12:11:29.425945+00:00 for OPEN NOTICE account 3a55c22a-77ff-4249-96c3-8129b52cba30, and core's tables give 2028-11-08 12:48:49.485252+00:00; the account row was created at 2028-11-08 12:11:29.425945+00:00, the first transaction booked at 2028-11-08 12:48:49.485252+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-11-08 12:48:49.485252+00:00",
+     "actual": "2028-11-08 12:11:29.425945+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    },
+    {
+     "rule": "openedAt is when the account's first deposit completed",
+     "subject": "5971b4dc-3410-4f06-ac87-1a7e6b8dcd0b",
+     "detail": "the Direct API prints openedAt of 2028-12-12 20:00:18.728032+00:00 for CLOSING INSTANT account 5971b4dc-3410-4f06-ac87-1a7e6b8dcd0b, and core's tables give 2028-12-12 20:04:20.049017+00:00; the account row was created at 2028-12-12 20:00:18.728032+00:00, the first transaction booked at 2028-12-12 20:04:20.049017+00:00; the API prints customer_product_account.created_at, the moment the account was requested, where the field is documented as the moment a deposit completed and the account went live",
+     "expected": "2028-12-12 20:04:20.049017+00:00",
+     "actual": "2028-12-12 20:00:18.728032+00:00",
+     "n": 5,
+     "action": "ReadOracle",
+     "body": null,
+     "inFlight": [],
+     "attribution": "ReadOracle alone",
+     "leadUp": [
+      {
+       "n": 1,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 2,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 3,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      },
+      {
+       "n": 4,
+       "action": "CreateCustomer",
+       "status": 201,
+       "message": null
+      }
+     ],
+     "count": 1,
+     "lastSeenAt": 5
+    }
+   ],
+   "why_counts": {
+    "shape gap": 4
+   },
+   "reach": {
+    "edges_within_kind": 0,
+    "edges_across_kinds": 0,
+    "targets": []
+   },
+   "faults": {
+    "boundary": null,
+    "available": [],
+    "daysAdvanced": 0,
+    "lastInterruption": null,
+    "interruptions": 0,
+    "trialsSinceRestart": null,
+    "faultShare": 0.0,
+    "duplicatingQueue": null,
+    "messagesCopied": 0
+   },
+   "journeys": [],
+   "webhooks": {
+    "deliveries": 1887,
+    "redelivered": 13,
+    "byType": {
+     "CUSTOMER_DATA_CHANGED": 4,
+     "CUSTOMER_DOCUMENT_CREATED": 2,
+     "CUSTOMER_STATE_CHANGED": 1,
+     "INTEREST_REALISED": 938,
+     "NOMINATED_ACCOUNT_STATE_CHANGED": 4,
+     "SAVINGS_TRANSACTION": 938
+    },
+    "apiTransactions": 0,
+    "tiedToMintedReference": 0,
+    "accountsBalanced": 0,
+    "unreadableCustomers": 0,
+    "youngAccountsSkipped": 0,
+    "findings": 0,
+    "outstandingTransactions": 0,
+    "depositsAsked": 0,
+    "depositsCompleted": 0,
+    "withdrawalsAsked": 0,
+    "tiedToInstruction": 0,
+    "depositOnlyAccountsJudged": 0,
+    "failedPayoutsOwed": 0,
+    "answeredThenRedelivered": 13,
+    "customerStateRepeats": 0,
+    "oracleFindings": 0,
+    "customerDataChangedJudged": 4,
+    "final": true,
+    "awaitingResponse": 0,
+    "drainWaitSeconds": 0.0
+   },
+   "operatorDecisions": [],
+   "longLived": {
+    "clock": null,
+    "population": {
+     "live": 40,
+     "left": 0,
+     "joinedThisRun": 0,
+     "personas": {
+      "saver": 10,
+      "leaver": 5,
+      "mover": 5,
+      "changer": 5,
+      "spender": 5,
+      "quiet": 5,
+      "termer": 5
+     },
+     "lastDay": "2029-01-24",
+     "recent": []
+    }
+   },
+   "interestOracle": {
+    "accounts": 7820,
+    "accrualsJudged": 2892,
+    "realisationsJudged": 2544,
+    "withPlatformFee": 1938,
+    "matchedBeforeARateCommitted": 0,
+    "newestSid": 1682361,
+    "realisations": 190682,
+    "findings": 8,
+    "apiChecked": 3,
+    "apiDisagreed": 0,
+    "final": true
+   },
+   "clock": {
+    "fake": true,
+    "spec": "@2028-10-06 13:26:00 x10",
+    "rate": 10.0,
+    "fakeStart": "2028-10-06T13:26:00+00:00",
+    "realStart": "2026-10-12T11:15:33.396215+00:00",
+    "boundary": {
+     "name": "cron at 17:45 London",
+     "at": "2028-10-06T16:45:00+00:00",
+     "atLondon": "2028-10-06T17:45:00+01:00",
+     "offsetSeconds": 11940
+    },
+    "fakeNow": "2029-01-24T22:15:39.162369+00:00"
+   }
+  }
+ },
+ "clock": {
+  "fake": true,
+  "spec": "@2028-10-06 13:26:00 x10",
+  "rate": 10.0,
+  "fakeStart": "2028-10-06T13:26:00+00:00",
+  "realStart": "2026-10-12T11:15:33.396215+00:00",
+  "boundary": {
+   "name": "cron at 17:45 London",
+   "at": "2028-10-06T16:45:00+00:00",
+   "atLondon": "2028-10-06T17:45:00+01:00",
+   "offsetSeconds": 11940
+  },
+  "fakeNow": "2029-01-24T22:22:55.642338+00:00"
+ },
+ "mi": {
+  "files": [
+   "FLAGGED_PAYMENTS_2028-11-01.csv",
+   "FLAGGED_PAYMENTS_2028-12-01.csv",
+   "FLAGGED_PAYMENTS_2029-01-01.csv",
+   "MI_RECON_2028-10-06.csv",
+   "MI_RECON_2028-10-07.csv",
+   "MI_RECON_2028-10-08.csv",
+   "MI_RECON_2028-10-09.csv",
+   "MI_RECON_2028-10-10.csv",
+   "MI_RECON_2028-10-11.csv",
+   "MI_RECON_2028-10-12.csv",
+   "MI_RECON_2028-10-13.csv",
+   "MI_RECON_2028-10-14.csv",
+   "MI_RECON_2028-10-15.csv",
+   "MI_RECON_2028-10-16.csv",
+   "MI_RECON_2028-10-17.csv",
+   "ONBOARDING_2028-11-01.csv",
+   "ONBOARDING_2028-12-01.csv",
+   "ONBOARDING_2029-01-01.csv"
+  ],
+  "findings": [
+   {
+    "rule": "every MI_RECON item is an EXCEPTION",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "RETURN_TO_REMITTER",
+    "row": {
+     "Item Category": "RETURN_TO_REMITTER",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "2.37",
+     "Account Identifier": "GB72INVC40565601000001",
+     "Payment Reference": "8449egrt0534",
+     "Payment ID": "66b48002-9ad4-46c6-9e87-6c79ea2d1e24",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Returned to remitter"
+    }
+   },
+   {
+    "rule": "every MI_RECON item is an EXCEPTION",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "RETURN_TO_REMITTER",
+    "row": {
+     "Item Category": "RETURN_TO_REMITTER",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "2.37",
+     "Account Identifier": "GB72INVC40565601000001",
+     "Payment Reference": "993zgtrt0054",
+     "Payment ID": "f741cebe-2295-4144-9a41-67bae8e1dd53",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Returned to remitter"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB07INVC18042263522909",
+     "Payment Reference": "NONREF",
+     "Payment ID": "09a1961d-84c3-4df0-985a-e28495a0405f",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB02INVC18042218285109",
+     "Payment Reference": "NONREF",
+     "Payment ID": "166af61f-d1dd-43ff-9971-a0b1f5e7ca26",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB44INVC18042253940098",
+     "Payment Reference": "NONREF",
+     "Payment ID": "18a4fbb5-0e0f-46c4-b92f-47cda800828d",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB45INVC18042288538428",
+     "Payment Reference": "NONREF",
+     "Payment ID": "1c095c69-ca86-42f5-a1f9-4835e587aee5",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB41INVC18042275859048",
+     "Payment Reference": "NONREF",
+     "Payment ID": "2ce2f834-1db0-4eaf-9b46-77598643f3ed",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB13INVC18042294480060",
+     "Payment Reference": "NONREF",
+     "Payment ID": "33027cf6-d43f-4919-bf17-f798d86a6149",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB98INVC18042223947793",
+     "Payment Reference": "NONREF",
+     "Payment ID": "478362c3-83b0-4a71-976a-7c86d5807e50",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB10INVC18042280534812",
+     "Payment Reference": "NONREF",
+     "Payment ID": "525431ec-35b0-466e-8bbb-185c6118ba09",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB33INVC18042279431120",
+     "Payment Reference": "NONREF",
+     "Payment ID": "5a5f9c2c-c376-4ca5-a42f-9a829efca9d4",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB77INVC18042242165062",
+     "Payment Reference": "NONREF",
+     "Payment ID": "643d2a75-334e-4a5d-810f-08a3bb6b2cbb",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB57INVC18042277442285",
+     "Payment Reference": "NONREF",
+     "Payment ID": "6d423ef1-7ea0-4447-a208-c4dedcb65471",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB48INVC18042211125584",
+     "Payment Reference": "NONREF",
+     "Payment ID": "813c3ece-145a-478e-8983-55ea7ef44da8",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB61INVC18042237077409",
+     "Payment Reference": "NONREF",
+     "Payment ID": "8b386f15-725f-48ff-9e12-038ccec50d1a",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB74INVC18042269109582",
+     "Payment Reference": "NONREF",
+     "Payment ID": "8d551053-1085-44be-99ed-dd8ea033d7b6",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB69INVC18042210513039",
+     "Payment Reference": "NONREF",
+     "Payment ID": "90ac8583-cb05-47cd-8c14-c320d9d98fc0",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB90INVC18042218764257",
+     "Payment Reference": "NONREF",
+     "Payment ID": "90da6056-cdcd-429a-accb-de635d9f73c6",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB77INVC18042222654482",
+     "Payment Reference": "NONREF",
+     "Payment ID": "a3bbdd2f-5c2b-4690-ae04-a951167b1b16",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB64INVC18042288111286",
+     "Payment Reference": "NONREF",
+     "Payment ID": "ac91e752-6933-4ec1-9648-20b0b28d59b9",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB47INVC18042218659689",
+     "Payment Reference": "NONREF",
+     "Payment ID": "b6d348ca-49e5-4f8b-bcf0-810bb1b6b270",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: no MI_RECON leg prints 'Withdrawal not paid out - cash returned to the cash account'",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-11",
+     "Value Date": "2028-10-11",
+     "Amount": "3.00",
+     "Account Identifier": "GB61INVC18042217599227",
+     "Payment Reference": "NONREF",
+     "Payment ID": "b8b686fc-18f6-48f4-9d18-688d33a806cd",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Withdrawal not paid out - cash returned to the cash account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "37.27",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0411",
+     "Payment ID": "961cc3e1-7893-46f0-a784-f0b3065c42de",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "35.02",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0411",
+     "Payment ID": "3bada26c-7b2b-4387-a521-a2d9be13f329",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "29h48vp0077",
+     "Payment ID": "33087b87-cbb4-4177-9770-8f5c7b1e5a45",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "ckx9kop0452",
+     "Payment ID": "509f2552-4ce2-4be1-bc97-2284c2ab59ea",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0463",
+     "Payment ID": "819ea7c9-e42a-4862-86fd-a94503c0cfcf",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0434",
+     "Payment ID": "98809c21-1bfc-4689-8d2a-7ed49f3d35d2",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0430",
+     "Payment ID": "a6f070c7-9231-4a2d-8579-f6a779dac9fc",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "ckx9kop0473",
+     "Payment ID": "d4eb5237-500f-4bed-9b04-da338bdc364e",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "ckx9kop0463",
+     "Payment ID": "e11aaea4-5347-47f2-a125-d774e2f9c34a",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "state: item left the reported state before the end of 2028-10-17 (IGNORED)",
+    "row": {
+     "Item Category": "EXCEPTION",
+     "Creation/Entry Date": "2028-10-17",
+     "Value Date": "2028-10-17",
+     "Amount": "3.00",
+     "Account Identifier": "GB52INVC18042200000000",
+     "Payment Reference": "b63s2wp0466",
+     "Payment ID": "f7754a3c-e83f-4bac-a5c5-2b6f2d16645d",
+     "Credit/Debit": "CREDIT",
+     "Reason": "Could not be allocated to a customer (virtual/subledger) account"
+    }
+   },
+   {
+    "rule": "an MI_RECON row names a real item in its stated state",
+    "file": "MI_RECON_2028-10-17.csv",
+    "detail": "reason: 33 rows in all, the first 20 listed",
+    "row": null
+   }
+  ]
+ },
+ "feed": {
+  "failed": 108,
+  "byRule": {
+   "an account's customer was sent first": 65,
+   "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance": 36,
+   "a transaction's account was sent first": 5,
+   "UpdatedBalance is the previous UpdatedBalance plus the amount": 1,
+   "the feed's RECON keeps up with the bank's business date": 1
+  },
+  "samples": {
+   "an account's customer was sent first": [
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20281022T070002Z.csv",
+     "detail": "account 285173fe-d1ff-4c32-b096-313a132fd536 names customer 2fbb987a-0745-430a-91ea-6a7da76c9265",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "285173fe-d1ff-4c32-b096-313a132fd536",
+      "CustomerId": "2fbb987a-0745-430a-91ea-6a7da76c9265",
+      "AccountNumber": "01002993",
+      "SortCode": "405656",
+      "ProductId": "bf653ac6-fa97-4ce5-ae9c-f562a133d1ba",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2028-10-22",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2028-10-22",
+      "AccountOpenDate": "2028-10-22",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2028-10-22T06:55:24Z"
+     }
+    },
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20281026T060002Z.csv",
+     "detail": "account 21b18721-350f-4251-a142-c795fb4ee30e names customer 40eda149-af97-4dc8-b160-4ef62a2279b2",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "21b18721-350f-4251-a142-c795fb4ee30e",
+      "CustomerId": "40eda149-af97-4dc8-b160-4ef62a2279b2",
+      "AccountNumber": "01004482",
+      "SortCode": "405656",
+      "ProductId": "a658fcfa-432b-40e8-830b-b1705952dc30",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2028-10-26",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2028-10-26",
+      "AccountOpenDate": "2028-10-26",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2028-10-26T05:55:15Z"
+     }
+    },
+    {
+     "rule": "an account's customer was sent first",
+     "file": "ACCOUNT_20281029T080002Z.csv",
+     "detail": "account c1d9bedf-ca00-47ff-b9e9-9808343783e6 names customer 8c1527e8-c345-4ade-9d65-fba69e3bba3b",
+     "row": {
+      "ChangeType": "INSERT",
+      "AccountId": "c1d9bedf-ca00-47ff-b9e9-9808343783e6",
+      "CustomerId": "8c1527e8-c345-4ade-9d65-fba69e3bba3b",
+      "AccountNumber": "01005787",
+      "SortCode": "405656",
+      "ProductId": "7354df40-b80d-449a-b2cd-47962dc89181",
+      "AccountBalance": "0.00",
+      "AmountOnNotice": "",
+      "AccruedInterestAmount": "0.00",
+      "AccruedInterestDate": "2028-10-29",
+      "StatusCode": "REQUESTED",
+      "StatusEffectiveDate": "2028-10-29",
+      "AccountOpenDate": "2028-10-29",
+      "AccountCloseDate": "",
+      "ClosureReason": "",
+      "MaturityDate": "",
+      "NoticeRequestedDate": "",
+      "TermsAndConditionsAcceptedDate": "2028-10-29T07:55:35Z"
+     }
+    }
+   ],
+   "a transaction's account was sent first": [
+    {
+     "rule": "a transaction's account was sent first",
+     "file": "TRANSACTION_20281110T090002Z.csv",
+     "detail": "transaction 7755c666-4a09-4dfc-8582-a1351cdc53d9 names account 606195bf-187b-4312-86cd-e95911313123",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "7755c666-4a09-4dfc-8582-a1351cdc53d9",
+      "AccountId": "606195bf-187b-4312-86cd-e95911313123",
+      "BookingDateTime": "2028-11-10T08:28:17Z",
+      "ValueDate": "2028-11-10T00:00:00Z",
+      "TransactionType": "Deposit",
+      "Amount": "10.00",
+      "PaymentReference": "ky19gyp0052",
+      "UpdatedBalance": "10.00"
+     }
+    },
+    {
+     "rule": "a transaction's account was sent first",
+     "file": "TRANSACTION_20281115T000000Z.csv",
+     "detail": "transaction 7515462b-e4df-48fb-a968-8f895c8e1ae8 names account 606195bf-187b-4312-86cd-e95911313123",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "7515462b-e4df-48fb-a968-8f895c8e1ae8",
+      "AccountId": "606195bf-187b-4312-86cd-e95911313123",
+      "BookingDateTime": "2028-11-14T20:24:24Z",
+      "ValueDate": "2028-11-15T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.01",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "10.01"
+     }
+    },
+    {
+     "rule": "a transaction's account was sent first",
+     "file": "TRANSACTION_20281124T000002Z.csv",
+     "detail": "transaction 18fff0e4-0bc1-4a04-9874-72443b72fed0 names account 606195bf-187b-4312-86cd-e95911313123",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "18fff0e4-0bc1-4a04-9874-72443b72fed0",
+      "AccountId": "606195bf-187b-4312-86cd-e95911313123",
+      "BookingDateTime": "2028-11-23T20:20:27Z",
+      "ValueDate": "2028-11-24T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.01",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "10.02"
+     }
+    }
+   ],
+   "UpdatedBalance is the previous UpdatedBalance plus the amount": [
+    {
+     "rule": "UpdatedBalance is the previous UpdatedBalance plus the amount",
+     "file": "TRANSACTION_20281022T230001Z.csv",
+     "detail": "account 1d07d8fa-6708-461c-a3a2-14c6466ab9b8: 3.00 -> 3.06 for amount 0.01 (Interest)",
+     "row": {
+      "ChangeType": "INSERT",
+      "TransactionId": "a38c09e7-e5bb-4746-8efc-7b113d4ef07d",
+      "AccountId": "1d07d8fa-6708-461c-a3a2-14c6466ab9b8",
+      "BookingDateTime": "2028-10-22T19:06:13Z",
+      "ValueDate": "2028-10-23T00:00:00Z",
+      "TransactionType": "Interest",
+      "Amount": "0.01",
+      "PaymentReference": "NONREF",
+      "UpdatedBalance": "3.06"
+     }
+    }
+   ],
+   "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance": [
+    {
+     "rule": "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
+     "file": "RECON_20281110T230007Z.csv",
+     "detail": "RECON says 494787.54, the TRANSACTION files give 494797.54",
+     "row": {
+      "BusinessEffectiveDate": "2028-11-10",
+      "TotalCustomerCount": "32593",
+      "TotalAccountCount": "13271",
+      "TotalProductCount": "317",
+      "DailyTransactionCount": "2944",
+      "TotalBalanceAtEndOfDay": "494787.54",
+      "TotalAccruedInterest": "122.72"
+     }
+    },
+    {
+     "rule": "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
+     "file": "RECON_20281111T230026Z.csv",
+     "detail": "RECON says 507887.57, the TRANSACTION files give 507897.57",
+     "row": {
+      "BusinessEffectiveDate": "2028-11-11",
+      "TotalCustomerCount": "33420",
+      "TotalAccountCount": "13592",
+      "TotalProductCount": "325",
+      "DailyTransactionCount": "3188",
+      "TotalBalanceAtEndOfDay": "507887.57",
+      "TotalAccruedInterest": "128.13"
+     }
+    },
+    {
+     "rule": "TotalBalanceAtEndOfDay is the sum of each account's latest UpdatedBalance",
+     "file": "RECON_20281112T230008Z.csv",
+     "detail": "RECON says 520979.82, the TRANSACTION files give 520989.82",
+     "row": {
+      "BusinessEffectiveDate": "2028-11-12",
+      "TotalCustomerCount": "34262",
+      "TotalAccountCount": "13914",
+      "TotalProductCount": "335",
+      "DailyTransactionCount": "2963",
+      "TotalBalanceAtEndOfDay": "520979.82",
+      "TotalAccruedInterest": "133.14"
+     }
+    }
+   ],
+   "the feed's RECON keeps up with the bank's business date": [
+    {
+     "rule": "the feed's RECON keeps up with the bank's business date",
+     "file": "RECON 2028-12-15",
+     "detail": "latest sealed RECON 2028-12-15, bank's last completed business date 2029-01-24",
+     "row": null
+    }
+   ]
+  }
+ }
+}
